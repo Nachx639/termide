@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useKeyboard } from "@opentui/react";
 import * as fs from "fs";
 import * as path from "path";
+import { getFileGitStatus, FileGitStatus, getFileStatusColor, getFileStatusIcon } from "../lib/GitIntegration";
+import { getFileIconSimple } from "../lib/FileIcons";
 
 interface FileNode {
   name: string;
@@ -10,6 +12,7 @@ interface FileNode {
   children?: FileNode[];
   expanded?: boolean;
   level: number;
+  gitStatus?: FileGitStatus | null;
 }
 
 interface FileTreeProps {
@@ -55,10 +58,38 @@ function flattenTree(nodes: FileNode[]): FileNode[] {
 export function FileTree({ rootPath, onFileSelect, focused }: FileTreeProps) {
   const [tree, setTree] = useState<FileNode[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [gitStatuses, setGitStatuses] = useState<Map<string, FileGitStatus>>(new Map());
+
+  // Fetch git statuses for visible files
+  const updateGitStatuses = useCallback(async (nodes: FileNode[]) => {
+    const newStatuses = new Map<string, FileGitStatus>();
+    const flat = flattenTree(nodes);
+
+    for (const node of flat) {
+      if (!node.isDirectory) {
+        const status = await getFileGitStatus(node.path, rootPath);
+        if (status) {
+          newStatuses.set(node.path, status);
+        }
+      }
+    }
+
+    setGitStatuses(newStatuses);
+  }, [rootPath]);
 
   useEffect(() => {
-    setTree(buildTree(rootPath));
-  }, [rootPath]);
+    const initialTree = buildTree(rootPath);
+    setTree(initialTree);
+    updateGitStatuses(initialTree);
+  }, [rootPath, updateGitStatuses]);
+
+  // Refresh git statuses periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      updateGitStatuses(tree);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [tree, updateGitStatuses]);
 
   const flatList = flattenTree(tree);
 
@@ -124,14 +155,35 @@ export function FileTree({ rootPath, onFileSelect, focused }: FileTreeProps) {
         {flatList.map((node, index) => {
           const isSelected = index === selectedIndex && focused;
           const prefix = "  ".repeat(node.level);
-          const icon = node.isDirectory ? (node.expanded ? "▼ " : "▶ ") : "  ";
-          const fg = isSelected ? "black" : node.isDirectory ? "yellow" : "white";
-          const bg = isSelected ? "cyan" : undefined;
+          const fileIcon = getFileIconSimple(node.name, node.isDirectory, node.expanded);
+          const gitStatus = gitStatuses.get(node.path);
+
+          // Color based on selection and git status
+          let nameFg: string;
+          if (isSelected) {
+            nameFg = "white"; // White text on selection for visibility
+          } else if (node.isDirectory) {
+            nameFg = "yellow";
+          } else if (gitStatus) {
+            nameFg = getFileStatusColor(gitStatus);
+          } else {
+            nameFg = "white";
+          }
+
+          const bg = isSelected ? "blue" : undefined; // Blue bg is more visible than cyan
+          const iconColor = isSelected ? "white" : fileIcon.color;
 
           return (
-            <text key={node.path} style={{ fg, bg }}>
-              {prefix}{icon}{node.name}
-            </text>
+            <box key={node.path} style={{ flexDirection: "row", bg: bg as any }}>
+              <text style={{ fg: "gray" }}>{prefix}</text>
+              <text style={{ fg: iconColor as any }}>{fileIcon.icon} </text>
+              {!node.isDirectory && gitStatus && (
+                <text style={{ fg: isSelected ? "white" : getFileStatusColor(gitStatus) as any }}>
+                  {getFileStatusIcon(gitStatus).trim() !== "" ? getFileStatusIcon(gitStatus).trim()[0] : " "}
+                </text>
+              )}
+              <text style={{ fg: nameFg as any, bold: isSelected }}>{node.name}</text>
+            </box>
           );
         })}
       </scrollbox>
