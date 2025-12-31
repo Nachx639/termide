@@ -16,33 +16,36 @@ The name is a playful fusion of **Terminal** and **IDE**, with a nod to the indu
 
 ## 🚀 Quick Start
 
-You don't need to clone the repo to try it out. Run it directly with **Bun**:
+Run it directly from GitHub using **Bun** (no installation required):
 
 ```bash
 # Open current directory
-bunx termide
+bunx github:Nachx639/termide
 
 # Open a specific project
-bunx termide ./my-project
+bunx github:Nachx639/termide ./my-project
 ```
 
 ## 🛠 Installation
 
-### Global Installation
-To have it always available as a system command:
+### Global Installation (from GitHub)
+To use the `termide` command anywhere:
 
 ```bash
-bun install -g termide
-# Then, just run:
-termide
+bun install -g github:Nachx639/termide
 ```
 
-### Project Installation
-If you prefer to have it as a development tool in your project:
+> **Note**: Once published to NPM, you'll be able to just use `bunx termide`.
+
+### For Developers (Local Link)
+If you are working on the code and want to use your local version globally:
 
 ```bash
-bun add -d termide
+# Inside the termide folder
+bun link
+# Now you can use 'termide' anywhere!
 ```
+
 Then add this to your `package.json`:
 ```json
 "scripts": {
