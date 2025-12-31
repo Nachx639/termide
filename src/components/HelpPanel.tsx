@@ -1,5 +1,5 @@
 import React from "react";
-import { useKeyboard } from "@opentui/react";
+import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 
 interface HelpPanelProps {
   isOpen: boolean;
@@ -97,74 +97,99 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
 
   if (!isOpen) return null;
 
+  const dimensions = useTerminalDimensions();
+  const width = dimensions.width || 80;
+  const height = dimensions.height || 24;
+
   return (
     <box
       style={{
         position: "absolute",
         top: 0,
         left: 0,
-        right: 0,
-        bottom: 0,
-        bg: "black",
+        width,
+        height,
+        justifyContent: "center",
+        alignItems: "center",
       }}
     >
-    <box
-      style={{
-        position: "absolute",
-        top: 2,
-        left: 4,
-        right: 4,
-        bottom: 3,
-        flexDirection: "column",
-        border: true,
-        borderColor: "cyan",
-        bg: "black",
-      }}
-    >
-      {/* Header */}
-      <box style={{ paddingX: 1, borderBottom: true, borderColor: "gray" }}>
-        <box style={{ flexDirection: "row", justifyContent: "space-between" }}>
-          <text style={{ fg: "cyan", bold: true }}>
-            📖 Termide Keyboard Shortcuts
-          </text>
-          <text style={{ fg: "gray", dim: true }}>Press Esc or F1 to close</text>
+      <box
+        style={{
+          width: "90%",
+          height: "85%",
+          flexDirection: "column",
+          border: true,
+          borderColor: "cyan",
+          bg: "#0b0b0b",
+          position: "relative",
+        }}
+      >
+        {/* Absolute Backdrop of spaces to force terminal opacity */}
+        <box
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            bg: "#1a1a1a",
+            flexDirection: "column",
+          }}
+        >
+          {Array.from({ length: 40 }).map((_, i) => (
+            <text key={i} style={{ bg: "#1a1a1a" }}>{" ".repeat(200)}</text>
+          ))}
         </box>
-      </box>
 
-      {/* Content */}
-      <scrollbox style={{ flexDirection: "row", flexWrap: "wrap", flexGrow: 1, padding: 1, gap: 2 }}>
-        {SHORTCUTS.map((category) => (
-          <box
-            key={category.title}
-            style={{
-              flexDirection: "column",
-              width: 35,
-              marginBottom: 1,
-            }}
-          >
-            <text style={{ fg: "yellow", bold: true, marginBottom: 1 }}>
-              {category.title}
+        {/* Header */}
+        <box style={{ paddingX: 1, borderBottom: true, borderColor: "gray", bg: "#1a1a1a" }}>
+          <box style={{ flexDirection: "row", justifyContent: "space-between", bg: "#1a1a1a" }}>
+            <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a" }}>
+              📖 Termide Keyboard Shortcuts
             </text>
-            {category.shortcuts.map((shortcut, idx) => (
-              <box key={idx} style={{ flexDirection: "row" }}>
-                <text style={{ fg: "cyan", width: 16 }}>{shortcut.keys}</text>
-                <text style={{ fg: "white" }}>{shortcut.description}</text>
-              </box>
-            ))}
+            <text style={{ fg: "gray", dim: true, bg: "#1a1a1a" }}>Press Esc or F1 to close</text>
           </box>
-        ))}
-      </scrollbox>
+        </box>
 
-      {/* Footer */}
-      <box style={{ paddingX: 1, borderTop: true, borderColor: "gray" }}>
-        <box style={{ flexDirection: "row", justifyContent: "space-between" }}>
-          <text style={{ fg: "gray", dim: true }}>
-            Termide v0.1.0 - Terminal IDE for AI Coding Agents
-          </text>
-          <text style={{ fg: "magenta" }}>Made with ♥</text>
+        {/* Content */}
+        <scrollbox style={{ flexDirection: "row", flexWrap: "wrap", flexGrow: 1, padding: 1, gap: 2, bg: "#1a1a1a" }}>
+          {SHORTCUTS.map((category) => (
+            <box
+              key={category.title}
+              style={{
+                flexDirection: "column",
+                width: 35,
+                marginBottom: 1,
+                bg: "#1a1a1a",
+              }}
+            >
+              <text style={{ fg: "yellow", bold: true, marginBottom: 1, bg: "#1a1a1a" }}>
+                {category.title}
+              </text>
+              {category.shortcuts.map((shortcut, idx) => (
+                <box key={idx} style={{ flexDirection: "row", bg: "#1a1a1a" }}>
+                  <text style={{ fg: "cyan", width: 16, bg: "#1a1a1a" }}>{shortcut.keys}</text>
+                  <text style={{ fg: "white", bg: "#1a1a1a" }}>{shortcut.description}</text>
+                </box>
+              ))}
+            </box>
+          ))}
+          {/* Filler to ensure background opacity */}
+          <box style={{ flexGrow: 1, width: "100%", bg: "#1a1a1a" }}>
+            <text style={{ bg: "#1a1a1a" }}> </text>
+          </box>
+        </scrollbox>
+
+        {/* Footer */}
+        <box style={{ paddingX: 1, borderTop: true, borderColor: "gray", bg: "#0b0b0b" }}>
+          <box style={{ flexDirection: "row", justifyContent: "space-between", bg: "#0b0b0b" }}>
+            <text style={{ fg: "gray", dim: true, bg: "#0b0b0b" }}>
+              Termide v0.1.0 - Terminal IDE for AI Coding Agents
+            </text>
+            <text style={{ fg: "magenta", bg: "#0b0b0b" }}>Made with ♥</text>
+          </box>
         </box>
       </box>
-    </box>
     </box>
   );
 }

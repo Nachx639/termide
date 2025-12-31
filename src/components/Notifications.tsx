@@ -63,14 +63,30 @@ export function Notifications({ notifications, onDismiss }: NotificationsProps) 
               paddingX: 1,
               border: true,
               borderColor: style.fg as any,
-              bg: "black",
+              bg: "#0b0b0b",
+              position: "relative",
             }}
           >
-            <text style={{ fg: style.fg as any, bold: true }}>
+            {/* Absolute Backdrop of spaces to force terminal opacity */}
+            <box
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                bg: "#1a1a1a",
+                flexDirection: "column",
+              }}
+            >
+              <text style={{ bg: "#1a1a1a" }}>{" ".repeat(200)}</text>
+            </box>
+
+            <text style={{ fg: style.fg as any, bold: true, bg: "#1a1a1a" }}>
               {style.icon}{" "}
             </text>
-            <text style={{ fg: "white" }}>{notification.message}</text>
-            <text style={{ fg: "gray", dim: true }}> [x]</text>
+            <text style={{ fg: "white", bg: "#1a1a1a" }}>{notification.message}</text>
+            <text style={{ fg: "gray", dim: true, bg: "#1a1a1a" }}> [x]</text>
           </box>
         );
       })}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useKeyboard } from "@opentui/react";
+import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import { THEMES, Theme } from "../lib/ThemeSystem";
 
 interface ThemePickerProps {
@@ -48,80 +48,106 @@ export function ThemePicker({ isOpen, onClose, currentTheme, onSelect }: ThemePi
 
   if (!isOpen) return null;
 
+  const dimensions = useTerminalDimensions();
+  const width = dimensions.width || 80;
+  const height = dimensions.height || 24;
+
   return (
     <box
       style={{
         position: "absolute",
         top: 0,
         left: 0,
-        right: 0,
-        bottom: 0,
-        bg: "black",
+        width,
+        height,
+        justifyContent: "center",
+        alignItems: "center",
       }}
     >
-    <box
-      style={{
-        position: "absolute",
-        top: 5,
-        left: 15,
-        right: 15,
-        height: THEMES.length + 5,
-        flexDirection: "column",
-        border: true,
-        borderColor: "magenta",
-        bg: "black",
-      }}
-    >
-      {/* Header */}
-      <box style={{ paddingX: 1, borderBottom: true, borderColor: "gray" }}>
-        <text style={{ fg: "magenta", bold: true }}>🎨 Select Theme</text>
-      </box>
+      <box
+        style={{
+          width: "60%",
+          height: THEMES.length + 5,
+          flexDirection: "column",
+          border: true,
+          borderColor: "magenta",
+          bg: "#0b0b0b",
+          position: "relative",
+        }}
+      >
+        {/* Absolute Backdrop of spaces to force terminal opacity */}
+        <box
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            bg: "#1a1a1a",
+            flexDirection: "column",
+          }}
+        >
+          {Array.from({ length: THEMES.length + 5 }).map((_, i) => (
+            <text key={i} style={{ bg: "#1a1a1a" }}>{" ".repeat(200)}</text>
+          ))}
+        </box>
 
-      {/* Theme list */}
-      <scrollbox style={{ flexDirection: "column", flexGrow: 1, paddingX: 1 }}>
-        {THEMES.map((theme, index) => {
-          const isSelected = index === selectedIndex;
-          const isCurrent = theme.id === currentTheme.id;
+        {/* Header */}
+        <box style={{ paddingX: 1, borderBottom: true, borderColor: "gray", bg: "#1a1a1a" }}>
+          <text style={{ fg: "magenta", bold: true, bg: "#1a1a1a" }}>🎨 Select Theme</text>
+        </box>
 
-          return (
-            <box
-              key={theme.id}
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                bg: isSelected ? theme.accent : undefined,
-              }}
-            >
-              <box style={{ flexDirection: "row" }}>
-                <text style={{ fg: isSelected ? "black" : "gray" }}>
-                  {isSelected ? "▸ " : "  "}
-                </text>
-                <text style={{ fg: isSelected ? "black" : "white" }}>
-                  {theme.name}
-                </text>
+        {/* Theme list */}
+        <scrollbox style={{ flexDirection: "column", flexGrow: 1, bg: "#1a1a1a" }}>
+          {THEMES.map((theme, index) => {
+            const isSelected = index === selectedIndex;
+            const isCurrent = theme.id === currentTheme.id;
+
+            return (
+              <box
+                key={theme.id}
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  bg: isSelected ? theme.accent : "#1a1a1a" as any,
+                  width: "100%",
+                  paddingX: 1,
+                }}
+              >
+                <box style={{ flexDirection: "row", bg: isSelected ? theme.accent : "#1a1a1a" as any }}>
+                  <text style={{ fg: isSelected ? "black" : "gray", bg: isSelected ? theme.accent : "#1a1a1a" as any }}>
+                    {isSelected ? "▸ " : "  "}
+                  </text>
+                  <text style={{ fg: isSelected ? "black" : "white", bg: isSelected ? theme.accent : "#1a1a1a" as any }}>
+                    {theme.name}
+                  </text>
+                </box>
+                <box style={{ flexDirection: "row", gap: 1, bg: isSelected ? theme.accent : "#1a1a1a" as any }}>
+                  {/* Color preview */}
+                  <text style={{ fg: theme.syntax.keyword as any, bg: isSelected ? theme.accent : "#1a1a1a" as any }}>●</text>
+                  <text style={{ fg: theme.syntax.string as any, bg: isSelected ? theme.accent : "#1a1a1a" as any }}>●</text>
+                  <text style={{ fg: theme.syntax.function as any, bg: isSelected ? theme.accent : "#1a1a1a" as any }}>●</text>
+                  <text style={{ fg: theme.accent as any, bg: isSelected ? theme.accent : "#1a1a1a" as any }}>●</text>
+                  {isCurrent && (
+                    <text style={{ fg: isSelected ? "black" : "green", bg: isSelected ? theme.accent : "#1a1a1a" as any }}> ✓</text>
+                  )}
+                </box>
               </box>
-              <box style={{ flexDirection: "row", gap: 1 }}>
-                {/* Color preview */}
-                <text style={{ fg: theme.syntax.keyword as any }}>●</text>
-                <text style={{ fg: theme.syntax.string as any }}>●</text>
-                <text style={{ fg: theme.syntax.function as any }}>●</text>
-                <text style={{ fg: theme.accent as any }}>●</text>
-                {isCurrent && (
-                  <text style={{ fg: isSelected ? "black" : "green" }}> ✓</text>
-                )}
-              </box>
-            </box>
-          );
-        })}
-      </scrollbox>
+            );
+          })}
+          {/* Filler to ensure background opacity */}
+          <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
+            <text style={{ bg: "#1a1a1a" }}> </text>
+          </box>
+        </scrollbox>
 
-      {/* Footer */}
-      <box style={{ paddingX: 1, borderTop: true, borderColor: "gray" }}>
-        <text style={{ fg: "gray", dim: true }}>
-          ↑↓ select | Enter apply | Esc cancel
-        </text>
+        {/* Footer */}
+        <box style={{ paddingX: 1, borderTop: true, borderColor: "gray", bg: "#0b0b0b" }}>
+          <text style={{ fg: "gray", dim: true, bg: "#0b0b0b" }}>
+            ↑↓ select | Enter apply | Esc cancel
+          </text>
+        </box>
       </box>
-    </box>
     </box>
   );
 }

@@ -1,7 +1,4 @@
-/**
- * Git Integration Module
- * Provides git status, branch info, and file status for termide
- */
+import * as path from "path";
 
 export interface GitStatus {
   isRepo: boolean;
@@ -72,7 +69,7 @@ export async function getGitStatus(cwd: string): Promise<GitStatus> {
 
   // Get branch name
   const branch = await runGitCommand(["branch", "--show-current"], cwd) ||
-                 await runGitCommand(["rev-parse", "--short", "HEAD"], cwd);
+    await runGitCommand(["rev-parse", "--short", "HEAD"], cwd);
 
   // Get ahead/behind
   let ahead = 0;
@@ -81,8 +78,8 @@ export async function getGitStatus(cwd: string): Promise<GitStatus> {
   if (aheadBehind) {
     const parts = aheadBehind.split(/\s+/);
     if (parts.length === 2) {
-      behind = parseInt(parts[0]) || 0;
-      ahead = parseInt(parts[1]) || 0;
+      behind = parseInt(parts[0] || "0") || 0;
+      ahead = parseInt(parts[1] || "0") || 0;
     }
   }
 
@@ -151,31 +148,39 @@ export async function getFileGitStatus(filePath: string, cwd: string): Promise<F
     fileStatusCache.clear();
     cacheTimestamp = now;
 
-    const statusOutput = await runGitCommand(["status", "--porcelain=v1", "-uall"], cwd);
-    if (statusOutput) {
-      const lines = statusOutput.split("\n").filter(Boolean);
-      for (const line of lines) {
-        const x = line[0];
-        const y = line[1];
-        const file = line.slice(3);
+    try {
+      const statusOutput = await runGitCommand(["status", "--porcelain=v1", "-uall"], cwd);
+      if (statusOutput) {
+        const lines = statusOutput.split("\n").filter(Boolean);
+        for (const line of lines) {
+          try {
+            const x = line[0];
+            const y = line[1];
+            const file = line.slice(3);
 
-        let status: FileGitStatus["status"] = " ";
-        let staged = false;
+            let status: FileGitStatus["status"] = " ";
+            let staged = false;
 
-        if (x === "?" || y === "?") {
-          status = "?";
-        } else if (x === "U" || y === "U") {
-          status = "U";
-        } else if (x !== " ") {
-          status = x as FileGitStatus["status"];
-          staged = true;
-        } else if (y !== " ") {
-          status = y as FileGitStatus["status"];
+            if (x === "?" || y === "?") {
+              status = "?";
+            } else if (x === "U" || y === "U") {
+              status = "U";
+            } else if (x !== " ") {
+              status = x as FileGitStatus["status"];
+              staged = true;
+            } else if (y !== " ") {
+              status = y as FileGitStatus["status"];
+            }
+
+            const fullPath = path.resolve(cwd, file);
+            fileStatusCache.set(fullPath, { status, staged });
+          } catch {
+            // Skip problematic entries
+          }
         }
-
-        const fullPath = Bun.resolveSync(file, cwd);
-        fileStatusCache.set(fullPath, { status, staged });
       }
+    } catch {
+      // Failed to run git status
     }
   }
 
