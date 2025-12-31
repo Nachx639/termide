@@ -1,4 +1,17 @@
-# termide
+# <img src="assets/logo.png" width="48" align="center" /> termide
+
+**termide** is a minimalist and elegant Terminal-first IDE designed for the modern developer. 
+
+The name is a playful fusion of **Terminal** and **IDE**, with a nod to the industrious **termite** (termita)—building complex structures from the ground up, bit by bit.
+
+## 🚀 Features
+
+- **Terminal-First Experience**: No bloated UI, just the power of the terminal.
+- **Embedded Shell**: Seamless integration for AI coding agents and developers.
+- **Minimalist Design**: Built with OpenTUI for a sleek, distraction-free environment.
+- **Fast & Lightweight**: Powered by Bun and React.
+
+## 🛠 Installation
 
 To install dependencies:
 
@@ -6,10 +19,15 @@ To install dependencies:
 bun install
 ```
 
-To run:
+## 💻 Usage
+
+To run the development version:
 
 ```bash
-bun run index.ts
+bun run dev
 ```
 
-This project was created using `bun init` in bun v1.3.4. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+---
+
+*Built with ❤️ for the terminal lovers.*
+
