@@ -1,4 +1,15 @@
-# <img src="assets/logo.png" width="48" align="center" /> termide
+<p align="center">
+  <img src="assets/logo.png" width="200" />
+</p>
+
+<h1 align="center">termide</h1>
+
+<p align="center">
+  <strong>Minimalist & Elegant Terminal-First IDE</strong>
+</p>
+
+---
+
 
 **termide** is a minimalist and elegant Terminal-first IDE designed for the modern developer. 
 
