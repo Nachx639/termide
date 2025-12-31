@@ -101,10 +101,20 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
     <box
       style={{
         position: "absolute",
-        top: 1,
-        left: 3,
-        right: 3,
-        bottom: 2,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        bg: "black",
+      }}
+    >
+    <box
+      style={{
+        position: "absolute",
+        top: 2,
+        left: 4,
+        right: 4,
+        bottom: 3,
         flexDirection: "column",
         border: true,
         borderColor: "cyan",
@@ -154,6 +164,7 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
           <text style={{ fg: "magenta" }}>Made with ♥</text>
         </box>
       </box>
+    </box>
     </box>
   );
 }

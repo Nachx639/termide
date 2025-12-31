@@ -114,7 +114,17 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
     <box
       style={{
         position: "absolute",
-        top: 2,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        bg: "black",
+      }}
+    >
+    <box
+      style={{
+        position: "absolute",
+        top: 3,
         left: 10,
         right: 10,
         height: 18,
@@ -185,6 +195,7 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
           {filteredCommands.length} commands | ↑↓ select | Enter run | Esc close
         </text>
       </box>
+    </box>
     </box>
   );
 }

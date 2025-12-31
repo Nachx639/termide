@@ -186,7 +186,17 @@ export function GlobalSearch({ rootPath, isOpen, onClose, onSelect }: GlobalSear
     <box
       style={{
         position: "absolute",
-        top: 2,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        bg: "black",
+      }}
+    >
+    <box
+      style={{
+        position: "absolute",
+        top: 3,
         left: 5,
         right: 5,
         height: 22,
@@ -252,6 +262,7 @@ export function GlobalSearch({ rootPath, isOpen, onClose, onSelect }: GlobalSear
           {results.length} results | ↑↓ select | Enter open | Esc close
         </text>
       </box>
+    </box>
     </box>
   );
 }
