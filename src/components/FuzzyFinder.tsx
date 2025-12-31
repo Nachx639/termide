@@ -220,7 +220,17 @@ export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles =
     <box
       style={{
         position: "absolute",
-        top: 2,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        bg: "black",
+      }}
+    >
+    <box
+      style={{
+        position: "absolute",
+        top: 3,
         left: 10,
         right: 10,
         height: 20,
@@ -311,6 +321,7 @@ export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles =
           {matches.length} files | ↑↓ select | Enter open | Esc close
         </text>
       </box>
+    </box>
     </box>
   );
 }
