@@ -1,0 +1,27 @@
+{
+  "name": "termide",
+  "version": "0.1.0",
+  "description": "A terminal-first IDE with embedded shell for AI coding agents",
+  "module": "src/index.tsx",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "termide": "./src/index.tsx"
+  },
+  "scripts": {
+    "dev": "bun run src/index.tsx",
+    "start": "bun run src/index.tsx"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "19.2.7"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@opentui/core": "0.1.67",
+    "@opentui/react": "0.1.67",
+    "react": "19.2.3"
+  }
+}
