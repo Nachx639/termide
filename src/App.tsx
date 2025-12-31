@@ -12,8 +12,10 @@ import { HelpPanel } from "./components/HelpPanel";
 import { TabBar } from "./components/TabBar";
 import { Notifications, useNotifications } from "./components/Notifications";
 import * as path from "path";
-import { getGitStatus, formatGitBranch, formatGitStatus, GitStatus, invalidateGitCache } from "./lib/GitIntegration";
-import { Theme, DARK_THEME, THEMES } from "./lib/ThemeSystem";
+import { getGitStatus, formatGitBranch, formatGitStatus, invalidateGitCache } from "./lib/GitIntegration";
+import type { GitStatus } from "./lib/GitIntegration";
+import { DARK_THEME, THEMES } from "./lib/ThemeSystem";
+import type { Theme } from "./lib/ThemeSystem";
 
 type Panel = "tree" | "viewer" | "terminal";
 
@@ -277,19 +279,22 @@ export function App({ rootPath }: AppProps) {
     if (showHelpPanel) return;
 
     // Ctrl+Shift+F - Global search
-    if (event.ctrl && event.shift && event.name === "f") {
+    if (event.ctrl && (event.shift || event.name === "F") && (event.name === "f" || event.name === "F")) {
       setShowGlobalSearch(true);
       return;
     }
 
-    // Ctrl+Shift+P - Open command palette
-    if (event.ctrl && event.shift && event.name === "p") {
+    // Ctrl+Shift+P, Cmd+Shift+P, or Alt+P - Open command palette
+    if (
+      ((event.ctrl || event.meta) && (event.shift || event.name === "P") && (event.name === "p" || event.name === "P")) ||
+      (event.meta && (event.name === "p" || event.name === "P"))
+    ) {
       setShowCommandPalette(true);
       return;
     }
 
     // Ctrl+P - Open fuzzy finder
-    if (event.ctrl && event.name === "p") {
+    if (event.ctrl && !event.shift && (event.name === "p" || event.name === "P")) {
       setShowFuzzyFinder(true);
       return;
     }
@@ -425,7 +430,7 @@ export function App({ rootPath }: AppProps) {
         <box style={{ flexDirection: "column", justifyContent: "center" }}>
           <text style={{ fg: "white", bold: true }}>TERMINAL IDE</text>
           <text style={{ fg: "gray" }}>{rootPath.replace(process.env.HOME || "", "~")}</text>
-          <text style={{ fg: "gray", dim: true }}>Tab: switch | Ctrl+P: find | F1: help | Ctrl+Q: quit</text>
+          <text style={{ fg: "gray", dim: true }}>Tab: switch | Ctrl+P: find | Alt+P: commands | F1: help</text>
         </box>
       </box>
 
