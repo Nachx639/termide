@@ -10,6 +10,13 @@
 
 ---
 
+<p align="center">
+  <img src="assets/screenshot.png" width="600" alt="termide screenshot" />
+</p>
+
+---
+
+
 **termide** is a minimalist and elegant Terminal-first IDE designed for the modern developer. 
 
 The name is a playful fusion of **Terminal** and **IDE**, with a nod to the industrious **termite**—building complex structures from the ground up, bit by bit.
