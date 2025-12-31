@@ -71,4 +71,7 @@ If you want to contribute or modify the code:
 
 ---
 
-*Built with ❤️ for the terminal lovers.*
+*Built with ❤️ for terminal lovers.*
+
+> **Tip**: If `termide` is not found after global install, ensure your Bun bin directory is in your PATH: `export PATH="$HOME/.bun/bin:$PATH"`
+
