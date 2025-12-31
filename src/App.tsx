@@ -4,7 +4,8 @@ import { FileTree } from "./components/FileTree";
 import { FileViewer } from "./components/FileViewer";
 import { Terminal } from "./components/Terminal";
 import { FuzzyFinder } from "./components/FuzzyFinder";
-import { CommandPalette, Command } from "./components/CommandPalette";
+import { CommandPalette } from "./components/CommandPalette";
+import type { Command } from "./components/CommandPalette";
 import { GlobalSearch } from "./components/GlobalSearch";
 import { ThemePicker } from "./components/ThemePicker";
 import { HelpPanel } from "./components/HelpPanel";
@@ -408,18 +409,18 @@ export function App({ rootPath }: AppProps) {
 
   const treeWidth = 30;
   const mainWidth = (dimensions.width || 80) - treeWidth - 4;
-  const totalHeight = (dimensions.height || 40) - 6; // -6 for taller header and status bar
+  const totalHeight = (dimensions.height || 40) - 7; // -7 for taller header and status bar
   const viewerHeight = Math.floor(totalHeight * 0.4); // 40% for viewer
   const terminalHeight = totalHeight - viewerHeight; // 60% for terminal
 
   return (
-    <box style={{ flexDirection: "column", width: "100%", height: "100%" }}>
+    <box style={{ flexDirection: "column", width: "100%", height: "100%", bg: "#050505" }}>
       {/* Header */}
-      <box style={{ paddingX: 1, paddingY: 1, flexDirection: "row", gap: 3, height: 4 }}>
+      <box style={{ paddingX: 1, paddingY: 1, flexDirection: "row", gap: 3, height: 5 }}>
         <text style={{ fg: "cyan", bold: true }}>
-          {` ▀█▀ █▀▀ █▀▄ █▄▀▄█ █ █▀▄ █▀▀
-  █  █▀▀ █▀▄ █ █ █ █ █ █ █▀▀
-  ▀  ▀▀▀ ▀ ▀ ▀   ▀ ▀ ▀▀  ▀▀▀`}
+          {`▀█▀ █▀▀ █▀▄ █▄▀▄█ █ █▀▄ █▀▀
+ █  █▀▀ █▀▄ █ █ █ █ █ █ █▀▀
+ ▀  ▀▀▀ ▀ ▀ ▀   ▀ ▀ ▀▀  ▀▀▀`}
         </text>
         <box style={{ flexDirection: "column", justifyContent: "center" }}>
           <text style={{ fg: "white", bold: true }}>TERMINAL IDE</text>
@@ -521,49 +522,55 @@ export function App({ rootPath }: AppProps) {
         </box>
       </box>
 
-      {/* Fuzzy Finder Overlay */}
-      <FuzzyFinder
-        rootPath={rootPath}
-        isOpen={showFuzzyFinder}
-        onClose={() => setShowFuzzyFinder(false)}
-        onSelect={handleFileSelect}
-        recentFiles={recentFiles}
-      />
+      {/* Overlays */}
+      {showFuzzyFinder && (
+        <FuzzyFinder
+          rootPath={rootPath}
+          isOpen={showFuzzyFinder}
+          onClose={() => setShowFuzzyFinder(false)}
+          onSelect={handleFileSelect}
+          recentFiles={recentFiles}
+        />
+      )}
 
-      {/* Command Palette Overlay */}
-      <CommandPalette
-        isOpen={showCommandPalette}
-        onClose={() => setShowCommandPalette(false)}
-        commands={commands}
-      />
+      {showCommandPalette && (
+        <CommandPalette
+          isOpen={showCommandPalette}
+          onClose={() => setShowCommandPalette(false)}
+          commands={commands}
+        />
+      )}
 
-      {/* Global Search Overlay */}
-      <GlobalSearch
-        rootPath={rootPath}
-        isOpen={showGlobalSearch}
-        onClose={() => setShowGlobalSearch(false)}
-        onSelect={(filePath, lineNumber) => {
-          handleFileSelect(filePath);
-          success(`Opened ${path.basename(filePath)}`, 2000);
-        }}
-      />
+      {showGlobalSearch && (
+        <GlobalSearch
+          rootPath={rootPath}
+          isOpen={showGlobalSearch}
+          onClose={() => setShowGlobalSearch(false)}
+          onSelect={(filePath, lineNumber) => {
+            handleFileSelect(filePath);
+            success(`Opened ${path.basename(filePath)}`, 2000);
+          }}
+        />
+      )}
 
-      {/* Theme Picker Overlay */}
-      <ThemePicker
-        isOpen={showThemePicker}
-        onClose={() => setShowThemePicker(false)}
-        currentTheme={currentTheme}
-        onSelect={(theme) => {
-          setCurrentTheme(theme);
-          success(`Theme: ${theme.name}`, 2000);
-        }}
-      />
+      {showThemePicker && (
+        <ThemePicker
+          isOpen={showThemePicker}
+          onClose={() => setShowThemePicker(false)}
+          currentTheme={currentTheme}
+          onSelect={(theme) => {
+            setCurrentTheme(theme);
+            success(`Theme: ${theme.name}`, 2000);
+          }}
+        />
+      )}
 
-      {/* Help Panel Overlay */}
-      <HelpPanel
-        isOpen={showHelpPanel}
-        onClose={() => setShowHelpPanel(false)}
-      />
+      {showHelpPanel && (
+        <HelpPanel
+          isOpen={showHelpPanel}
+          onClose={() => setShowHelpPanel(false)}
+        />
+      )}
 
       {/* Notifications */}
       <Notifications

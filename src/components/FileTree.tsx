@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useKeyboard } from "@opentui/react";
 import * as fs from "fs";
 import * as path from "path";
-import { getFileGitStatus, FileGitStatus, getFileStatusColor, getFileStatusIcon } from "../lib/GitIntegration";
+import { getFileGitStatus, type FileGitStatus, getFileStatusColor, getFileStatusIcon } from "../lib/GitIntegration";
 import { getFileIconSimple } from "../lib/FileIcons";
 
 interface FileNode {
@@ -170,19 +170,22 @@ export function FileTree({ rootPath, onFileSelect, focused }: FileTreeProps) {
             nameFg = "white";
           }
 
-          const bg = isSelected ? "blue" : undefined; // Blue bg is more visible than cyan
-          const iconColor = isSelected ? "white" : fileIcon.color;
+          const bg = isSelected ? "blue" : undefined;
+          const iconColor = isSelected ? "cyan" : fileIcon.color;
 
           return (
-            <box key={node.path} style={{ flexDirection: "row", bg: bg as any }}>
-              <text style={{ fg: "gray" }}>{prefix}</text>
-              <text style={{ fg: iconColor as any }}>{fileIcon.icon} </text>
-              {!node.isDirectory && gitStatus && (
-                <text style={{ fg: isSelected ? "white" : getFileStatusColor(gitStatus) as any }}>
-                  {getFileStatusIcon(gitStatus).trim() !== "" ? getFileStatusIcon(gitStatus).trim()[0] : " "}
-                </text>
-              )}
-              <text style={{ fg: nameFg as any, bold: isSelected }}>{node.name}</text>
+            <box key={node.path} style={{ flexDirection: "row", bg: bg as any, paddingX: 1 }}>
+              <text style={{ fg: isSelected ? "cyan" : "gray" }}>{prefix}</text>
+              <text style={{ fg: isSelected ? "cyan" : iconColor as any }}>{fileIcon.icon} </text>
+
+              {/* Git Status - Fixed width to prevent jumping */}
+              <text style={{ fg: isSelected ? "cyan" : (gitStatus ? getFileStatusColor(gitStatus) : "gray") as any }}>
+                {gitStatus ? (getFileStatusIcon(gitStatus).trim()[0] || " ") : " "}
+              </text>
+
+              <text style={{ fg: isSelected ? "cyan" : nameFg as any, bold: isSelected }}>
+                {" "}{node.name}
+              </text>
             </box>
           );
         })}

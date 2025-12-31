@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { useKeyboard } from "@opentui/react";
+import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -182,87 +182,112 @@ export function GlobalSearch({ rootPath, isOpen, onClose, onSelect }: GlobalSear
 
   const visibleResults = results.slice(0, 15);
 
+  const dimensions = useTerminalDimensions();
+  const width = dimensions.width || 80;
+  const height = dimensions.height || 24;
+
   return (
     <box
       style={{
         position: "absolute",
         top: 0,
         left: 0,
-        right: 0,
-        bottom: 0,
-        bg: "black",
+        width,
+        height,
+        justifyContent: "center",
+        alignItems: "center",
       }}
     >
-    <box
-      style={{
-        position: "absolute",
-        top: 3,
-        left: 5,
-        right: 5,
-        height: 22,
-        flexDirection: "column",
-        border: true,
-        borderColor: "green",
-        bg: "black",
-      }}
-    >
-      {/* Search input */}
-      <box style={{ paddingX: 1, borderBottom: true, borderColor: "gray" }}>
-        <text style={{ fg: "green" }}>🔎 </text>
-        <text style={{ fg: "white" }}>{query}</text>
-        <text style={{ fg: "green", blink: true }}>▌</text>
-        {isSearching && <text style={{ fg: "yellow" }}> Searching...</text>}
-      </box>
+      <box
+        style={{
+          width: "90%",
+          height: 22,
+          flexDirection: "column",
+          border: true,
+          borderColor: "green",
+          bg: "#0b0b0b",
+          position: "relative",
+        }}
+      >
+        {/* Absolute Backdrop of spaces to force terminal opacity */}
+        <box
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            bg: "#1a1a1a",
+            flexDirection: "column",
+          }}
+        >
+          {Array.from({ length: 22 }).map((_, i) => (
+            <text key={i} style={{ bg: "#1a1a1a" }}>{" ".repeat(200)}</text>
+          ))}
+        </box>
 
-      {/* Results */}
-      <scrollbox style={{ flexDirection: "column", flexGrow: 1, paddingX: 1 }}>
-        {query.length < 2 ? (
-          <text style={{ fg: "gray", dim: true }}>Type at least 2 characters to search</text>
-        ) : results.length === 0 && !isSearching ? (
-          <text style={{ fg: "gray", dim: true }}>No results found</text>
-        ) : (
-          visibleResults.map((result, index) => {
-            const isSelected = index === selectedIndex;
+        {/* Search input */}
+        <box style={{ paddingX: 1, borderBottom: true, borderColor: "gray", bg: "#1a1a1a" }}>
+          <text style={{ fg: "green", bg: "#1a1a1a" }}>🔎 </text>
+          <text style={{ fg: "white", bg: "#1a1a1a" }}>{query}</text>
+          <text style={{ fg: "green", blink: true, bg: "#1a1a1a" }}>▌</text>
+          {isSearching && <text style={{ fg: "yellow", bg: "#1a1a1a" }}> Searching...</text>}
+        </box>
 
-            return (
-              <box
-                key={`${result.filePath}-${result.lineNumber}`}
-                style={{
-                  flexDirection: "column",
-                  bg: isSelected ? "green" : undefined,
-                  paddingY: 0,
-                }}
-              >
-                <box style={{ flexDirection: "row" }}>
-                  <text style={{ fg: isSelected ? "black" : "gray" }}>
-                    {isSelected ? "▸ " : "  "}
-                  </text>
-                  <text style={{ fg: isSelected ? "black" : "cyan" }}>
-                    {result.relativePath}
-                  </text>
-                  <text style={{ fg: isSelected ? "black" : "yellow" }}>
-                    :{result.lineNumber}
-                  </text>
+        {/* Results */}
+        <scrollbox style={{ flexDirection: "column", flexGrow: 1, bg: "#1a1a1a" }}>
+          {query.length < 2 ? (
+            <text style={{ fg: "gray", dim: true, bg: "#1a1a1a", paddingX: 1 }}>Type at least 2 characters to search</text>
+          ) : results.length === 0 && !isSearching ? (
+            <text style={{ fg: "gray", dim: true, bg: "#1a1a1a", paddingX: 1 }}>No results found</text>
+          ) : (
+            visibleResults.map((result, index) => {
+              const isSelected = index === selectedIndex;
+
+              return (
+                <box
+                  key={`${result.filePath}-${result.lineNumber}`}
+                  style={{
+                    flexDirection: "column",
+                    bg: isSelected ? "green" : "#1a1a1a" as any,
+                    width: "100%",
+                    paddingX: 1,
+                  }}
+                >
+                  <box style={{ flexDirection: "row", bg: isSelected ? "green" : "#1a1a1a" as any }}>
+                    <text style={{ fg: isSelected ? "black" : "gray", bg: isSelected ? "green" : "#1a1a1a" as any }}>
+                      {isSelected ? "▸ " : "  "}
+                    </text>
+                    <text style={{ fg: isSelected ? "black" : "cyan", bg: isSelected ? "green" : "#1a1a1a" as any }}>
+                      {result.relativePath}
+                    </text>
+                    <text style={{ fg: isSelected ? "black" : "yellow", bg: isSelected ? "green" : "#1a1a1a" as any }}>
+                      :{result.lineNumber}
+                    </text>
+                  </box>
+                  <box style={{ paddingLeft: 4, bg: isSelected ? "green" : "#1a1a1a" as any }}>
+                    <text style={{ fg: isSelected ? "black" : "gray", dim: !isSelected, bg: isSelected ? "green" : "#1a1a1a" as any }}>
+                      {result.lineContent.slice(0, 70)}
+                      {result.lineContent.length > 70 ? "..." : ""}
+                    </text>
+                  </box>
                 </box>
-                <box style={{ paddingLeft: 4 }}>
-                  <text style={{ fg: isSelected ? "black" : "gray", dim: !isSelected }}>
-                    {result.lineContent.slice(0, 70)}
-                    {result.lineContent.length > 70 ? "..." : ""}
-                  </text>
-                </box>
-              </box>
-            );
-          })
-        )}
-      </scrollbox>
+              );
+            })
+          )}
+          {/* Filler to ensure background opacity */}
+          <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
+            <text style={{ bg: "#1a1a1a" }}> </text>
+          </box>
+        </scrollbox>
 
-      {/* Footer */}
-      <box style={{ paddingX: 1, borderTop: true, borderColor: "gray" }}>
-        <text style={{ fg: "gray", dim: true }}>
-          {results.length} results | ↑↓ select | Enter open | Esc close
-        </text>
+        {/* Footer */}
+        <box style={{ paddingX: 1, borderTop: true, borderColor: "gray", bg: "#0b0b0b" }}>
+          <text style={{ fg: "gray", dim: true, bg: "#0b0b0b" }}>
+            {results.length} results | ↑↓ select | Enter open | Esc close
+          </text>
+        </box>
       </box>
-    </box>
     </box>
   );
 }

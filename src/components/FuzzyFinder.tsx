@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { useKeyboard } from "@opentui/react";
+import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -216,112 +216,139 @@ export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles =
 
   const visibleMatches = matches.slice(0, 15);
 
+  const dimensions = useTerminalDimensions();
+  const width = dimensions.width || 80;
+  const height = dimensions.height || 24;
+
   return (
     <box
       style={{
         position: "absolute",
         top: 0,
         left: 0,
-        right: 0,
-        bottom: 0,
-        bg: "black",
+        width,
+        height,
+        justifyContent: "center",
+        alignItems: "center",
       }}
     >
-    <box
-      style={{
-        position: "absolute",
-        top: 3,
-        left: 10,
-        right: 10,
-        height: 20,
-        flexDirection: "column",
-        border: true,
-        borderColor: "cyan",
-        bg: "black",
-      }}
-    >
-      {/* Search input */}
-      <box style={{ paddingX: 1, borderBottom: true, borderColor: "gray" }}>
-        <text style={{ fg: "cyan" }}>🔍 </text>
-        <text style={{ fg: "white" }}>{query}</text>
-        <text style={{ fg: "cyan", blink: true }}>▌</text>
-      </box>
+      <box
+        style={{
+          width: "80%",
+          height: 20,
+          flexDirection: "column",
+          border: true,
+          borderColor: "cyan",
+          bg: "#0b0b0b",
+          position: "relative",
+        }}
+      >
+        {/* Absolute Backdrop of spaces to force terminal opacity */}
+        <box
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            bg: "#1a1a1a",
+            flexDirection: "column",
+          }}
+        >
+          {Array.from({ length: 20 }).map((_, i) => (
+            <text key={i} style={{ bg: "#1a1a1a" }}>{" ".repeat(200)}</text>
+          ))}
+        </box>
 
-      {/* Results */}
-      <scrollbox style={{ flexDirection: "column", flexGrow: 1, paddingX: 1 }}>
-        {visibleMatches.length === 0 ? (
-          <text style={{ fg: "gray", dim: true }}>No files found</text>
-        ) : (
-          visibleMatches.map((match, index) => {
-            const isSelected = index === selectedIndex;
-            const parts: { text: string; highlight: boolean }[] = [];
-            let lastIdx = 0;
+        {/* Search input */}
+        <box style={{ paddingX: 1, borderBottom: true, borderColor: "gray", bg: "#1a1a1a" }}>
+          <text style={{ fg: "cyan", bg: "#1a1a1a" }}>🔍 </text>
+          <text style={{ fg: "white", bg: "#1a1a1a" }}>{query}</text>
+          <text style={{ fg: "cyan", blink: true, bg: "#1a1a1a" }}>▌</text>
+        </box>
 
-            // Build highlighted string
-            for (const highlightIdx of match.highlights) {
-              if (highlightIdx > lastIdx) {
-                parts.push({ text: match.relativePath.slice(lastIdx, highlightIdx), highlight: false });
+        {/* Results */}
+        <scrollbox style={{ flexDirection: "column", flexGrow: 1, bg: "#1a1a1a" }}>
+          {visibleMatches.length === 0 ? (
+            <text style={{ fg: "gray", dim: true, bg: "#1a1a1a", paddingX: 1 }}>No files found</text>
+          ) : (
+            visibleMatches.map((match, index) => {
+              const isSelected = index === selectedIndex;
+              const parts: { text: string; highlight: boolean }[] = [];
+              let lastIdx = 0;
+
+              // Build highlighted string
+              for (const highlightIdx of match.highlights) {
+                if (highlightIdx > lastIdx) {
+                  parts.push({ text: match.relativePath.slice(lastIdx, highlightIdx), highlight: false });
+                }
+                parts.push({ text: match.relativePath[highlightIdx], highlight: true });
+                lastIdx = highlightIdx + 1;
               }
-              parts.push({ text: match.relativePath[highlightIdx], highlight: true });
-              lastIdx = highlightIdx + 1;
-            }
-            if (lastIdx < match.relativePath.length) {
-              parts.push({ text: match.relativePath.slice(lastIdx), highlight: false });
-            }
+              if (lastIdx < match.relativePath.length) {
+                parts.push({ text: match.relativePath.slice(lastIdx), highlight: false });
+              }
 
-            return (
-              <box
-                key={match.path}
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  bg: isSelected ? "cyan" : undefined,
-                }}
-              >
-                <box style={{ flexDirection: "row" }}>
-                  <text style={{ fg: isSelected ? "black" : "gray" }}>
-                    {isSelected ? "▸ " : "  "}
-                  </text>
-                  {parts.length > 0 ? (
-                    parts.map((part, i) => (
-                      <text
-                        key={i}
-                        style={{
-                          fg: isSelected
-                            ? "black"
-                            : part.highlight
-                            ? "yellow"
-                            : "white",
-                          bold: part.highlight,
-                        }}
-                      >
-                        {part.text}
+              return (
+                <box
+                  key={match.path}
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    bg: isSelected ? "cyan" : "#1a1a1a" as any,
+                    width: "100%",
+                    paddingX: 1,
+                  }}
+                >
+                  <box style={{ flexDirection: "row", bg: isSelected ? "cyan" : "#1a1a1a" as any }}>
+                    <text style={{ fg: isSelected ? "black" : "gray", bg: isSelected ? "cyan" : "#1a1a1a" as any }}>
+                      {isSelected ? "▸ " : "  "}
+                    </text>
+                    {parts.length > 0 ? (
+                      parts.map((part, i) => (
+                        <text
+                          key={i}
+                          style={{
+                            fg: isSelected
+                              ? "black"
+                              : part.highlight
+                                ? "yellow"
+                                : "white",
+                            bg: isSelected ? "cyan" : "#1a1a1a" as any,
+                            bold: part.highlight,
+                          }}
+                        >
+                          {part.text}
+                        </text>
+                      ))
+                    ) : (
+                      <text style={{ fg: isSelected ? "black" : "white", bg: isSelected ? "cyan" : "#1a1a1a" as any }}>
+                        {match.relativePath}
                       </text>
-                    ))
-                  ) : (
-                    <text style={{ fg: isSelected ? "black" : "white" }}>
-                      {match.relativePath}
+                    )}
+                  </box>
+                  {match.isRecent && (
+                    <text style={{ fg: isSelected ? "black" : "magenta", bg: isSelected ? "cyan" : "#1a1a1a" as any, dim: !isSelected }}>
+                      ★ recent
                     </text>
                   )}
                 </box>
-                {match.isRecent && (
-                  <text style={{ fg: isSelected ? "black" : "magenta", dim: !isSelected }}>
-                    ★ recent
-                  </text>
-                )}
-              </box>
-            );
-          })
-        )}
-      </scrollbox>
+              );
+            })
+          )}
+          {/* Filler to ensure background opacity */}
+          <box style={{ flexGrow: 1, bg: "#0b0b0b" }}>
+            <text style={{ bg: "#0b0b0b" }}> </text>
+          </box>
+        </scrollbox>
 
-      {/* Footer */}
-      <box style={{ paddingX: 1, borderTop: true, borderColor: "gray" }}>
-        <text style={{ fg: "gray", dim: true }}>
-          {matches.length} files | ↑↓ select | Enter open | Esc close
-        </text>
+        {/* Footer */}
+        <box style={{ paddingX: 1, borderTop: true, borderColor: "gray", bg: "#0b0b0b" }}>
+          <text style={{ fg: "gray", dim: true, bg: "#0b0b0b" }}>
+            {matches.length} files | ↑↓ select | Enter open | Esc close
+          </text>
+        </box>
       </box>
-    </box>
     </box>
   );
 }
