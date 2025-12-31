@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="assets/termide-logo.png" width="200" />
+  <img src="assets/termide-banner.png" width="100%" />
 </p>
-
-<h1 align="center">termide</h1>
 
 <p align="center">
   <strong>Minimalist & Elegant Terminal-First IDE</strong>
