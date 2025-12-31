@@ -14,18 +14,39 @@ export function FileViewer({ filePath, focused }: FileViewerProps) {
   const viewHeight = 20;
 
   useEffect(() => {
-    if (filePath && fs.existsSync(filePath)) {
+    if (!filePath || !fs.existsSync(filePath)) {
+      setContent([]);
+      return;
+    }
+
+    const readFile = () => {
       try {
         const text = fs.readFileSync(filePath, "utf-8");
         setContent(text.split("\n"));
-        setScrollOffset(0);
       } catch {
         setContent(["Error reading file"]);
       }
-    } else {
-      setContent([]);
+    };
+
+    // Initial read
+    readFile();
+    setScrollOffset(0);
+
+    // Watch for changes
+    try {
+      const watcher = fs.watch(filePath, (event) => {
+        if (event === "change") {
+          readFile();
+        }
+      });
+
+      return () => watcher.close();
+    } catch (e) {
+      // Fallback if watch fails (some OS or file systems)
+      console.error("Watcher error:", e);
     }
   }, [filePath]);
+
 
   useKeyboard((event) => {
     if (!focused) return;
