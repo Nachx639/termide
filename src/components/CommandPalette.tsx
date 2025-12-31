@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useKeyboard } from "@opentui/react";
+import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 
 export interface Command {
   id: string;
@@ -110,92 +110,117 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
 
   let globalIndex = 0;
 
+  const dimensions = useTerminalDimensions();
+  const width = dimensions.width || 80;
+  const height = dimensions.height || 24;
+
   return (
     <box
       style={{
         position: "absolute",
         top: 0,
         left: 0,
-        right: 0,
-        bottom: 0,
-        bg: "black",
+        width,
+        height,
+        justifyContent: "center",
+        alignItems: "center",
       }}
     >
-    <box
-      style={{
-        position: "absolute",
-        top: 3,
-        left: 10,
-        right: 10,
-        height: 18,
-        flexDirection: "column",
-        border: true,
-        borderColor: "magenta",
-        bg: "black",
-      }}
-    >
-      {/* Search input */}
-      <box style={{ paddingX: 1, borderBottom: true, borderColor: "gray" }}>
-        <text style={{ fg: "magenta" }}>⌘ </text>
-        <text style={{ fg: "white" }}>{query || ""}</text>
-        <text style={{ fg: "magenta", blink: true }}>▌</text>
-      </box>
+      <box
+        style={{
+          width: "80%",
+          height: 18,
+          flexDirection: "column",
+          border: true,
+          borderColor: "magenta",
+          bg: "#0b0b0b",
+          position: "relative",
+        }}
+      >
+        {/* Absolute Backdrop of spaces to force terminal opacity */}
+        <box
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            bg: "#1a1a1a",
+            flexDirection: "column",
+          }}
+        >
+          {Array.from({ length: 18 }).map((_, i) => (
+            <text key={i} style={{ bg: "#1a1a1a" }}>{" ".repeat(200)}</text>
+          ))}
+        </box>
 
-      {/* Results */}
-      <scrollbox style={{ flexDirection: "column", flexGrow: 1, paddingX: 1 }}>
-        {visibleCommands.length === 0 ? (
-          <text style={{ fg: "gray", dim: true }}>No commands found</text>
-        ) : (
-          Object.entries(groupedCommands).map(([category, cmds]) => (
-            <box key={category} style={{ flexDirection: "column" }}>
-              <text style={{ fg: "gray", dim: true, bold: true }}>{category}</text>
-              {cmds.map((cmd) => {
-                const isSelected = globalIndex === selectedIndex;
-                const currentIndex = globalIndex;
-                globalIndex++;
+        {/* Search input */}
+        <box style={{ paddingX: 1, borderBottom: true, borderColor: "gray", bg: "#1a1a1a" }}>
+          <text style={{ fg: "magenta", bg: "#1a1a1a" }}>⌘ </text>
+          <text style={{ fg: "white", bg: "#1a1a1a" }}>{query || ""}</text>
+          <text style={{ fg: "magenta", blink: true, bg: "#1a1a1a" }}>▌</text>
+        </box>
 
-                return (
-                  <box
-                    key={cmd.id}
-                    style={{
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                      bg: isSelected ? "magenta" : undefined,
-                    }}
-                  >
-                    <box style={{ flexDirection: "row" }}>
-                      <text style={{ fg: isSelected ? "black" : "gray" }}>
-                        {isSelected ? "▸ " : "  "}
-                      </text>
-                      <text style={{ fg: isSelected ? "black" : "white" }}>
-                        {cmd.label}
-                      </text>
-                      {cmd.description && (
-                        <text style={{ fg: isSelected ? "black" : "gray", dim: !isSelected }}>
-                          {" - "}{cmd.description}
+        {/* Results */}
+        <scrollbox style={{ flexDirection: "column", flexGrow: 1, paddingX: 1, bg: "#1a1a1a" }}>
+          {visibleCommands.length === 0 ? (
+            <text style={{ fg: "gray", dim: true, bg: "#1a1a1a" }}>No commands found</text>
+          ) : (
+            Object.entries(groupedCommands).map(([category, cmds]) => (
+              <box key={category} style={{ flexDirection: "column", bg: "#1a1a1a" }}>
+                <text style={{ fg: "gray", dim: true, bold: true, bg: "#1a1a1a" }}>{category}</text>
+                {cmds.map((cmd) => {
+                  const isSelected = globalIndex === selectedIndex;
+                  const currentIndex = globalIndex;
+                  globalIndex++;
+
+                  return (
+                    <box
+                      key={cmd.id}
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        bg: isSelected ? "magenta" : "#1a1a1a" as any,
+                      }}
+                    >
+                      <box style={{ flexDirection: "row", bg: isSelected ? "magenta" : "#1a1a1a" as any }}>
+                        <text style={{ fg: isSelected ? "black" : "gray", bg: isSelected ? "magenta" : "#1a1a1a" as any }}>
+                          {isSelected ? "▸ " : "  "}
+                        </text>
+                        <text style={{ fg: isSelected ? "black" : "white", bg: isSelected ? "magenta" : "#1a1a1a" as any }}>
+                          {cmd.label}
+                        </text>
+                        {cmd.description && (
+                          <text style={{ fg: isSelected ? "black" : "gray", dim: !isSelected, bg: isSelected ? "magenta" : "#1a1a1a" as any }}>
+                            {" - "}{cmd.description}
+                          </text>
+                        )}
+                      </box>
+                      {cmd.shortcut && (
+                        <text style={{ fg: isSelected ? "black" : "cyan", bg: isSelected ? "magenta" : "#1a1a1a" as any }}>
+                          {cmd.shortcut}
                         </text>
                       )}
                     </box>
-                    {cmd.shortcut && (
-                      <text style={{ fg: isSelected ? "black" : "cyan" }}>
-                        {cmd.shortcut}
-                      </text>
-                    )}
-                  </box>
-                );
-              })}
-            </box>
-          ))
-        )}
-      </scrollbox>
+                  );
+                })}
+              </box>
+            ))
+          )}
+          {/* Filler to ensure background opacity */}
+          <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
+            <text style={{ bg: "#1a1a1a" }}> </text>
+          </box>
+        </scrollbox>
 
-      {/* Footer */}
-      <box style={{ paddingX: 1, borderTop: true, borderColor: "gray" }}>
-        <text style={{ fg: "gray", dim: true }}>
-          {filteredCommands.length} commands | ↑↓ select | Enter run | Esc close
-        </text>
+        {/* Footer */}
+        <box style={{ paddingX: 1, borderTop: true, borderColor: "gray", bg: "#0b0b0b" }}>
+          <text style={{ fg: "gray", dim: true, bg: "#0b0b0b" }}>
+            {filteredCommands.length} commands | ↑↓ select | Enter run | Esc close
+          </text>
+        </box>
       </box>
-    </box>
+
     </box>
   );
 }
