@@ -52,6 +52,16 @@ export function ThemePicker({ isOpen, onClose, currentTheme, onSelect }: ThemePi
     <box
       style={{
         position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        bg: "black",
+      }}
+    >
+    <box
+      style={{
+        position: "absolute",
         top: 5,
         left: 15,
         right: 15,
@@ -111,6 +121,7 @@ export function ThemePicker({ isOpen, onClose, currentTheme, onSelect }: ThemePi
           ↑↓ select | Enter apply | Esc cancel
         </text>
       </box>
+    </box>
     </box>
   );
 }
