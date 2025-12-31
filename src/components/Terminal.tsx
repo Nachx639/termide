@@ -23,11 +23,12 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
   const [error, setError] = useState<string | null>(null);
 
   // Fixed dimensions for stable PTY
-  const cols = dimensions?.columns || 80;
+  const cols = dimensions?.width || 80;
+  const treeWidth = 30;
   // Terminal panel is about 2/3 of screen width (after tree panel of ~30 cols)
-  const termCols = Math.max(30, cols - 34);
+  const termCols = Math.max(30, cols - treeWidth - 4);
   const safeHeight = typeof height === 'number' && !isNaN(height) ? height : 30;
-  const termRows = Math.max(10, safeHeight - 3);
+  const termRows = Math.max(10, safeHeight);
 
   const vtRef = useRef<VirtualTerminal | null>(null);
   const terminalRef = useRef<TerminalRef | null>(null);
@@ -133,7 +134,7 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
       try {
         terminalRef.current.resize(termCols, termRows);
         vtRef.current.resize(termRows, termCols);
-      } catch {}
+      } catch { }
     }
   }, [termCols, termRows, initialized]);
 
@@ -233,21 +234,21 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
   }
 
   // Render all rows of the buffer (buffer size matches visible area)
-  const renderCols = Math.max(termCols, 80);
-  const visibleRows = termRows - 2; // -2 for header
+  const renderCols = termCols;
+  const visibleRows = termRows;
 
   const lines: string[] = [];
   for (let r = 0; r < visibleRows; r++) {
     const row = buffer[r];
-    if (!row) {
-      lines.push("");
-      continue;
-    }
     let line = "";
-    for (let c = 0; c < Math.min(renderCols, row.length); c++) {
-      line += row[c]?.char || " ";
+    if (row) {
+      for (let c = 0; c < Math.min(renderCols, row.length); c++) {
+        line += row[c]?.char || " ";
+      }
+    } else {
+      line = " ".repeat(renderCols);
     }
-    lines.push(line.trimEnd());
+    lines.push(line);
   }
 
   return (
@@ -256,11 +257,12 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
         <text style={{ fg: "cyan", bold: true }}>Terminal</text>
       </box>
 
-      <box style={{ flexDirection: "column", flexGrow: 1, overflow: "hidden" }}>
+      <box style={{ flexDirection: "column", flexGrow: 1, overflow: "hidden", paddingX: 1 }}>
         {lines.map((line, rowIdx) => (
           <text key={rowIdx}>{line}</text>
         ))}
       </box>
     </box>
   );
+
 }
