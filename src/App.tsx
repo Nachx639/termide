@@ -28,7 +28,7 @@ async function copyToClipboard(text: string): Promise<void> {
     proc.stdin.write(text);
     proc.stdin.end();
     await proc.exited;
-  } catch {}
+  } catch { }
 }
 
 async function pasteFromClipboard(): Promise<string> {
@@ -57,7 +57,7 @@ export function App({ rootPath }: AppProps) {
           const content = terminalCopyRef.current();
           await copyToClipboard(content);
         }
-      } catch {}
+      } catch { }
       return;
     }
 
@@ -111,7 +111,9 @@ export function App({ rootPath }: AppProps) {
     <box style={{ flexDirection: "column", width: "100%", height: "100%" }}>
       {/* Header */}
       <box style={{ paddingX: 1, flexDirection: "row", gap: 1 }}>
+        <text style={{ fg: "yellow" }}>🐜</text>
         <text style={{ fg: "cyan", bold: true }}>termide</text>
+
         <text style={{ fg: "gray" }}>|</text>
         <text style={{ fg: "white" }}>{rootPath}</text>
         <text style={{ fg: "gray" }}>| Tab: switch | ^Q: quit</text>
