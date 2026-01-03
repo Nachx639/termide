@@ -26,7 +26,7 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
     return (
         <box style={{ flexDirection: "column", border: true, borderColor, height: "100%", bg: "#0b0b0b" }} onMouseDown={onFocus}>
             <box style={{ paddingX: 1, height: 1, bg: "#1a1a1a" }}>
-                <text style={{ fg: "yellow", bold: true, bg: "#1a1a1a" }}>Git Graph</text>
+                <text style={{ fg: "#d4a800", bold: true, bg: "#1a1a1a" }}>Git Graph</text>
             </box>
             <scrollbox style={{ flexDirection: "column", flexGrow: 1, paddingX: 1, bg: "#0b0b0b" }}>
                 {logLines.length === 0 ? (

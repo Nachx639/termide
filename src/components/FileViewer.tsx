@@ -288,7 +288,7 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
             <text style={{ fg: "cyan", bold: true }}>{fileName}</text>
           )}
           <box style={{ flexDirection: "row", flexShrink: 0 }}>
-            {langIndicator && <text style={{ fg: "yellow", dim: true }}> [{langIndicator}]</text>}
+            {langIndicator && <text style={{ fg: "#d4a800", dim: true }}> [{langIndicator}]</text>}
             {wordWrap && <text style={{ fg: "magenta", dim: true }}> [wrap]</text>}
             {showIndentGuides && <text style={{ fg: "gray", dim: true }}> [guides]</text>}
             {showMinimap && <text style={{ fg: "blue", dim: true }}> [map]</text>}

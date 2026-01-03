@@ -37,8 +37,8 @@ const DEFAULT_STYLE: CellStyle = {
 // ANSI color codes to named colors
 // Note: magenta (index 5, 13) remapped to yellow hex for visual harmony with cyan theme
 const COLORS_16 = [
-  "black", "red", "green", "yellow", "blue", "#d4a800", "cyan", "white",
-  "gray", "brightRed", "brightGreen", "brightYellow", "brightBlue", "#ffdd00", "brightCyan", "brightWhite"
+  "black", "red", "green", "#d4a800", "blue", "#d4a800", "cyan", "white",
+  "gray", "brightRed", "brightGreen", "#e6b800", "brightBlue", "#ffdd00", "brightCyan", "brightWhite"
 ];
 
 export class VirtualTerminal {
@@ -405,11 +405,11 @@ export class VirtualTerminal {
       // Return a yellow shade proportional to the brightness
       const brightness = Math.max(r, b);
       if (brightness > 200) {
-        return "#ffff55"; // Bright yellow
+        return "#e6b800"; // Bright yellow
       } else if (brightness > 150) {
-        return "#dddd00"; // Medium yellow
+        return "#d4a800"; // Medium yellow
       } else {
-        return "#aa8800"; // Dark yellow/gold
+        return "#b08600"; // Dark yellow/gold
       }
     }
     return null;

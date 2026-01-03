@@ -248,7 +248,7 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
           <text style={{ fg: "gray" }}>Initializing...</text>
         </box>
         <box style={{ flexGrow: 1, justifyContent: "center", alignItems: "center" }}>
-          <text style={{ fg: "yellow" }}>Starting shell...</text>
+          <text style={{ fg: "#d4a800" }}>Starting shell...</text>
         </box>
       </box>
     );
@@ -277,8 +277,8 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
 
         // Remap magenta-ish colors to yellow for visual harmony
         const remapColor = (color: string): string => {
-          if (color === "magenta" || color === "brightMagenta") return "#ffff55";
-          if (color === "darkMagenta") return "#aa8800";
+          if (color === "magenta" || color === "brightMagenta") return "#e6b800";
+          if (color === "darkMagenta") return "#b08600";
 
           // Check for RGB magenta variants
           if (color.startsWith("rgb(")) {
@@ -290,9 +290,9 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
               // Detect magenta-ish colors (high red, low green, high blue)
               if (r > 100 && g < 150 && b > 100 && Math.abs(r - b) < 100) {
                 const brightness = Math.max(r, b);
-                if (brightness > 200) return "#ffff55";
-                if (brightness > 150) return "#dddd00";
-                return "#aa8800";
+                if (brightness > 200) return "#e6b800";
+                if (brightness > 150) return "#d4a800";
+                return "#b08600";
               }
             }
           }
@@ -305,9 +305,9 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
             // Detect magenta-ish colors
             if (r > 100 && g < 150 && b > 100 && Math.abs(r - b) < 100) {
               const brightness = Math.max(r, b);
-              if (brightness > 200) return "#ffff55";
-              if (brightness > 150) return "#dddd00";
-              return "#aa8800";
+              if (brightness > 200) return "#e6b800";
+              if (brightness > 150) return "#d4a800";
+              return "#b08600";
             }
           }
 
