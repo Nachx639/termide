@@ -116,8 +116,13 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
     });
   });
 
+  // Add spacers at the very end so that the scroll logic can "push" the last items 
+  // above the footer divider (scroll-past-end effect)
+  fullRenderList.push({ type: "header", label: "" });
+  fullRenderList.push({ type: "header", label: "" });
+
   // Edge-triggered scroll logic based on flat lines
-  const maxLines = 13;
+  const maxLines = 11; // Must match the height of the results area box
   const scrollMargin = 2; // Buffer: scroll 2 lines before reaching the edge
   const [scrollTop, setScrollTop] = React.useState(0);
 
@@ -168,12 +173,12 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
           position: "relative",
         }}
       >
-        {/* Force opacity with backdrop - offset by 1 to protect borders */}
+        {/* Backdrop: Blocks transparency by filling exactly 17 lines with spaces */}
         <box
           style={{
             position: "absolute",
-            top: 1,
-            left: 1,
+            top: 0,
+            left: 0,
             width: "100%",
             height: 17,
             bg: "#050505",
@@ -181,81 +186,81 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
           }}
         >
           {Array.from({ length: 17 }).map((_, i) => (
-            <text key={i} style={{ bg: "#050505" }}>{" ".repeat(150)}</text>
+            <text key={i} style={{ bg: "#050505" }}>{" ".repeat(200)}</text>
           ))}
         </box>
 
-        {/* Content Container - Offset by 1 to protect the magenta border */}
-        <box style={{ margin: 1, flexDirection: "column", flexGrow: 1, bg: "#050505" }}>
-          {/* Search input */}
-          <box style={{ paddingX: 2, height: 1, bg: "#050505", flexDirection: "row" }}>
-            <text style={{ fg: "magenta", bold: true, bg: "#050505" }}> › </text>
-            <text style={{ fg: "white", bg: "#050505" }}>{query}</text>
-            <text style={{ fg: "magenta", bg: "#050505" }}>█</text>
-          </box>
+        {/* Row 1: Search Input */}
+        <box style={{ paddingX: 2, height: 1, bg: "#050505", flexDirection: "row" }}>
+          <text style={{ fg: "magenta", bold: true, bg: "#050505" }}> › </text>
+          <text style={{ fg: "white", bg: "#050505" }}>{query}</text>
+          <text style={{ fg: "magenta", bg: "#050505" }}>█</text>
+        </box>
 
-          {/* 3. Results Area (Height 13 fixed) */}
-          <box style={{ flexDirection: "column", height: 13, paddingX: 2, bg: "#050505" }}>
-            {visibleLines.length === 0 ? (
-              <text style={{ fg: "gray", dim: true, bg: "#050505" }}>No commands found</text>
-            ) : (
-              visibleLines.map((item, i) => {
-                const itemKey = item.type === "header" ? `h-${item.label}` : `c-${item.cmd.id}`;
+        {/* Row 2: Top Divider */}
+        <box style={{ height: 1, borderTop: true, borderColor: "gray", bg: "#050505", borderBottom: false }} />
 
-                if (item.type === "header") {
-                  return (
-                    <box key={itemKey} style={{ height: 1, bg: "#050505" }}>
-                      <text style={{ fg: "gray", dim: true, bold: true, bg: "#050505" }}>{item.label}</text>
-                    </box>
-                  );
-                }
+        {/* Rows 3-13: Results Area (Fixed 11 lines) */}
+        <box style={{ flexDirection: "column", height: 11, paddingX: 2, bg: "#050505" }}>
+          {visibleLines.length === 0 ? (
+            <text style={{ fg: "gray", dim: true, bg: "#050505" }}>No commands found</text>
+          ) : (
+            visibleLines.map((item, i) => {
+              const itemKey = item.type === "header" ? `h-${item.label}-${i}` : `c-${item.cmd.id}`;
 
-                const isSelected = item.index === selectedIndex;
-                const cmd = item.cmd;
-
+              if (item.type === "header") {
                 return (
-                  <box
-                    key={itemKey}
-                    style={{
-                      height: 1,
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                      bg: isSelected ? "magenta" : "#050505" as any,
-                    }}
-                  >
-                    <box style={{ flexDirection: "row", bg: isSelected ? "magenta" : "#050505" as any }}>
-                      <text style={{ fg: isSelected ? "black" : "gray", bg: isSelected ? "magenta" : "#050505" as any }}>
-                        {isSelected ? "▸ " : "  "}
-                      </text>
-                      <text style={{ fg: isSelected ? "black" : "white", bg: isSelected ? "magenta" : "#050505" as any }}>
-                        {cmd.label}
-                      </text>
-                      {cmd.description && (
-                        <text style={{ fg: isSelected ? "black" : "gray", dim: !isSelected, bg: isSelected ? "magenta" : "#050505" as any }}>
-                          {" - "}{cmd.description}
-                        </text>
-                      )}
-                    </box>
-                    {cmd.shortcut && (
-                      <text style={{ fg: isSelected ? "black" : "cyan", bg: isSelected ? "magenta" : "#050505" as any }}>
-                        {cmd.shortcut}
+                  <box key={itemKey} style={{ height: 1, bg: "#050505" }}>
+                    <text style={{ fg: "gray", dim: true, bold: true, bg: "#050505" }}>{item.label}</text>
+                  </box>
+                );
+              }
+
+              const isSelected = item.index === selectedIndex;
+              const cmd = item.cmd;
+
+              return (
+                <box
+                  key={itemKey}
+                  style={{
+                    height: 1,
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    bg: isSelected ? "magenta" : "#050505" as any,
+                  }}
+                >
+                  <box style={{ flexDirection: "row", bg: isSelected ? "magenta" : "#050505" as any }}>
+                    <text style={{ fg: isSelected ? "black" : "gray", bg: isSelected ? "magenta" : "#050505" as any }}>
+                      {isSelected ? "▸ " : "  "}
+                    </text>
+                    <text style={{ fg: isSelected ? "black" : "white", bg: isSelected ? "magenta" : "#050505" as any }}>
+                      {cmd.label}
+                    </text>
+                    {cmd.description && (
+                      <text style={{ fg: isSelected ? "black" : "gray", dim: !isSelected, bg: isSelected ? "magenta" : "#050505" as any }}>
+                        {" - "}{cmd.description}
                       </text>
                     )}
                   </box>
-                );
-              })
-            )}
-          </box>
+                  {cmd.shortcut && (
+                    <text style={{ fg: isSelected ? "black" : "cyan", bg: isSelected ? "magenta" : "#050505" as any }}>
+                      {cmd.shortcut}
+                    </text>
+                  )}
+                </box>
+              );
+            })
+          )}
+        </box>
 
-          {/* Footer Divider */}
-          <box style={{ height: 1, borderTop: true, borderColor: "gray", bg: "#050505" }} />
+        {/* Row 16: Footer Divider */}
+        <box style={{ height: 1, borderTop: true, borderColor: "gray", bg: "#050505", borderBottom: false }} />
 
-          {/* 5. Footer Instructions (Height 1) */}
-          <box style={{ paddingX: 2, height: 1, bg: "#050505" }}>
-            <text style={{ fg: "gray", dim: true, bg: "#050505" }}>
-              {`${filteredCommands.length} commands | ↑↓ select | Enter run | Esc close`}
-            </text>
-          </box>
+        {/* Row 17: Footer Instructions */}
+        <box style={{ paddingX: 2, height: 1, bg: "#050505" }}>
+          <text style={{ fg: "gray", dim: true, bg: "#050505" }}>
+            {`${filteredCommands.length} commands | ↑↓ select | Enter run | Esc close`}
+          </text>
         </box>
       </box>
     </box>
