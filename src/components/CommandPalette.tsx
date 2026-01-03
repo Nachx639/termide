@@ -201,7 +201,19 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
         <box style={{ height: 1, borderTop: true, borderColor: "gray", bg: "#050505", borderBottom: false }} />
 
         {/* Rows 3-13: Results Area (Fixed 11 lines) */}
-        <box style={{ flexDirection: "column", height: 11, paddingX: 2, bg: "#050505" }}>
+        <box
+          style={{ flexDirection: "column", height: 11, paddingX: 2, bg: "#050505" }}
+          onMouse={(event: any) => {
+            if (event.action === "wheel") {
+              if (event.direction === "up") {
+                setSelectedIndex(i => Math.max(0, i - 1));
+              } else {
+                setSelectedIndex(i => Math.min(filteredCommands.length - 1, i + 1));
+              }
+            }
+          }}
+        >
+
           {visibleLines.length === 0 ? (
             <text style={{ fg: "gray", dim: true, bg: "#050505" }}>No commands found</text>
           ) : (
@@ -226,24 +238,24 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
                     height: 1,
                     flexDirection: "row",
                     justifyContent: "space-between",
-                    bg: isSelected ? "magenta" : "#050505" as any,
+                    bg: isSelected ? "#d4a800" : "#050505" as any,
                   }}
                 >
-                  <box style={{ flexDirection: "row", bg: isSelected ? "magenta" : "#050505" as any }}>
-                    <text style={{ fg: isSelected ? "black" : "gray", bg: isSelected ? "magenta" : "#050505" as any }}>
+                  <box style={{ flexDirection: "row", bg: isSelected ? "#d4a800" : "#050505" as any }}>
+                    <text style={{ fg: isSelected ? "black" : "gray", bg: isSelected ? "#d4a800" : "#050505" as any }}>
                       {isSelected ? "▸ " : "  "}
                     </text>
-                    <text style={{ fg: isSelected ? "black" : "white", bg: isSelected ? "magenta" : "#050505" as any }}>
+                    <text style={{ fg: isSelected ? "black" : "white", bg: isSelected ? "#d4a800" : "#050505" as any }}>
                       {cmd.label}
                     </text>
                     {cmd.description && (
-                      <text style={{ fg: isSelected ? "black" : "gray", dim: !isSelected, bg: isSelected ? "magenta" : "#050505" as any }}>
+                      <text style={{ fg: isSelected ? "black" : "gray", dim: !isSelected, bg: isSelected ? "#d4a800" : "#050505" as any }}>
                         {" - "}{cmd.description}
                       </text>
                     )}
                   </box>
                   {cmd.shortcut && (
-                    <text style={{ fg: isSelected ? "black" : "cyan", bg: isSelected ? "magenta" : "#050505" as any }}>
+                    <text style={{ fg: isSelected ? "black" : "cyan", bg: isSelected ? "#d4a800" : "#050505" as any }}>
                       {cmd.shortcut}
                     </text>
                   )}

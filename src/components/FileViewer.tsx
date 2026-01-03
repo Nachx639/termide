@@ -289,11 +289,11 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
           )}
           <box style={{ flexDirection: "row", flexShrink: 0 }}>
             {langIndicator && <text style={{ fg: "#d4a800", dim: true }}> [{langIndicator}]</text>}
-            {wordWrap && <text style={{ fg: "magenta", dim: true }}> [wrap]</text>}
+            {wordWrap && <text style={{ fg: "#d4a800", dim: true }}> [wrap]</text>}
             {showIndentGuides && <text style={{ fg: "gray", dim: true }}> [guides]</text>}
             {showMinimap && <text style={{ fg: "blue", dim: true }}> [map]</text>}
             {isMarkdown && (
-              <text style={{ fg: showPreview ? "magenta" : "gray", dim: !showPreview }}>
+              <text style={{ fg: showPreview ? "#d4a800" : "gray", dim: !showPreview }}>
                 {showPreview ? " [preview]" : " [Alt+P preview]"}
               </text>
             )}
@@ -314,14 +314,37 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
           rootPath={rootPath}
         />
       ) : (
-        <box style={{ flexDirection: "row", flexGrow: 1, position: "relative" }}>
-          <box style={{ flexDirection: "column", paddingLeft: 1, paddingRight: 2, flexGrow: 1, height: viewHeight, overflow: "hidden" }}>
+        <box
+          style={{ flexDirection: "row", flexGrow: 1, position: "relative" }}
+          onMouse={(event: any) => {
+            if (!focused) return;
+            if (event.action === "wheel") {
+              if (event.direction === "up") {
+                const newOffset = Math.max(0, scrollOffset - 3);
+                setScrollOffset(newOffset);
+                // Also move cursor if it's out of view
+                if (cursorLine >= newOffset + viewHeight) {
+                  setCursorLine(newOffset + viewHeight - 1);
+                }
+              } else {
+                const maxOffset = Math.max(0, content.length - viewHeight);
+                const newOffset = Math.min(maxOffset, scrollOffset + 3);
+                setScrollOffset(newOffset);
+                // Also move cursor if it's out of view
+                if (cursorLine < newOffset) {
+                  setCursorLine(newOffset);
+                }
+              }
+            }
+          }}
+        >
+          <box style={{ flexDirection: "column", paddingLeft: 1, paddingRight: 1, flexGrow: 1, height: viewHeight, overflow: "hidden" }}>
             {filePath ? (
               visibleLines.map((line, index) => {
                 const lineNum = scrollOffset + index + 1;
                 const isCurrentLine = scrollOffset + index === cursorLine;
                 const lineNumFg = isCurrentLine ? "yellow" : "gray";
-                const lineBg = isCurrentLine && focused ? "gray" : undefined;
+                const lineBg = isCurrentLine && focused ? "#1a1a1a" : undefined;
 
                 // Handle word wrap
                 if (wordWrap && line.length > wrapWidth) {
@@ -362,6 +385,27 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
               </box>
             )}
           </box>
+
+          {/* Scrollbar */}
+          {content.length > viewHeight && (
+            <box style={{ width: 1, height: viewHeight, flexDirection: "column", bg: "#050505", borderLeft: true, borderColor: "gray", dim: true }}>
+              {(() => {
+                const scrollPercentage = scrollOffset / (content.length - viewHeight);
+                const thumbHeight = Math.max(1, Math.floor((viewHeight / content.length) * viewHeight));
+                const thumbPos = Math.floor(scrollPercentage * (viewHeight - thumbHeight));
+
+                return Array.from({ length: viewHeight }).map((_, i) => {
+                  const isThumb = i >= thumbPos && i < thumbPos + thumbHeight;
+                  return (
+                    <text key={i} style={{ fg: isThumb ? "cyan" : "gray", dim: !isThumb }}>
+                      {isThumb ? "█" : "│"}
+                    </text>
+                  );
+                });
+              })()}
+            </box>
+          )}
+
           {/* Minimap */}
           {showMinimap && filePath && content.length > 0 && !showPreview && (
             <Minimap

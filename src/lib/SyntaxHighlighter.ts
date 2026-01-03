@@ -49,7 +49,7 @@ export interface Theme {
 
 // Default dark theme inspired by One Dark / Dracula
 export const DARK_THEME: Theme = {
-  keyword: "magenta",
+  keyword: "#d4a800",
   string: "green",
   comment: "gray",
   number: "#d4a800",

@@ -34,11 +34,10 @@ const DEFAULT_STYLE: CellStyle = {
   inverse: false,
 };
 
-// ANSI color codes to named colors
-// Note: magenta (index 5, 13) remapped to yellow hex for visual harmony with cyan theme
+// ANSI color codes - magenta remapped to cyan for visual harmony
 const COLORS_16 = [
-  "black", "red", "green", "#d4a800", "blue", "#d4a800", "cyan", "white",
-  "gray", "brightRed", "brightGreen", "#e6b800", "brightBlue", "#ffdd00", "brightCyan", "brightWhite"
+  "black", "red", "green", "yellow", "blue", "cyan", "cyan", "white",
+  "gray", "brightRed", "brightGreen", "brightYellow", "brightBlue", "brightCyan", "brightCyan", "brightWhite"
 ];
 
 export class VirtualTerminal {
@@ -366,8 +365,8 @@ export class VirtualTerminal {
           this.currentStyle.fg = this.color256ToName(args[i + 2]!);
           i += 2;
         } else if (args[i + 1] === 2 && args[i + 4] !== undefined) {
-          // RGB color - use rgbToColor for magenta remapping
-          this.currentStyle.fg = this.rgbToColor(args[i + 2]!, args[i + 3]!, args[i + 4]!);
+          // RGB color
+          this.currentStyle.fg = this.rgbToCyan(args[i + 2]!, args[i + 3]!, args[i + 4]!);
           i += 4;
         }
       } else if (code === 39) {
@@ -380,8 +379,7 @@ export class VirtualTerminal {
           this.currentStyle.bg = this.color256ToName(args[i + 2]!);
           i += 2;
         } else if (args[i + 1] === 2 && args[i + 4] !== undefined) {
-          // RGB color - use rgbToColor for magenta remapping
-          this.currentStyle.bg = this.rgbToColor(args[i + 2]!, args[i + 3]!, args[i + 4]!);
+          this.currentStyle.bg = this.rgbToCyan(args[i + 2]!, args[i + 3]!, args[i + 4]!);
           i += 4;
         }
       } else if (code === 49) {
@@ -394,25 +392,9 @@ export class VirtualTerminal {
     }
   }
 
-  /**
-   * Remap magenta-ish colors to yellow for visual harmony with cyan theme
-   * Detects various shades of magenta/purple and converts to yellow
-   */
-  private remapMagentaToYellow(r: number, g: number, b: number): string | null {
-    // Detect magenta: high red, low green, high blue
-    // Also catches purple variants
-    if (r > 100 && g < 150 && b > 100 && Math.abs(r - b) < 100) {
-      // Return a yellow shade proportional to the brightness
-      const brightness = Math.max(r, b);
-      if (brightness > 200) {
-        return "#e6b800"; // Bright yellow
-      } else if (brightness > 150) {
-        return "#d4a800"; // Medium yellow
-      } else {
-        return "#b08600"; // Dark yellow/gold
-      }
-    }
-    return null;
+  private isMagenta(r: number, g: number, b: number): boolean {
+    // Catch more magenta/pink variants with lower threshold
+    return r > 80 && b > 80 && g < r && g < b;
   }
 
   private color256ToName(code: number): string {
@@ -421,18 +403,13 @@ export class VirtualTerminal {
     } else if (code < 232) {
       // 216 color cube
       const idx = code - 16;
-      const r = Math.floor(idx / 36);
-      const g = Math.floor((idx % 36) / 6);
-      const b = idx % 6;
-      // Convert to actual RGB values
-      const toRgb = (v: number) => (v === 0 ? 0 : v * 40 + 55);
-      const rVal = toRgb(r);
-      const gVal = toRgb(g);
-      const bVal = toRgb(b);
-      // Check for magenta-ish colors and remap to yellow
-      const remapped = this.remapMagentaToYellow(rVal, gVal, bVal);
-      if (remapped) return remapped;
-      return `rgb(${rVal},${gVal},${bVal})`;
+      const ri = Math.floor(idx / 36);
+      const gi = Math.floor((idx % 36) / 6);
+      const bi = idx % 6;
+      const toVal = (v: number) => (v === 0 ? 0 : v * 40 + 55);
+      const r = toVal(ri), g = toVal(gi), b = toVal(bi);
+      if (this.isMagenta(r, g, b)) return "cyan";
+      return `rgb(${r},${g},${b})`;
     } else {
       // Grayscale
       const gray = (code - 232) * 10 + 8;
@@ -440,12 +417,8 @@ export class VirtualTerminal {
     }
   }
 
-  /**
-   * Convert RGB values to color string, remapping magenta to yellow
-   */
-  private rgbToColor(r: number, g: number, b: number): string {
-    const remapped = this.remapMagentaToYellow(r, g, b);
-    if (remapped) return remapped;
+  private rgbToCyan(r: number, g: number, b: number): string {
+    if (this.isMagenta(r, g, b)) return "cyan";
     return `rgb(${r},${g},${b})`;
   }
 

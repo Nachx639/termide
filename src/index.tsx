@@ -8,4 +8,5 @@ import * as path from "path";
 const rootPath = path.resolve(process.argv[2] || process.cwd());
 
 const renderer = await createCliRenderer();
+
 createRoot(renderer).render(<App rootPath={rootPath} />);

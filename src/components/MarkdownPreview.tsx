@@ -197,7 +197,7 @@ export function MarkdownPreview({ filePath, focused, rootPath }: MarkdownPreview
 
   const visibleLines = renderedLines.slice(scrollOffset, scrollOffset + viewHeight);
   const fileName = filePath ? path.basename(filePath) : "No file selected";
-  const borderColor = focused ? "magenta" : "gray";
+  const borderColor = focused ? "#d4a800" : "gray";
 
   return (
     <box style={{ flexDirection: "column", border: true, borderColor, height: "100%" }}>

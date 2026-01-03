@@ -47,7 +47,7 @@ function getLineColor(line: string): string {
 
   // Keywords
   if (/^(import|export|const|let|var|function|class|interface|type|if|else|for|while|return|async|await)\b/.test(trimmed)) {
-    return "magenta";
+    return "#d4a800";
   }
 
   // Strings

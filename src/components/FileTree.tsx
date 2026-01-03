@@ -162,43 +162,82 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus }: FileTreeP
       <box style={{ paddingX: 1, height: 1, bg: "#1a1a1a" }}>
         <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a" }}>Explorer</text>
       </box>
-      <scrollbox style={{ flexDirection: "column", paddingX: 1, flexGrow: 1, bg: "#0b0b0b" }}>
-        {flatList.slice(scrollTop, scrollTop + 20).map((node, index) => {
-          const actualIndex = index + scrollTop;
-          const isSelected = actualIndex === selectedIndex && focused;
-          const prefix = "  ".repeat(node.level);
-          const fileIcon = getFileIconSimple(node.name, node.isDirectory, node.expanded);
-          const gitStatus = gitStatuses.get(node.path);
-
-          // Color based on selection and git status
-          let nameFg: string;
-          if (isSelected) {
-            nameFg = "white";
-          } else if (node.isDirectory) {
-            nameFg = "yellow";
-          } else if (gitStatus) {
-            nameFg = getFileStatusColor(gitStatus);
-          } else {
-            nameFg = "white";
+      <box
+        style={{ flexDirection: "row", flexGrow: 1, bg: "#0b0b0b", position: "relative" }}
+        onMouse={(event: any) => {
+          if (!focused) return;
+          if (event.action === "wheel") {
+            if (event.direction === "up") {
+              setSelectedIndex(i => Math.max(0, i - 1));
+              if (selectedIndex - 1 < scrollTop) setScrollTop(Math.max(0, scrollTop - 1));
+            } else {
+              setSelectedIndex(i => Math.min(flatList.length - 1, i + 1));
+              const visibleHeight = 20;
+              if (selectedIndex + 1 >= scrollTop + visibleHeight) setScrollTop(scrollTop + 1);
+            }
           }
+        }}
+      >
+        <scrollbox style={{ flexDirection: "column", paddingX: 1, flexGrow: 1, bg: "#0b0b0b" }}>
+          {flatList.slice(scrollTop, scrollTop + 20).map((node, index) => {
+            const actualIndex = index + scrollTop;
+            const isSelected = actualIndex === selectedIndex && focused;
+            const prefix = "  ".repeat(node.level);
+            const fileIcon = getFileIconSimple(node.name, node.isDirectory, node.expanded);
+            const gitStatus = gitStatuses.get(node.path);
 
-          const bg = isSelected ? "blue" : undefined;
-          const iconColor = isSelected ? "cyan" : fileIcon.color;
+            // Color based on selection and git status
+            let nameFg: string;
+            if (isSelected) {
+              nameFg = "white";
+            } else if (node.isDirectory) {
+              nameFg = "yellow";
+            } else if (gitStatus) {
+              nameFg = getFileStatusColor(gitStatus);
+            } else {
+              nameFg = "white";
+            }
 
-          return (
-            <box key={node.path} style={{ flexDirection: "row", bg: bg as any, paddingX: 1 }}>
-              <text style={{ fg: isSelected ? "cyan" : "gray" }}>{prefix}</text>
-              <text style={{ fg: isSelected ? "cyan" : iconColor as any }}>{fileIcon.icon} </text>
-              <text style={{ fg: isSelected ? "cyan" : (gitStatus ? getFileStatusColor(gitStatus) : "gray") as any }}>
-                {gitStatus ? (getFileStatusIcon(gitStatus).trim()[0] || " ") : " "}
-              </text>
-              <text style={{ fg: isSelected ? "cyan" : nameFg as any, bold: isSelected }}>
-                {" "}{node.name}
-              </text>
-            </box>
-          );
-        })}
-      </scrollbox>
+            const bg = isSelected ? "blue" : undefined;
+            const iconColor = isSelected ? "cyan" : fileIcon.color;
+
+            return (
+              <box key={node.path} style={{ flexDirection: "row", bg: bg as any, paddingX: 1 }}>
+                <text style={{ fg: isSelected ? "cyan" : "gray" }}>{prefix}</text>
+                <text style={{ fg: isSelected ? "cyan" : iconColor as any }}>{fileIcon.icon} </text>
+                <text style={{ fg: isSelected ? "cyan" : (gitStatus ? getFileStatusColor(gitStatus) : "gray") as any }}>
+                  {gitStatus ? (getFileStatusIcon(gitStatus).trim()[0] || " ") : " "}
+                </text>
+                <text style={{ fg: isSelected ? "cyan" : nameFg as any, bold: isSelected }}>
+                  {" "}{node.name}
+                </text>
+              </box>
+            );
+          })}
+        </scrollbox>
+
+        {/* Scrollbar */}
+        {flatList.length > 20 && (
+          <box style={{ width: 1, height: "100%", flexDirection: "column", bg: "#050505", borderLeft: true, borderColor: "gray", dim: true }}>
+            {(() => {
+              const visibleCount = 20;
+              const scrollPercentage = scrollTop / (flatList.length - visibleCount);
+              const thumbHeight = Math.max(1, Math.floor((visibleCount / flatList.length) * visibleCount));
+              const thumbPos = Math.floor(scrollPercentage * (visibleCount - thumbHeight));
+
+              return Array.from({ length: visibleCount }).map((_, i) => {
+                const isThumb = i >= thumbPos && i < thumbPos + thumbHeight;
+                return (
+                  <text key={i} style={{ fg: isThumb ? "cyan" : "gray", dim: !isThumb }}>
+                    {isThumb ? "█" : "│"}
+                  </text>
+                );
+              });
+            })()}
+          </box>
+        )}
+      </box>
     </box>
+
   );
 }
