@@ -81,6 +81,7 @@ export function App({ rootPath }: AppProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [fileStats, setFileStats] = useState<{ size: number; lineCount: number } | null>(null);
   const { notifications, notify, dismiss, success, error } = useNotifications();
+  const isAnyModalOpen = showFuzzyFinder || showCommandPalette || showGlobalSearch || showHelpPanel || showThemePicker;
 
   // Update clock every second
   useEffect(() => {
@@ -466,19 +467,19 @@ export function App({ rootPath }: AppProps) {
             <FileTree
               rootPath={rootPath}
               onFileSelect={handleFileSelect}
-              focused={focusedPanel === "tree"}
+              focused={!isAnyModalOpen && focusedPanel === "tree"}
             />
           </box>
           <box style={{ flexGrow: 3 }}>
             <SourceControl
               rootPath={rootPath}
-              focused={focusedPanel === "source"}
+              focused={!isAnyModalOpen && focusedPanel === "source"}
             />
           </box>
           <box style={{ flexGrow: 3 }}>
             <GitGraph
               rootPath={rootPath}
-              focused={focusedPanel === "graph"}
+              focused={!isAnyModalOpen && focusedPanel === "graph"}
             />
           </box>
         </box>
@@ -492,7 +493,7 @@ export function App({ rootPath }: AppProps) {
               activeTabIndex={activeTabIndex}
               onSelectTab={setActiveTabIndex}
               onCloseTab={handleCloseTab}
-              focused={focusedPanel === "viewer"}
+              focused={!isAnyModalOpen && focusedPanel === "viewer"}
             />
           )}
 
@@ -500,7 +501,7 @@ export function App({ rootPath }: AppProps) {
           <box style={{ flexGrow: 2 }}>
             <FileViewer
               filePath={selectedFile}
-              focused={focusedPanel === "viewer"}
+              focused={!isAnyModalOpen && focusedPanel === "viewer"}
               rootPath={rootPath}
             />
           </box>
@@ -509,7 +510,7 @@ export function App({ rootPath }: AppProps) {
           <box style={{ flexGrow: 3 }}>
             <Terminal
               cwd={rootPath}
-              focused={focusedPanel === "terminal"}
+              focused={!isAnyModalOpen && focusedPanel === "terminal"}
               onFocusRequest={() => setFocusedPanel("terminal")}
               onPasteReady={(pasteFn) => { terminalPasteRef.current = pasteFn; }}
               onCopyReady={(copyFn) => { terminalCopyRef.current = copyFn; }}

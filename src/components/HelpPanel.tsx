@@ -128,8 +128,9 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
           flexDirection: "column",
           border: true,
           borderColor: "cyan",
-          bg: "#0b0b0b",
+          bg: "#050505",
           position: "relative",
+          overflow: "hidden",
         }}
       >
         {/* Absolute Backdrop of spaces to force terminal opacity */}
@@ -160,31 +161,35 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
         </box>
 
         {/* Content */}
-        <scrollbox style={{ flexDirection: "row", flexWrap: "wrap", flexGrow: 1, padding: 2, gap: 4, bg: "#050505" }}>
-          {SHORTCUTS.map((category) => (
-            <box
-              key={category.title}
-              style={{
-                flexDirection: "column",
-                width: 40,
-                marginBottom: 1,
-                bg: "#050505",
-              }}
-            >
-              <text style={{ fg: "yellow", bold: true, marginBottom: 1, bg: "#050505" }}>
-                {category.title}
-              </text>
-              {category.shortcuts.map((shortcut, idx) => (
-                <box key={idx} style={{ flexDirection: "row", bg: "#050505" }}>
-                  <text style={{ fg: "cyan", width: 18, bg: "#050505" }}>{shortcut.keys}</text>
-                  <text style={{ fg: "white", bg: "#050505" }}>{shortcut.description}</text>
+        <scrollbox style={{ flexGrow: 1, bg: "#050505" }}>
+          <box style={{ flexDirection: "row", flexWrap: "wrap", padding: 2, gap: 4, bg: "#050505" }}>
+            {SHORTCUTS.map((category) => (
+              <box
+                key={category.title}
+                style={{
+                  flexDirection: "column",
+                  width: 38,
+                  marginBottom: 2,
+                  bg: "#050505",
+                }}
+              >
+                <box style={{ marginBottom: 1, borderBottom: true, borderColor: "blue", bg: "#050505" }}>
+                  <text style={{ fg: "yellow", bold: true, bg: "#050505" }}>
+                    {category.title.toUpperCase()}
+                  </text>
                 </box>
-              ))}
+                {category.shortcuts.map((shortcut, idx) => (
+                  <box key={idx} style={{ flexDirection: "row", marginBottom: 0, bg: "#050505" }}>
+                    <text style={{ fg: "cyan", width: 14, bg: "#050505" }}>{shortcut.keys}</text>
+                    <text style={{ fg: "white", bg: "#050505" }}>{shortcut.description}</text>
+                  </box>
+                ))}
+              </box>
+            ))}
+            {/* Filler to ensure bottom padding and background solidity */}
+            <box style={{ height: 10, width: "100%", bg: "#050505" }}>
+              <text style={{ bg: "#050505" }}>{" ".repeat(200)}</text>
             </box>
-          ))}
-          {/* Filler to ensure background opacity */}
-          <box style={{ flexGrow: 1, width: "100%", bg: "#1a1a1a" }}>
-            <text style={{ bg: "#1a1a1a" }}> </text>
           </box>
         </scrollbox>
 

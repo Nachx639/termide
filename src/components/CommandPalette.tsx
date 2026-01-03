@@ -48,15 +48,13 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
     );
   }, [query, commands]);
 
-  // Reset when opened
+  // Reset when opened or query changes
   React.useEffect(() => {
-    if (isOpen) {
-      setQuery("");
-      setSelectedIndex(0);
-    }
-  }, [isOpen]);
+    setSelectedIndex(0);
+    setScrollTop(0);
+  }, [isOpen, query]);
 
-  // Handle keyboard
+  // Handle keyboard events exclusively when open
   useKeyboard((event) => {
     if (!isOpen) return;
 
@@ -96,23 +94,56 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
     }
   });
 
-  if (!isOpen) return null;
-
-  const visibleCommands = filteredCommands.slice(0, 12);
-
-  // Group by category
-  const groupedCommands: { [category: string]: Command[] } = {};
-  for (const cmd of visibleCommands) {
-    const cat = cmd.category || "General";
-    if (!groupedCommands[cat]) groupedCommands[cat] = [];
-    groupedCommands[cat].push(cmd);
-  }
-
-  let globalIndex = 0;
-
   const dimensions = useTerminalDimensions();
   const width = dimensions.width || 80;
   const height = dimensions.height || 24;
+
+  // Create flat list for rendering (Headers + Commands)
+  const fullRenderList: ({ type: "header"; label: string } | { type: "command"; cmd: Command; index: number })[] = [];
+  const allGrouped: { [category: string]: Command[] } = {};
+
+  filteredCommands.forEach((cmd, idx) => {
+    const cat = cmd.category || "General";
+    if (!allGrouped[cat]) allGrouped[cat] = [];
+    allGrouped[cat].push(cmd);
+  });
+
+  Object.entries(allGrouped).forEach(([category, cmds]) => {
+    fullRenderList.push({ type: "header", label: category });
+    cmds.forEach(cmd => {
+      const originalIdx = filteredCommands.findIndex(c => c.id === cmd.id);
+      fullRenderList.push({ type: "command", cmd, index: originalIdx });
+    });
+  });
+
+  // Edge-triggered scroll logic based on flat lines
+  const maxLines = 13;
+  const scrollMargin = 2; // Buffer: scroll 2 lines before reaching the edge
+  const [scrollTop, setScrollTop] = React.useState(0);
+
+  const selectedFlatIndex = fullRenderList.findIndex(
+    item => item.type === "command" && item.index === selectedIndex
+  );
+
+  // Compute effective scroll for this frame (zero-lag sync)
+  let currentScroll = scrollTop;
+  if (isOpen && selectedFlatIndex !== -1) {
+    if (selectedFlatIndex < currentScroll + scrollMargin) {
+      currentScroll = Math.max(0, selectedFlatIndex - scrollMargin);
+    } else if (selectedFlatIndex >= currentScroll + maxLines - scrollMargin) {
+      const maxPossible = Math.max(0, fullRenderList.length - maxLines);
+      currentScroll = Math.min(maxPossible, selectedFlatIndex - maxLines + 1 + scrollMargin);
+    }
+  }
+
+  // Update state to keep it stable
+  React.useEffect(() => {
+    if (isOpen && currentScroll !== scrollTop) {
+      setScrollTop(currentScroll);
+    }
+  }, [currentScroll, isOpen, scrollTop]);
+
+  const visibleLines = fullRenderList.slice(currentScroll, currentScroll + maxLines);
 
   return (
     <box
@@ -129,15 +160,15 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
       <box
         style={{
           width: "80%",
-          height: 18,
+          height: 19,
           flexDirection: "column",
           border: true,
           borderColor: "magenta",
-          bg: "#0b0b0b",
+          bg: "#050505",
           position: "relative",
         }}
       >
-        {/* Absolute Backdrop of spaces to force terminal opacity */}
+        {/* Force opacity with a backdrop that stays inside the borders */}
         <box
           style={{
             position: "absolute",
@@ -145,82 +176,88 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
             left: 0,
             width: "100%",
             height: "100%",
-            bg: "#1a1a1a",
+            bg: "#050505",
             flexDirection: "column",
           }}
         >
-          {Array.from({ length: 18 }).map((_, i) => (
-            <text key={i} style={{ bg: "#1a1a1a" }}>{" ".repeat(200)}</text>
+          {Array.from({ length: 40 }).map((_, i) => (
+            <text key={i} style={{ bg: "#050505" }}>{" ".repeat(250)}</text>
           ))}
         </box>
 
-        {/* Search input */}
-        <box style={{ paddingX: 1, borderBottom: true, borderColor: "gray", bg: "#1a1a1a" }}>
-          <text style={{ fg: "magenta", bg: "#1a1a1a" }}>⌘ </text>
-          <text style={{ fg: "white", bg: "#1a1a1a" }}>{query || ""}</text>
-          <text style={{ fg: "magenta", blink: true, bg: "#1a1a1a" }}>▌</text>
-        </box>
+        {/* Content Container - Offset by 1 to protect the magenta border */}
+        <box style={{ margin: 1, flexDirection: "column", flexGrow: 1, bg: "#050505" }}>
+          {/* Search input */}
+          <box style={{ paddingX: 2, height: 1, bg: "#050505", flexDirection: "row" }}>
+            <text style={{ fg: "magenta", bold: true, bg: "#050505" }}> › </text>
+            <text style={{ fg: "white", bg: "#050505" }}>{query}</text>
+            <text style={{ fg: "magenta", bg: "#050505" }}>█</text>
+          </box>
 
-        {/* Results */}
-        <scrollbox style={{ flexDirection: "column", flexGrow: 1, paddingX: 1, bg: "#1a1a1a" }}>
-          {visibleCommands.length === 0 ? (
-            <text style={{ fg: "gray", dim: true, bg: "#1a1a1a" }}>No commands found</text>
-          ) : (
-            Object.entries(groupedCommands).map(([category, cmds]) => (
-              <box key={category} style={{ flexDirection: "column", bg: "#1a1a1a" }}>
-                <text style={{ fg: "gray", dim: true, bold: true, bg: "#1a1a1a" }}>{category}</text>
-                {cmds.map((cmd) => {
-                  const isSelected = globalIndex === selectedIndex;
-                  const currentIndex = globalIndex;
-                  globalIndex++;
+          {/* 3. Results Area (Height 13 fixed) */}
+          <box style={{ flexDirection: "column", height: 13, paddingX: 2, bg: "#050505" }}>
+            {visibleLines.length === 0 ? (
+              <text style={{ fg: "gray", dim: true, bg: "#050505" }}>No commands found</text>
+            ) : (
+              visibleLines.map((item, i) => {
+                const itemKey = item.type === "header" ? `h-${item.label}` : `c-${item.cmd.id}`;
 
+                if (item.type === "header") {
                   return (
-                    <box
-                      key={cmd.id}
-                      style={{
-                        flexDirection: "row",
-                        justifyContent: "space-between",
-                        bg: isSelected ? "magenta" : "#1a1a1a" as any,
-                      }}
-                    >
-                      <box style={{ flexDirection: "row", bg: isSelected ? "magenta" : "#1a1a1a" as any }}>
-                        <text style={{ fg: isSelected ? "black" : "gray", bg: isSelected ? "magenta" : "#1a1a1a" as any }}>
-                          {isSelected ? "▸ " : "  "}
-                        </text>
-                        <text style={{ fg: isSelected ? "black" : "white", bg: isSelected ? "magenta" : "#1a1a1a" as any }}>
-                          {cmd.label}
-                        </text>
-                        {cmd.description && (
-                          <text style={{ fg: isSelected ? "black" : "gray", dim: !isSelected, bg: isSelected ? "magenta" : "#1a1a1a" as any }}>
-                            {" - "}{cmd.description}
-                          </text>
-                        )}
-                      </box>
-                      {cmd.shortcut && (
-                        <text style={{ fg: isSelected ? "black" : "cyan", bg: isSelected ? "magenta" : "#1a1a1a" as any }}>
-                          {cmd.shortcut}
+                    <box key={itemKey} style={{ height: 1, bg: "#050505" }}>
+                      <text style={{ fg: "gray", dim: true, bold: true, bg: "#050505" }}>{item.label}</text>
+                    </box>
+                  );
+                }
+
+                const isSelected = item.index === selectedIndex;
+                const cmd = item.cmd;
+
+                return (
+                  <box
+                    key={itemKey}
+                    style={{
+                      height: 1,
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      bg: isSelected ? "magenta" : "#050505" as any,
+                    }}
+                  >
+                    <box style={{ flexDirection: "row", bg: isSelected ? "magenta" : "#050505" as any }}>
+                      <text style={{ fg: isSelected ? "black" : "gray", bg: isSelected ? "magenta" : "#050505" as any }}>
+                        {isSelected ? "▸ " : "  "}
+                      </text>
+                      <text style={{ fg: isSelected ? "black" : "white", bg: isSelected ? "magenta" : "#050505" as any }}>
+                        {cmd.label}
+                      </text>
+                      {cmd.description && (
+                        <text style={{ fg: isSelected ? "black" : "gray", dim: !isSelected, bg: isSelected ? "magenta" : "#050505" as any }}>
+                          {" - "}{cmd.description}
                         </text>
                       )}
                     </box>
-                  );
-                })}
-              </box>
-            ))
-          )}
-          {/* Filler to ensure background opacity */}
-          <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
-            <text style={{ bg: "#1a1a1a" }}> </text>
+                    {cmd.shortcut && (
+                      <text style={{ fg: isSelected ? "black" : "cyan", bg: isSelected ? "magenta" : "#050505" as any }}>
+                        {cmd.shortcut}
+                      </text>
+                    )}
+                  </box>
+                );
+              })
+            )}
           </box>
-        </scrollbox>
 
-        {/* Footer */}
-        <box style={{ paddingX: 1, borderTop: true, borderColor: "gray", bg: "#0b0b0b" }}>
-          <text style={{ fg: "gray", dim: true, bg: "#0b0b0b" }}>
-            {filteredCommands.length} commands | ↑↓ select | Enter run | Esc close
-          </text>
+          {/* Footer Divider */}
+          <box style={{ height: 1, borderTop: true, borderColor: "gray", bg: "#050505" }} />
+
+          {/* 5. Footer Instructions (Height 1) */}
+          <box style={{ paddingX: 2, height: 1, bg: "#050505" }}>
+            <text style={{ fg: "gray", dim: true, bg: "#050505" }}>
+              {(`${filteredCommands.length} commands | ↑↓ select | Enter run | Esc close`).padEnd(width)}
+            </text>
+          </box>
         </box>
       </box>
-
     </box>
   );
 }
