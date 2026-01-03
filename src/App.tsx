@@ -159,14 +159,14 @@ export function App({ rootPath }: AppProps) {
 
     const frames = [
       [
-        "      \\ /",
+        "      \\ \\",
         " ooO( o.o )>",
-        "  / / \\ \\"
+        "  / / / /"
       ],
       [
-        "      / \\",
+        "      / /",
         " ooO( o.o )>",
-        "  \\ \\ / /"
+        "  \\ \\ \\ \\"
       ]
     ];
 
