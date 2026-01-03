@@ -35,10 +35,10 @@ const DEFAULT_STYLE: CellStyle = {
 };
 
 // ANSI color codes to named colors
-// Note: magenta remapped to yellow for better visual harmony with cyan theme
+// Note: magenta (index 5, 13) remapped to yellow hex for visual harmony with cyan theme
 const COLORS_16 = [
-  "black", "red", "green", "yellow", "blue", "yellow", "cyan", "white",
-  "gray", "brightRed", "brightGreen", "brightYellow", "brightBlue", "brightYellow", "brightCyan", "brightWhite"
+  "black", "red", "green", "yellow", "blue", "#d4a800", "cyan", "white",
+  "gray", "brightRed", "brightGreen", "brightYellow", "brightBlue", "#ffdd00", "brightCyan", "brightWhite"
 ];
 
 export class VirtualTerminal {
