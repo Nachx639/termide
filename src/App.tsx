@@ -80,6 +80,7 @@ export function App({ rootPath }: AppProps) {
   const [recentFiles, setRecentFiles] = useState<string[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [fileStats, setFileStats] = useState<{ size: number; lineCount: number } | null>(null);
+  const [antFrame, setAntFrame] = useState(0);
   const { notifications, notify, dismiss, success, error } = useNotifications();
   const isAnyModalOpen = showFuzzyFinder || showCommandPalette || showGlobalSearch || showHelpPanel || showThemePicker;
 
@@ -90,6 +91,51 @@ export function App({ rootPath }: AppProps) {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Animate the ant
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    const antTimer = setInterval(() => {
+      if (isMountedRef.current) {
+        setAntFrame((f) => (f + 1) % 40);
+      }
+    }, 300);
+    return () => {
+      isMountedRef.current = false;
+      clearInterval(antTimer);
+    };
+  }, []);
+
+  // Generate animated 3-line ant walking (left to right, facing right)
+  const getAntLines = (maxWidth: number) => {
+    // Ensure we have at least some space, and account for ant's own width (~12)
+    const antWidth = 12;
+    const walkSpace = Math.max(0, maxWidth - antWidth);
+
+    // If no space, don't show the ant or show it static
+    if (walkSpace <= 0) return ["", "", ""];
+
+    const pos = antFrame % (walkSpace + 1);
+    const spaces = " ".repeat(pos);
+
+    // Ant frames with segmented body and walking legs
+    const frames = [
+      [
+        "      \\ /",
+        " ooO( o.o )>",
+        "  / / \\ \\"
+      ],
+      [
+        "      / \\",
+        " ooO( o.o )>",
+        "  \\ \\ / /"
+      ]
+    ];
+
+    const frame = frames[antFrame % 2] || frames[0];
+    return frame.map(line => `${spaces}${line}`);
+  };
 
   // Get currently selected file from active tab
   const selectedFile = openTabs[activeTabIndex]?.filePath || null;
@@ -148,35 +194,35 @@ export function App({ rootPath }: AppProps) {
     {
       id: "focus-explorer",
       label: "Focus Explorer",
-      shortcut: "1",
+      shortcut: "Tab",
       category: "Navigation",
       action: () => setFocusedPanel("tree"),
     },
     {
       id: "focus-editor",
       label: "Focus Editor",
-      shortcut: "2",
+      shortcut: "Tab",
       category: "Navigation",
       action: () => setFocusedPanel("viewer"),
     },
     {
       id: "focus-terminal",
       label: "Focus Terminal",
-      shortcut: "3",
+      shortcut: "Tab",
       category: "Navigation",
       action: () => setFocusedPanel("terminal"),
     },
     {
       id: "focus-source-control",
       label: "Focus Source Control",
-      shortcut: "4",
+      shortcut: "Tab",
       category: "Navigation",
       action: () => setFocusedPanel("source"),
     },
     {
       id: "focus-git-graph",
       label: "Focus Git Graph",
-      shortcut: "5",
+      shortcut: "Tab",
       category: "Navigation",
       action: () => setFocusedPanel("graph"),
     },
@@ -330,16 +376,6 @@ export function App({ rootPath }: AppProps) {
       return;
     }
 
-    // Alt+number - Switch to tab
-    if (event.meta && event.name && /^[1-9]$/.test(event.name)) {
-      const tabIndex = parseInt(event.name) - 1;
-      if (tabIndex < openTabs.length) {
-        setActiveTabIndex(tabIndex);
-        setFocusedPanel("viewer");
-      }
-      return;
-    }
-
     // Ctrl+Tab - Next tab (when in viewer)
     if (event.ctrl && event.name === "tab" && !event.shift && focusedPanel === "viewer") {
       if (openTabs.length > 1) {
@@ -396,12 +432,6 @@ export function App({ rootPath }: AppProps) {
       });
     }
 
-    // Number shortcuts
-    if (event.name === "1") setFocusedPanel("tree");
-    if (event.name === "2") setFocusedPanel("viewer");
-    if (event.name === "3") setFocusedPanel("terminal");
-    if (event.name === "4") setFocusedPanel("source");
-    if (event.name === "5") setFocusedPanel("graph");
   });
 
   // Open file in a new tab or switch to existing tab
@@ -437,26 +467,67 @@ export function App({ rootPath }: AppProps) {
   };
 
   const mainWidth = (dimensions.width || 80) - treeWidth - 4;
-  const totalHeight = (dimensions.height || 40) - 8; // -8 for taller header and status bar
-  const viewerHeight = Math.floor(totalHeight * 0.4); // 40% for viewer
-  const terminalHeight = totalHeight - viewerHeight; // 60% for terminal
+  const totalHeight = (dimensions.height || 40) - 6; // -6 for header(5) and status bar(1)
+  const tabsVisible = openTabs.length > 0;
+  const availableContentHeight = totalHeight - (tabsVisible ? 1 : 0);
+  const viewerHeight = Math.floor(availableContentHeight * 0.35); // 35% for viewer
+  const terminalHeight = availableContentHeight - viewerHeight; // Recalculate based on remainder
 
   return (
     <box style={{ flexDirection: "column", width: "100%", height: "100%", bg: "#050505" }}>
       {/* Top Header */}
       <box style={{ height: 5, borderBottom: true, borderColor: "gray", flexDirection: "column", bg: "#0b0b0b" }}>
-        <box style={{ paddingX: 1, flexDirection: "row", justifyContent: "space-between", bg: "#1a1a1a" }}>
-          <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a" }}>  ▀█▀ █▀▀ █▀▄ █▄▀▄█ █ █▀▄ █▀▀</text>
-          <text style={{ fg: "gray", bg: "#1a1a1a" }}>{rootPath.replace(process.env.HOME || "", "~")}</text>
-        </box>
-        <box style={{ paddingX: 1, flexDirection: "row", justifyContent: "space-between", bg: "#1a1a1a" }}>
-          <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a" }}>   █  █▀▀ █▀▄ █ █ █ █ █ █ █▀▀</text>
-          <text style={{ fg: "white", bold: true, bg: "#1a1a1a" }}>TERMINAL IDE</text>
-        </box>
-        <box style={{ paddingX: 1, flexDirection: "row", justifyContent: "space-between", bg: "#1a1a1a" }}>
-          <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a" }}>   ▀  ▀▀▀ ▀ ▀ ▀   ▀ ▀ ▀▀  ▀▀▀</text>
-          <text style={{ fg: "magenta", bg: "#1a1a1a" }}>Ctrl+P: find | Ctrl+K: commands | Ctrl+B: help</text>
-        </box>
+        {(() => {
+          const logoWidth = 30;
+          const terminalWidth = dimensions.width || 80;
+
+          // Calculate available space for each row to prevent pushing content
+          // Row 1: Logo(30) + Path(Variable)
+          const pathText = rootPath.replace(process.env.HOME || "", "~");
+          const pathWidth = pathText.length;
+          const row1Space = terminalWidth - logoWidth - pathWidth - 4;
+
+          // Row 2: Logo(30) + "TERMINAL IDE"(12)
+          const row2Space = terminalWidth - logoWidth - 12 - 4;
+
+          // Row 3: Logo(30) + Shortcuts(47)
+          const row3Space = terminalWidth - logoWidth - 47 - 4;
+
+          // The ant walks in the shared space, so we use the minimum available
+          const maxAntSpace = Math.min(row1Space, row2Space, row3Space);
+          const antLines = getAntLines(maxAntSpace);
+
+          return (
+            <>
+              {/* Row 1 */}
+              <box style={{ paddingX: 1, flexDirection: "row", bg: "#1a1a1a" }}>
+                <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a", width: logoWidth }}>  ▀█▀ █▀▀ █▀▄ █▄▀▄█ █ █▀▄ █▀▀</text>
+                <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
+                  <text style={{ fg: "cyan" }}>{antLines[0]}</text>
+                </box>
+                <text style={{ fg: "gray", bg: "#1a1a1a" }}>{pathText}</text>
+              </box>
+
+              {/* Row 2 */}
+              <box style={{ paddingX: 1, flexDirection: "row", bg: "#1a1a1a" }}>
+                <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a", width: logoWidth }}>   █  █▀▀ █▀▄ █ █ █ █ █ █ █▀▀</text>
+                <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
+                  <text style={{ fg: "cyan" }}>{antLines[1]}</text>
+                </box>
+                <text style={{ fg: "white", bold: true, bg: "#1a1a1a" }}>TERMINAL IDE</text>
+              </box>
+
+              {/* Row 3 */}
+              <box style={{ paddingX: 1, flexDirection: "row", bg: "#1a1a1a" }}>
+                <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a", width: logoWidth }}>   ▀  ▀▀▀ ▀ ▀ ▀   ▀ ▀ ▀▀  ▀▀▀</text>
+                <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
+                  <text style={{ fg: "cyan" }}>{antLines[2]}</text>
+                </box>
+                <text style={{ fg: "magenta", bg: "#1a1a1a" }}>Ctrl+P: find | Ctrl+K: commands | Ctrl+B: help</text>
+              </box>
+            </>
+          );
+        })()}
       </box>
 
       {/* Main content */}
@@ -497,8 +568,8 @@ export function App({ rootPath }: AppProps) {
             />
           )}
 
-          {/* File Viewer - Top right (40%) */}
-          <box style={{ flexGrow: 2 }}>
+          {/* File Viewer - Top right (35%) */}
+          <box style={{ height: viewerHeight }}>
             <FileViewer
               filePath={selectedFile}
               focused={!isAnyModalOpen && focusedPanel === "viewer"}
@@ -506,8 +577,8 @@ export function App({ rootPath }: AppProps) {
             />
           </box>
 
-          {/* Terminal - Bottom (60% height) */}
-          <box style={{ flexGrow: 3 }}>
+          {/* Terminal - Bottom (65% height) */}
+          <box style={{ height: terminalHeight }}>
             <Terminal
               cwd={rootPath}
               focused={!isAnyModalOpen && focusedPanel === "terminal"}
