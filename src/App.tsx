@@ -596,20 +596,20 @@ export function App({ rootPath }: AppProps) {
         {/* Sidebar - Left panel */}
         {currentTreeWidth > 0 && (
           <box style={{ width: currentTreeWidth, flexDirection: "column", height: "100%" }}>
-            <box style={{ flexGrow: 4 }}>
+            <box style={{ flexGrow: 4 }} onMouseDown={() => setFocusedPanel("tree")}>
               <FileTree
                 rootPath={rootPath}
                 onFileSelect={handleFileSelect}
                 focused={!isAnyModalOpen && focusedPanel === "tree"}
               />
             </box>
-            <box style={{ flexGrow: 3 }}>
+            <box style={{ flexGrow: 3 }} onMouseDown={() => setFocusedPanel("source")}>
               <SourceControl
                 rootPath={rootPath}
                 focused={!isAnyModalOpen && focusedPanel === "source"}
               />
             </box>
-            <box style={{ flexGrow: 3 }}>
+            <box style={{ flexGrow: 3 }} onMouseDown={() => setFocusedPanel("graph")}>
               <GitGraph
                 rootPath={rootPath}
                 focused={!isAnyModalOpen && focusedPanel === "graph"}
@@ -634,7 +634,7 @@ export function App({ rootPath }: AppProps) {
 
             {/* File Viewer - Top right (35% or 100% if focused) */}
             {currentViewerHeight > 0 && (
-              <box style={{ height: currentViewerHeight }}>
+              <box style={{ height: currentViewerHeight }} onMouseDown={() => setFocusedPanel("viewer")}>
                 <FileViewer
                   filePath={selectedFile}
                   focused={!isAnyModalOpen && focusedPanel === "viewer"}
@@ -646,7 +646,7 @@ export function App({ rootPath }: AppProps) {
 
             {/* Terminal - Bottom (65% height or 100% if focused) */}
             {currentTerminalHeight > 0 && (
-              <box style={{ height: currentTerminalHeight }}>
+              <box style={{ height: currentTerminalHeight }} onMouseDown={() => setFocusedPanel("terminal")}>
                 <Terminal
                   cwd={rootPath}
                   focused={!isAnyModalOpen && focusedPanel === "terminal"}
