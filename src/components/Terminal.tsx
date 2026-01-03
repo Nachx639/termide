@@ -28,7 +28,9 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
   // Terminal panel is about 2/3 of screen width (after tree panel of ~30 cols)
   const termCols = Math.max(30, cols - treeWidth - 4);
   const safeHeight = typeof height === 'number' && !isNaN(height) ? height : 30;
-  const termRows = Math.max(10, safeHeight);
+  // Subtract terminal chrome: top border (1) + bottom border (1) = 2
+  // We remove the internal header to gain more space for CLI tools like Claude Code
+  const termRows = Math.max(10, safeHeight - 2);
 
   const vtRef = useRef<VirtualTerminal | null>(null);
   const terminalRef = useRef<TerminalRef | null>(null);
@@ -67,15 +69,21 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
     try {
       const proc = Bun.spawn([shell], {
         terminal: {
-          cols: initCols,
-          rows: initRows,
           data(terminal: TerminalRef, data: Uint8Array) {
+            terminalRef.current = terminal;
+            const text = new TextDecoder().decode(data);
+
+            // Handle Cursor Position Report (CPR) query: ESC [ 6 n
+            if (text.includes("\x1b[6n") && vtRef.current) {
+              const { row, col } = vtRef.current.getCursor();
+              // Respond with ESC [ row ; col R (1-indexed)
+              terminal.write(`\x1b[${row + 1};${col + 1}R`);
+            }
+
             if (vtRef.current) {
-              const text = new TextDecoder().decode(data);
               vtRef.current.write(text);
               scheduleUpdate();
             }
-            terminalRef.current = terminal;
           },
         },
         env: {
@@ -233,33 +241,90 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
     );
   }
 
-  // Render all rows of the buffer (buffer size matches visible area)
+  // Build styled segments for each row by grouping identical styles
+  type StyledSegment = { text: string; fg?: string; bg?: string; dim?: boolean; bold?: boolean; isCursor?: boolean };
+
+  const cursor = vtRef.current?.getCursor();
+  const cursorVisible = vtRef.current?.cursorVisible ?? true;
   const renderCols = termCols;
   const visibleRows = termRows;
-
-  const lines: string[] = [];
+  const renderRows: StyledSegment[][] = [];
   for (let r = 0; r < visibleRows; r++) {
     const row = buffer[r];
-    let line = "";
+    const segments: StyledSegment[] = [];
+
     if (row) {
+      let currentText = "";
+      let currentStyles = { fg: "", bg: "", dim: false, bold: false, isCursor: false };
+
       for (let c = 0; c < Math.min(renderCols, row.length); c++) {
-        line += row[c]?.char || " ";
+        const cell = row[c];
+        const isCursor = cursorVisible && focused && cursor?.row === r && cursor?.col === c;
+
+        const cellFg = isCursor ? "black" : (cell?.style?.fg || "white");
+        const cellBg = isCursor ? "white" : (cell?.style?.bg || "transparent");
+        const cellDim = cell?.style?.dim || false;
+        const cellBold = cell?.style?.bold || false;
+        const char = cell?.char || " ";
+
+        const stylesChanged =
+          cellFg !== currentStyles.fg ||
+          cellBg !== currentStyles.bg ||
+          cellDim !== currentStyles.dim ||
+          cellBold !== currentStyles.bold ||
+          isCursor !== currentStyles.isCursor;
+
+        if (c > 0 && stylesChanged) {
+          segments.push({ text: currentText, ...currentStyles });
+          currentText = char;
+          currentStyles = { fg: cellFg, bg: cellBg, dim: cellDim, bold: cellBold, isCursor };
+        } else {
+          if (c === 0) {
+            currentStyles = { fg: cellFg, bg: cellBg, dim: cellDim, bold: cellBold, isCursor };
+          }
+          currentText += char;
+        }
+      }
+      if (currentText) {
+        segments.push({ text: currentText, ...currentStyles });
+      }
+
+      // Pad the rest of the line with spaces to overwrite previous content
+      if (row.length < renderCols) {
+        segments.push({
+          text: " ".repeat(renderCols - row.length),
+          fg: "white",
+          bg: "transparent",
+          dim: false,
+          bold: false,
+          isCursor: false
+        });
       }
     } else {
-      line = " ".repeat(renderCols);
+      segments.push({ text: " ".repeat(renderCols), fg: "white", bg: "transparent", dim: false, bold: false, isCursor: false });
     }
-    lines.push(line);
+    renderRows.push(segments);
   }
 
   return (
     <box style={{ flexDirection: "column", border: true, borderColor, height: "100%" }}>
-      <box style={{ paddingX: 1 }}>
-        <text style={{ fg: "cyan", bold: true }}>Terminal</text>
-      </box>
-
       <box style={{ flexDirection: "column", flexGrow: 1, overflow: "hidden", paddingX: 1 }}>
-        {lines.map((line, rowIdx) => (
-          <text key={rowIdx}>{line}</text>
+        {renderRows.map((rowSegments, rowIdx) => (
+          <box key={rowIdx} style={{ flexDirection: "row" }}>
+            {rowSegments.map((seg, segIdx) => (
+              <text
+                key={segIdx}
+                style={{
+                  fg: seg.fg === "white" && seg.dim ? "#8a8a8a" : seg.fg as any,
+                  bg: seg.bg as any,
+                  bold: seg.bold,
+                  dim: seg.dim && !seg.isCursor
+                }}
+              >
+                {seg.text}
+              </text>
+            ))}
+          </box>
         ))}
       </box>
     </box>

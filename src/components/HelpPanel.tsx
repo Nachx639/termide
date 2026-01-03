@@ -22,9 +22,8 @@ const SHORTCUTS: ShortcutCategory[] = [
     shortcuts: [
       { keys: "Tab", description: "Switch to next panel" },
       { keys: "Shift+Tab", description: "Switch to previous panel" },
-      { keys: "1 / 2 / 3", description: "Jump to Explorer / Editor / Terminal" },
       { keys: "Ctrl+P", description: "Quick open file (fuzzy finder)" },
-      { keys: "Cmd+Shift+P", description: "Open command palette" },
+      { keys: "Ctrl+K", description: "Open command palette" },
       { keys: "Ctrl+Shift+F", description: "Search in all files" },
     ],
   },
@@ -67,7 +66,7 @@ const SHORTCUTS: ShortcutCategory[] = [
     shortcuts: [
       { keys: "Ctrl+W", description: "Close current tab" },
       { keys: "Ctrl+Tab", description: "Next tab" },
-      { keys: "Alt+1-9", description: "Jump to tab by number" },
+      { keys: "Ctrl+Shift+Tab", description: "Previous tab" },
     ],
   },
   {
@@ -82,7 +81,7 @@ const SHORTCUTS: ShortcutCategory[] = [
   {
     title: "Application",
     shortcuts: [
-      { keys: "Ctrl+Shift+H / ?", description: "Toggle this help panel" },
+      { keys: "Ctrl+B / F1 / ?", description: "Toggle this help panel" },
       { keys: "Ctrl+Q", description: "Quit application" },
     ],
   },

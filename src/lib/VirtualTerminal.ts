@@ -11,6 +11,7 @@ export interface CellStyle {
   italic: boolean;
   underline: boolean;
   inverse: boolean;
+  hidden?: boolean;
 }
 
 export interface Cell {
@@ -51,6 +52,7 @@ export class VirtualTerminal {
   private alternateBuffer: Cell[][] | null = null;
   private useAlternateBuffer: boolean = false;
   private parseBuffer: string = "";
+  public cursorVisible: boolean = true;
 
   constructor(rows: number, cols: number) {
     this.rows = rows;
@@ -59,6 +61,7 @@ export class VirtualTerminal {
     this.buffer = this.createEmptyBuffer();
     this.cursor = { row: 0, col: 0 };
     this.currentStyle = { ...DEFAULT_STYLE };
+    this.cursorVisible = true;
   }
 
   private createEmptyBuffer(): Cell[][] {
@@ -82,7 +85,7 @@ export class VirtualTerminal {
     this.rows = rows;
     this.cols = cols;
     this.scrollBottom = rows - 1;
-    this.buffer = newBuffer;
+    this.buffer = newBuffer as Cell[][];
     this.cursor.row = Math.min(this.cursor.row, rows - 1);
     this.cursor.col = Math.min(this.cursor.col, cols - 1);
   }
@@ -132,7 +135,7 @@ export class VirtualTerminal {
             this.parseBuffer = data.slice(i);
             return;
           }
-          const endPos = end !== -1 && (stEnd === -1 || end < stEnd) ? end + 1 : stEnd + 2;
+          const endPos = end !== -1 && (stEnd === -1 || end < stEnd) ? end + 1 : (stEnd !== -1 ? stEnd + 2 : i + 2);
           // Just skip OSC sequences for now
           i = endPos;
         } else if (next === "(") {
@@ -312,7 +315,8 @@ export class VirtualTerminal {
             this.useAlternateBuffer = false;
           }
           break;
-        case 25: // Show/hide cursor (we always show in our render)
+        case 25: // Show/hide cursor
+          this.cursorVisible = enable;
           break;
         case 1: // Application cursor keys
         case 7: // Auto-wrap mode
@@ -329,7 +333,7 @@ export class VirtualTerminal {
 
   private handleSGR(args: number[]) {
     for (let i = 0; i < args.length; i++) {
-      const code = args[i];
+      const code = args[i]!;
 
       if (code === 0) {
         this.currentStyle = { ...DEFAULT_STYLE };
@@ -353,44 +357,44 @@ export class VirtualTerminal {
       } else if (code === 27) {
         this.currentStyle.inverse = false;
       } else if (code >= 30 && code <= 37) {
-        this.currentStyle.fg = COLORS_16[code - 30];
+        this.currentStyle.fg = COLORS_16[code - 30] || "white";
       } else if (code === 38) {
         // Extended foreground color
         if (args[i + 1] === 5 && args[i + 2] !== undefined) {
           // 256 color
-          this.currentStyle.fg = this.color256ToName(args[i + 2]);
+          this.currentStyle.fg = this.color256ToName(args[i + 2]!);
           i += 2;
         } else if (args[i + 1] === 2 && args[i + 4] !== undefined) {
           // RGB color
-          this.currentStyle.fg = `rgb(${args[i + 2]},${args[i + 3]},${args[i + 4]})`;
+          this.currentStyle.fg = `rgb(${args[i + 2]!},${args[i + 3]!},${args[i + 4]!})`;
           i += 4;
         }
       } else if (code === 39) {
         this.currentStyle.fg = "white";
       } else if (code >= 40 && code <= 47) {
-        this.currentStyle.bg = COLORS_16[code - 40];
+        this.currentStyle.bg = COLORS_16[code - 40] || "transparent";
       } else if (code === 48) {
         // Extended background color
         if (args[i + 1] === 5 && args[i + 2] !== undefined) {
-          this.currentStyle.bg = this.color256ToName(args[i + 2]);
+          this.currentStyle.bg = this.color256ToName(args[i + 2]!);
           i += 2;
         } else if (args[i + 1] === 2 && args[i + 4] !== undefined) {
-          this.currentStyle.bg = `rgb(${args[i + 2]},${args[i + 3]},${args[i + 4]})`;
+          this.currentStyle.bg = `rgb(${args[i + 2]!},${args[i + 3]!},${args[i + 4]!})`;
           i += 4;
         }
       } else if (code === 49) {
         this.currentStyle.bg = "transparent";
       } else if (code >= 90 && code <= 97) {
-        this.currentStyle.fg = COLORS_16[code - 90 + 8];
+        this.currentStyle.fg = COLORS_16[code - 90 + 8] || "white";
       } else if (code >= 100 && code <= 107) {
-        this.currentStyle.bg = COLORS_16[code - 100 + 8];
+        this.currentStyle.bg = COLORS_16[code - 100 + 8] || "transparent";
       }
     }
   }
 
   private color256ToName(code: number): string {
     if (code < 16) {
-      return COLORS_16[code];
+      return COLORS_16[code] || "white";
     } else if (code < 232) {
       // 216 color cube
       const idx = code - 16;
@@ -411,8 +415,9 @@ export class VirtualTerminal {
       this.cursor.col = 0;
       this.lineFeed();
     }
-    if (this.buffer[this.cursor.row]) {
-      this.buffer[this.cursor.row][this.cursor.col] = {
+    const targetRow = this.buffer[this.cursor.row];
+    if (targetRow) {
+      targetRow[this.cursor.col] = {
         char,
         style: { ...this.currentStyle },
       };
