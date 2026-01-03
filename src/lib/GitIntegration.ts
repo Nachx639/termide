@@ -252,3 +252,50 @@ export function invalidateGitCache(): void {
   fileStatusCache.clear();
   cacheTimestamp = 0;
 }
+
+export async function getGitChanges(cwd: string): Promise<{ path: string; status: FileGitStatus }[]> {
+  const statusOutput = await runGitCommand(["status", "--porcelain=v1", "-uall"], cwd);
+  if (!statusOutput) return [];
+
+  const changes: { path: string; status: FileGitStatus }[] = [];
+  const lines = statusOutput.split("\n").filter(Boolean);
+
+  for (const line of lines) {
+    const x = line[0];
+    const y = line[1];
+    const file = line.slice(3);
+
+    let status: FileGitStatus["status"] = " ";
+    let staged = false;
+
+    if (x === "?" || y === "?") {
+      status = "?";
+    } else if (x === "U" || y === "U") {
+      status = "U";
+    } else if (x !== " ") {
+      status = x as FileGitStatus["status"];
+      staged = true;
+    } else if (y !== " ") {
+      status = y as FileGitStatus["status"];
+    }
+
+    changes.push({ path: file, status: { status, staged } });
+  }
+
+  return changes;
+}
+
+export async function getGitLog(cwd: string, count: number = 20): Promise<string[]> {
+  const logOutput = await runGitCommand([
+    "log",
+    `-${count}`,
+    "--graph",
+    "--oneline",
+    "--all",
+    "--color=never",
+    "--pretty=format:%h %s (%cr)"
+  ], cwd);
+
+  if (!logOutput) return [];
+  return logOutput.split("\n");
+}
