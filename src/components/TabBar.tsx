@@ -57,12 +57,11 @@ export function TabBar({ tabs, activeTabIndex, onSelectTab, onCloseTab, focused 
   }
 
   return (
-    <box style={{ flexDirection: "row", borderBottom: true, borderColor: "gray", height: 1 }}>
+    <box style={{ flexDirection: "row", bg: "#111111", height: 1 }}>
       {tabs.map((tab, index) => {
         const isActive = index === activeTabIndex;
         const fileName = path.basename(tab.filePath);
         const icon = getFileIconSimple(fileName);
-        const ext = path.extname(fileName).slice(1);
 
         return (
           <box
@@ -70,19 +69,19 @@ export function TabBar({ tabs, activeTabIndex, onSelectTab, onCloseTab, focused 
             style={{
               flexDirection: "row",
               paddingX: 1,
-              bg: isActive ? "cyan" : undefined,
+              bg: isActive ? "#1a2a35" : undefined,
               borderRight: true,
-              borderColor: "gray",
+              borderColor: "#333333",
             }}
           >
             {/* File icon */}
-            <text style={{ fg: isActive ? "black" : (icon.color as any) }}>
+            <text style={{ fg: isActive ? "cyan" : (icon.color as any) }}>
               {icon.icon}{" "}
             </text>
             {/* File name */}
             <text
               style={{
-                fg: isActive ? "black" : "white",
+                fg: isActive ? "cyan" : "#888888",
                 bold: isActive,
               }}
             >
@@ -90,17 +89,17 @@ export function TabBar({ tabs, activeTabIndex, onSelectTab, onCloseTab, focused 
             </text>
             {/* Dirty indicator */}
             {tab.isDirty && (
-              <text style={{ fg: isActive ? "black" : "yellow" }}> ●</text>
+              <text style={{ fg: isActive ? "cyan" : "yellow" }}> ●</text>
             )}
-            {/* Close button */}
-            <text style={{ fg: isActive ? "black" : "gray", dim: !isActive }}>
+            {/* Close button hint */}
+            <text style={{ fg: isActive ? "cyan" : "#444444", dim: !isActive }}>
               {" "}×
             </text>
           </box>
         );
       })}
       {/* Tab hint */}
-      <box style={{ flexGrow: 1, justifyContent: "flex-end" }}>
+      <box style={{ flexGrow: 1, justifyContent: "flex-end", bg: "#111111" }}>
         <text style={{ fg: "gray", dim: true, paddingX: 1 }}>
           Ctrl+W close | Alt+N switch
         </text>

@@ -58,12 +58,11 @@ Navigate like a pro in the terminal:
 | Key | Action |
 | :--- | :--- |
 | `Tab` | Switch between panels (Tree, Editor, Terminal) |
-| `Shift + Tab` | Switch panel (backward) |
-| `1` | Focus **File Tree** |
-| `2` | Focus **Code Viewer** |
-| `3` | Focus **Terminal** |
-| `↑ / ↓` | Navigate tree or scroll through code |
-| `Enter` | Open selected file |
+| `Ctrl + F` | **Focus Mode** (Maximize current panel) |
+| `Alt + F` | Search in current file |
+| `Ctrl + P` | Quick open file (Fuzzy finder) |
+| `Ctrl + K` | Opening Command Palette |
+| `Ctrl + B` | Show Help Panel |
 | `Ctrl + Q` | Quit termide |
 
 ## 🛠 Local Development
