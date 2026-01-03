@@ -5,9 +5,10 @@ import { getGitChanges, type FileGitStatus, getFileStatusColor, getFileStatusIco
 interface SourceControlProps {
     rootPath: string;
     focused: boolean;
+    onFocus?: () => void;
 }
 
-export function SourceControl({ rootPath, focused }: SourceControlProps) {
+export function SourceControl({ rootPath, focused, onFocus }: SourceControlProps) {
     const [changes, setChanges] = useState<{ path: string; status: FileGitStatus }[]>([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -39,7 +40,7 @@ export function SourceControl({ rootPath, focused }: SourceControlProps) {
     const unstaged = changes.filter(c => !c.status.staged);
 
     return (
-        <box style={{ flexDirection: "column", border: true, borderColor, height: "100%", bg: "#0b0b0b" }}>
+        <box style={{ flexDirection: "column", border: true, borderColor, height: "100%", bg: "#0b0b0b" }} onMouseDown={onFocus}>
             <box style={{ paddingX: 1, height: 1, bg: "#1a1a1a" }}>
                 <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a" }}>Source Control</text>
             </box>

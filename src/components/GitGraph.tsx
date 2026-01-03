@@ -4,9 +4,10 @@ import { getGitLog } from "../lib/GitIntegration";
 interface GitGraphProps {
     rootPath: string;
     focused: boolean;
+    onFocus?: () => void;
 }
 
-export function GitGraph({ rootPath, focused }: GitGraphProps) {
+export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
     const [logLines, setLogLines] = useState<string[]>([]);
 
     const updateLog = useCallback(async () => {
@@ -23,7 +24,7 @@ export function GitGraph({ rootPath, focused }: GitGraphProps) {
     const borderColor = focused ? "cyan" : "gray";
 
     return (
-        <box style={{ flexDirection: "column", border: true, borderColor, height: "100%", bg: "#0b0b0b" }}>
+        <box style={{ flexDirection: "column", border: true, borderColor, height: "100%", bg: "#0b0b0b" }} onMouseDown={onFocus}>
             <box style={{ paddingX: 1, height: 1, bg: "#1a1a1a" }}>
                 <text style={{ fg: "magenta", bold: true, bg: "#1a1a1a" }}>Git Graph</text>
             </box>

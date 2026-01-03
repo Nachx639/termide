@@ -596,23 +596,26 @@ export function App({ rootPath }: AppProps) {
         {/* Sidebar - Left panel */}
         {currentTreeWidth > 0 && (
           <box style={{ width: currentTreeWidth, flexDirection: "column", height: "100%" }}>
-            <box style={{ flexGrow: 4 }} onMouseDown={() => setFocusedPanel("tree")}>
+            <box style={{ flexGrow: 4 }}>
               <FileTree
                 rootPath={rootPath}
                 onFileSelect={handleFileSelect}
                 focused={!isAnyModalOpen && focusedPanel === "tree"}
+                onFocus={() => setFocusedPanel("tree")}
               />
             </box>
-            <box style={{ flexGrow: 3 }} onMouseDown={() => setFocusedPanel("source")}>
+            <box style={{ flexGrow: 3 }}>
               <SourceControl
                 rootPath={rootPath}
                 focused={!isAnyModalOpen && focusedPanel === "source"}
+                onFocus={() => setFocusedPanel("source")}
               />
             </box>
-            <box style={{ flexGrow: 3 }} onMouseDown={() => setFocusedPanel("graph")}>
+            <box style={{ flexGrow: 3 }}>
               <GitGraph
                 rootPath={rootPath}
                 focused={!isAnyModalOpen && focusedPanel === "graph"}
+                onFocus={() => setFocusedPanel("graph")}
               />
             </box>
           </box>
