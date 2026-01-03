@@ -58,6 +58,7 @@ function flattenTree(nodes: FileNode[]): FileNode[] {
 export function FileTree({ rootPath, onFileSelect, focused }: FileTreeProps) {
   const [tree, setTree] = useState<FileNode[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [scrollTop, setScrollTop] = useState(0);
   const [gitStatuses, setGitStatuses] = useState<Map<string, FileGitStatus>>(new Map());
 
   // Fetch git statuses for visible files
@@ -97,9 +98,18 @@ export function FileTree({ rootPath, onFileSelect, focused }: FileTreeProps) {
     if (!focused) return;
 
     if (event.name === "up" || event.name === "k") {
-      setSelectedIndex((i) => Math.max(0, i - 1));
+      setSelectedIndex((i) => {
+        const next = Math.max(0, i - 1);
+        if (next < scrollTop) setScrollTop(next);
+        return next;
+      });
     } else if (event.name === "down" || event.name === "j") {
-      setSelectedIndex((i) => Math.min(flatList.length - 1, i + 1));
+      setSelectedIndex((i) => {
+        const next = Math.min(flatList.length - 1, i + 1);
+        const visibleHeight = 15; // Approximate visible height
+        if (next >= scrollTop + visibleHeight) setScrollTop(next - visibleHeight + 1);
+        return next;
+      });
     } else if (event.name === "return" || event.name === "l") {
       const selected = flatList[selectedIndex];
       if (selected) {
@@ -147,13 +157,14 @@ export function FileTree({ rootPath, onFileSelect, focused }: FileTreeProps) {
   const borderColor = focused ? "cyan" : "gray";
 
   return (
-    <box style={{ flexDirection: "column", border: true, borderColor }}>
-      <box style={{ paddingX: 1 }}>
-        <text style={{ fg: "cyan", bold: true }}>Explorer</text>
+    <box style={{ flexDirection: "column", border: true, borderColor, height: "100%", bg: "#0b0b0b" }}>
+      <box style={{ paddingX: 1, height: 1, bg: "#1a1a1a" }}>
+        <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a" }}>Explorer</text>
       </box>
-      <scrollbox style={{ flexDirection: "column", paddingX: 1, flexGrow: 1 }}>
-        {flatList.map((node, index) => {
-          const isSelected = index === selectedIndex && focused;
+      <scrollbox style={{ flexDirection: "column", paddingX: 1, flexGrow: 1, bg: "#0b0b0b" }}>
+        {flatList.slice(scrollTop, scrollTop + 20).map((node, index) => {
+          const actualIndex = index + scrollTop;
+          const isSelected = actualIndex === selectedIndex && focused;
           const prefix = "  ".repeat(node.level);
           const fileIcon = getFileIconSimple(node.name, node.isDirectory, node.expanded);
           const gitStatus = gitStatuses.get(node.path);
@@ -161,7 +172,7 @@ export function FileTree({ rootPath, onFileSelect, focused }: FileTreeProps) {
           // Color based on selection and git status
           let nameFg: string;
           if (isSelected) {
-            nameFg = "white"; // White text on selection for visibility
+            nameFg = "white";
           } else if (node.isDirectory) {
             nameFg = "yellow";
           } else if (gitStatus) {
@@ -177,12 +188,9 @@ export function FileTree({ rootPath, onFileSelect, focused }: FileTreeProps) {
             <box key={node.path} style={{ flexDirection: "row", bg: bg as any, paddingX: 1 }}>
               <text style={{ fg: isSelected ? "cyan" : "gray" }}>{prefix}</text>
               <text style={{ fg: isSelected ? "cyan" : iconColor as any }}>{fileIcon.icon} </text>
-
-              {/* Git Status - Fixed width to prevent jumping */}
               <text style={{ fg: isSelected ? "cyan" : (gitStatus ? getFileStatusColor(gitStatus) : "gray") as any }}>
                 {gitStatus ? (getFileStatusIcon(gitStatus).trim()[0] || " ") : " "}
               </text>
-
               <text style={{ fg: isSelected ? "cyan" : nameFg as any, bold: isSelected }}>
                 {" "}{node.name}
               </text>

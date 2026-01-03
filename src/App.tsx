@@ -10,6 +10,8 @@ import { GlobalSearch } from "./components/GlobalSearch";
 import { ThemePicker } from "./components/ThemePicker";
 import { HelpPanel } from "./components/HelpPanel";
 import { TabBar } from "./components/TabBar";
+import { SourceControl } from "./components/SourceControl";
+import { GitGraph } from "./components/GitGraph";
 import { Notifications, useNotifications } from "./components/Notifications";
 import * as path from "path";
 import { getGitStatus, formatGitBranch, formatGitStatus, invalidateGitCache } from "./lib/GitIntegration";
@@ -17,7 +19,7 @@ import type { GitStatus } from "./lib/GitIntegration";
 import { DARK_THEME, THEMES } from "./lib/ThemeSystem";
 import type { Theme } from "./lib/ThemeSystem";
 
-type Panel = "tree" | "viewer" | "terminal";
+type Panel = "tree" | "viewer" | "terminal" | "source" | "graph";
 
 // Format file size for display
 function formatFileSize(bytes: number): string {
@@ -70,13 +72,14 @@ export function App({ rootPath }: AppProps) {
   const [showFuzzyFinder, setShowFuzzyFinder] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
-  const [showThemePicker, setShowThemePicker] = useState(false);
   const [showHelpPanel, setShowHelpPanel] = useState(false);
-  const [currentTheme, setCurrentTheme] = useState<Theme>(DARK_THEME);
+  const [showThemePicker, setShowThemePicker] = useState(false);
+  const [theme, setTheme] = useState<Theme>(DARK_THEME);
+  const dimensions = useTerminalDimensions();
+  const [treeWidth, setTreeWidth] = useState(30);
   const [recentFiles, setRecentFiles] = useState<string[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [fileStats, setFileStats] = useState<{ size: number; lineCount: number } | null>(null);
-  const dimensions = useTerminalDimensions();
   const { notifications, notify, dismiss, success, error } = useNotifications();
 
   // Update clock every second
@@ -162,6 +165,20 @@ export function App({ rootPath }: AppProps) {
       category: "Navigation",
       action: () => setFocusedPanel("terminal"),
     },
+    {
+      id: "focus-source-control",
+      label: "Focus Source Control",
+      shortcut: "4",
+      category: "Navigation",
+      action: () => setFocusedPanel("source"),
+    },
+    {
+      id: "focus-git-graph",
+      label: "Focus Git Graph",
+      shortcut: "5",
+      category: "Navigation",
+      action: () => setFocusedPanel("graph"),
+    },
     // Tab Operations
     {
       id: "close-tab",
@@ -239,7 +256,7 @@ export function App({ rootPath }: AppProps) {
     {
       id: "show-help",
       label: "Show Keyboard Shortcuts",
-      shortcut: "F1",
+      shortcut: "Ctrl+B / ?",
       category: "Application",
       action: () => setShowHelpPanel(true),
     },
@@ -269,8 +286,13 @@ export function App({ rootPath }: AppProps) {
     // Don't handle keyboard if overlays are open (except help panel)
     if (showFuzzyFinder || showCommandPalette || showGlobalSearch || showThemePicker) return;
 
-    // F1 - Toggle help panel
-    if (event.name === "f1") {
+    // Help - Simple universal shortcuts (Ctrl+B, ?, or F1)
+    if (
+      event.name === "f1" ||
+      (event.name === "?" && !event.ctrl && !event.meta) ||
+      (event.ctrl && (event.name === "b" || event.name === "B")) ||
+      (event.meta && (event.name === "h" || event.name === "H"))
+    ) {
       setShowHelpPanel((v) => !v);
       return;
     }
@@ -284,10 +306,10 @@ export function App({ rootPath }: AppProps) {
       return;
     }
 
-    // Ctrl+Shift+P, Cmd+Shift+P, or Alt+P - Open command palette
+    // Command Palette - Simple universal shortcuts (Ctrl+K or Cmd+Shift+P)
     if (
-      ((event.ctrl || event.meta) && (event.shift || event.name === "P") && (event.name === "p" || event.name === "P")) ||
-      (event.meta && (event.name === "p" || event.name === "P"))
+      (event.ctrl && (event.name === "k" || event.name === "K")) ||
+      (event.meta && event.shift && (event.name === "p" || event.name === "P"))
     ) {
       setShowCommandPalette(true);
       return;
@@ -325,9 +347,8 @@ export function App({ rootPath }: AppProps) {
       return;
     }
 
-    // Don't intercept Cmd+key - let terminal host handle copy/paste
-    // Use Ctrl+Shift+C to copy entire panel content (Linux terminal standard)
-    if (event.ctrl && event.shift && event.name === "c") {
+    // Copy content: Ctrl+Y (Yank) or Cmd+C (standard Mac)
+    if ((event.ctrl && (event.name === "y" || event.name === "Y")) || (event.meta && event.name === "c")) {
       try {
         if (focusedPanel === "viewer" && selectedFile) {
           const content = await Bun.file(selectedFile).text();
@@ -362,13 +383,13 @@ export function App({ rootPath }: AppProps) {
     // Panel navigation with Tab
     if (event.name === "tab" && !event.shift) {
       setFocusedPanel((current) => {
-        const order: Panel[] = ["tree", "viewer", "terminal"];
+        const order: Panel[] = ["tree", "source", "graph", "viewer", "terminal"];
         const currentIndex = order.indexOf(current);
         return order[(currentIndex + 1) % order.length] as Panel;
       });
     } else if (event.name === "tab" && event.shift) {
       setFocusedPanel((current) => {
-        const order: Panel[] = ["tree", "viewer", "terminal"];
+        const order: Panel[] = ["tree", "source", "graph", "viewer", "terminal"];
         const currentIndex = order.indexOf(current);
         return order[(currentIndex - 1 + order.length) % order.length] as Panel;
       });
@@ -378,6 +399,8 @@ export function App({ rootPath }: AppProps) {
     if (event.name === "1") setFocusedPanel("tree");
     if (event.name === "2") setFocusedPanel("viewer");
     if (event.name === "3") setFocusedPanel("terminal");
+    if (event.name === "4") setFocusedPanel("source");
+    if (event.name === "5") setFocusedPanel("graph");
   });
 
   // Open file in a new tab or switch to existing tab
@@ -412,37 +435,52 @@ export function App({ rootPath }: AppProps) {
     });
   };
 
-  const treeWidth = 30;
   const mainWidth = (dimensions.width || 80) - treeWidth - 4;
-  const totalHeight = (dimensions.height || 40) - 7; // -7 for taller header and status bar
+  const totalHeight = (dimensions.height || 40) - 8; // -8 for taller header and status bar
   const viewerHeight = Math.floor(totalHeight * 0.4); // 40% for viewer
   const terminalHeight = totalHeight - viewerHeight; // 60% for terminal
 
   return (
     <box style={{ flexDirection: "column", width: "100%", height: "100%", bg: "#050505" }}>
-      {/* Header */}
-      <box style={{ paddingX: 1, paddingY: 1, flexDirection: "row", gap: 3, height: 5 }}>
-        <text style={{ fg: "cyan", bold: true }}>
-          {`▀█▀ █▀▀ █▀▄ █▄▀▄█ █ █▀▄ █▀▀
- █  █▀▀ █▀▄ █ █ █ █ █ █ █▀▀
- ▀  ▀▀▀ ▀ ▀ ▀   ▀ ▀ ▀▀  ▀▀▀`}
-        </text>
-        <box style={{ flexDirection: "column", justifyContent: "center" }}>
-          <text style={{ fg: "white", bold: true }}>TERMINAL IDE</text>
-          <text style={{ fg: "gray" }}>{rootPath.replace(process.env.HOME || "", "~")}</text>
-          <text style={{ fg: "gray", dim: true }}>Tab: switch | Ctrl+P: find | Alt+P: commands | F1: help</text>
+      {/* Top Header */}
+      <box style={{ height: 5, borderBottom: true, borderColor: "gray", flexDirection: "column", bg: "#0b0b0b" }}>
+        <box style={{ paddingX: 1, flexDirection: "row", justifyContent: "space-between", bg: "#1a1a1a" }}>
+          <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a" }}>  ▀█▀ █▀▀ █▀▄ █▄▀▄█ █ █▀▄ █▀▀</text>
+          <text style={{ fg: "gray", bg: "#1a1a1a" }}>{rootPath.replace(process.env.HOME || "", "~")}</text>
+        </box>
+        <box style={{ paddingX: 1, flexDirection: "row", justifyContent: "space-between", bg: "#1a1a1a" }}>
+          <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a" }}>   █  █▀▀ █▀▄ █ █ █ █ █ █ █▀▀</text>
+          <text style={{ fg: "white", bold: true, bg: "#1a1a1a" }}>TERMINAL IDE</text>
+        </box>
+        <box style={{ paddingX: 1, flexDirection: "row", justifyContent: "space-between", bg: "#1a1a1a" }}>
+          <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a" }}>   ▀  ▀▀▀ ▀ ▀ ▀   ▀ ▀ ▀▀  ▀▀▀</text>
+          <text style={{ fg: "magenta", bg: "#1a1a1a" }}>Ctrl+P: find | Ctrl+K: commands | Ctrl+B: help</text>
         </box>
       </box>
 
       {/* Main content */}
       <box style={{ flexGrow: 1, flexDirection: "row" }}>
-        {/* File Tree - Left panel */}
-        <box style={{ width: treeWidth }}>
-          <FileTree
-            rootPath={rootPath}
-            onFileSelect={handleFileSelect}
-            focused={focusedPanel === "tree"}
-          />
+        {/* Sidebar - Left panel */}
+        <box style={{ width: treeWidth, flexDirection: "column", height: "100%" }}>
+          <box style={{ flexGrow: 4 }}>
+            <FileTree
+              rootPath={rootPath}
+              onFileSelect={handleFileSelect}
+              focused={focusedPanel === "tree"}
+            />
+          </box>
+          <box style={{ flexGrow: 3 }}>
+            <SourceControl
+              rootPath={rootPath}
+              focused={focusedPanel === "source"}
+            />
+          </box>
+          <box style={{ flexGrow: 3 }}>
+            <GitGraph
+              rootPath={rootPath}
+              focused={focusedPanel === "graph"}
+            />
+          </box>
         </box>
 
         {/* Right side - Tabs + Viewer + Terminal */}
@@ -562,10 +600,10 @@ export function App({ rootPath }: AppProps) {
         <ThemePicker
           isOpen={showThemePicker}
           onClose={() => setShowThemePicker(false)}
-          currentTheme={currentTheme}
-          onSelect={(theme) => {
-            setCurrentTheme(theme);
-            success(`Theme: ${theme.name}`, 2000);
+          currentTheme={theme}
+          onSelect={(t) => {
+            setTheme(t);
+            success(`Theme: ${t.name}`, 2000);
           }}
         />
       )}

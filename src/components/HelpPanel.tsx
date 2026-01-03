@@ -24,7 +24,7 @@ const SHORTCUTS: ShortcutCategory[] = [
       { keys: "Shift+Tab", description: "Switch to previous panel" },
       { keys: "1 / 2 / 3", description: "Jump to Explorer / Editor / Terminal" },
       { keys: "Ctrl+P", description: "Quick open file (fuzzy finder)" },
-      { keys: "Ctrl+Shift+P", description: "Open command palette" },
+      { keys: "Cmd+Shift+P", description: "Open command palette" },
       { keys: "Ctrl+Shift+F", description: "Search in all files" },
     ],
   },
@@ -73,14 +73,16 @@ const SHORTCUTS: ShortcutCategory[] = [
   {
     title: "Clipboard",
     shortcuts: [
+      { keys: "Cmd+C", description: "Copy selection (standard Mac)" },
       { keys: "Ctrl+Shift+C", description: "Copy panel content" },
       { keys: "Ctrl+Shift+V", description: "Paste to terminal" },
+      { keys: "Opt+Select", description: "Mac selection bypass" },
     ],
   },
   {
     title: "Application",
     shortcuts: [
-      { keys: "F1", description: "Toggle this help panel" },
+      { keys: "Ctrl+Shift+H / ?", description: "Toggle this help panel" },
       { keys: "Ctrl+Q", description: "Quit application" },
     ],
   },
@@ -90,7 +92,13 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
   useKeyboard((event) => {
     if (!isOpen) return;
 
-    if (event.name === "escape" || event.name === "f1" || event.name === "q") {
+    if (
+      event.name === "escape" ||
+      event.name === "f1" ||
+      event.name === "q" ||
+      ((event.ctrl || event.meta) && event.shift && (event.name === "h" || event.name === "H")) ||
+      (event.name === "?" && !event.ctrl && !event.meta)
+    ) {
       onClose();
     }
   });
@@ -132,12 +140,12 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
             left: 0,
             width: "100%",
             height: "100%",
-            bg: "#1a1a1a",
+            bg: "#050505",
             flexDirection: "column",
           }}
         >
-          {Array.from({ length: 40 }).map((_, i) => (
-            <text key={i} style={{ bg: "#1a1a1a" }}>{" ".repeat(200)}</text>
+          {Array.from({ length: 100 }).map((_, i) => (
+            <text key={i} style={{ bg: "#050505" }}>{" ".repeat(250)}</text>
           ))}
         </box>
 
@@ -152,24 +160,24 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
         </box>
 
         {/* Content */}
-        <scrollbox style={{ flexDirection: "row", flexWrap: "wrap", flexGrow: 1, padding: 1, gap: 2, bg: "#1a1a1a" }}>
+        <scrollbox style={{ flexDirection: "row", flexWrap: "wrap", flexGrow: 1, padding: 2, gap: 4, bg: "#050505" }}>
           {SHORTCUTS.map((category) => (
             <box
               key={category.title}
               style={{
                 flexDirection: "column",
-                width: 35,
+                width: 40,
                 marginBottom: 1,
-                bg: "#1a1a1a",
+                bg: "#050505",
               }}
             >
-              <text style={{ fg: "yellow", bold: true, marginBottom: 1, bg: "#1a1a1a" }}>
+              <text style={{ fg: "yellow", bold: true, marginBottom: 1, bg: "#050505" }}>
                 {category.title}
               </text>
               {category.shortcuts.map((shortcut, idx) => (
-                <box key={idx} style={{ flexDirection: "row", bg: "#1a1a1a" }}>
-                  <text style={{ fg: "cyan", width: 16, bg: "#1a1a1a" }}>{shortcut.keys}</text>
-                  <text style={{ fg: "white", bg: "#1a1a1a" }}>{shortcut.description}</text>
+                <box key={idx} style={{ flexDirection: "row", bg: "#050505" }}>
+                  <text style={{ fg: "cyan", width: 18, bg: "#050505" }}>{shortcut.keys}</text>
+                  <text style={{ fg: "white", bg: "#050505" }}>{shortcut.description}</text>
                 </box>
               ))}
             </box>
