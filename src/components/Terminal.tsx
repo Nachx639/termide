@@ -273,9 +273,63 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
       for (let c = 0; c < Math.min(renderCols, row.length); c++) {
         const cell = row[c];
         const isCursor = cursorVisible && focused && cursorBlink && cursor?.row === r && cursor?.col === c;
+        const isInverse = cell?.style?.inverse || false;
 
-        const cellFg = isCursor ? "black" : (cell?.style?.fg || "white");
-        const cellBg = isCursor ? "white" : (cell?.style?.bg || "transparent");
+        // Remap magenta-ish colors to yellow for visual harmony
+        const remapColor = (color: string): string => {
+          if (color === "magenta" || color === "brightMagenta") return "#ffff55";
+          if (color === "darkMagenta") return "#aa8800";
+
+          // Check for RGB magenta variants
+          if (color.startsWith("rgb(")) {
+            const match = color.match(/rgb\((\d+),(\d+),(\d+)\)/);
+            if (match) {
+              const r = parseInt(match[1]!);
+              const g = parseInt(match[2]!);
+              const b = parseInt(match[3]!);
+              // Detect magenta-ish colors (high red, low green, high blue)
+              if (r > 100 && g < 150 && b > 100 && Math.abs(r - b) < 100) {
+                const brightness = Math.max(r, b);
+                if (brightness > 200) return "#ffff55";
+                if (brightness > 150) return "#dddd00";
+                return "#aa8800";
+              }
+            }
+          }
+
+          // Check for hex color magenta variants
+          if (color.startsWith("#") && color.length >= 7) {
+            const r = parseInt(color.slice(1, 3), 16);
+            const g = parseInt(color.slice(3, 5), 16);
+            const b = parseInt(color.slice(5, 7), 16);
+            // Detect magenta-ish colors
+            if (r > 100 && g < 150 && b > 100 && Math.abs(r - b) < 100) {
+              const brightness = Math.max(r, b);
+              if (brightness > 200) return "#ffff55";
+              if (brightness > 150) return "#dddd00";
+              return "#aa8800";
+            }
+          }
+
+          return color;
+        };
+
+        // Handle inverse style (used by apps like Claude Code for their cursor)
+        let cellFg = remapColor(cell?.style?.fg || "white");
+        let cellBg = remapColor(cell?.style?.bg || "transparent");
+
+        if (isInverse) {
+          // Swap foreground and background
+          const tempFg = cellFg;
+          cellFg = cellBg === "transparent" ? "black" : cellBg;
+          cellBg = tempFg;
+        }
+
+        if (isCursor) {
+          cellFg = "black";
+          cellBg = "white";
+        }
+
         const cellDim = cell?.style?.dim || false;
         const cellBold = cell?.style?.bold || false;
         const char = cell?.char || " ";

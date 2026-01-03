@@ -168,7 +168,7 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
           height: 19,
           flexDirection: "column",
           border: true,
-          borderColor: "magenta",
+          borderColor: "yellow",
           bg: "#050505",
           position: "relative",
         }}
@@ -192,9 +192,9 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
 
         {/* Row 1: Search Input */}
         <box style={{ paddingX: 2, height: 1, bg: "#050505", flexDirection: "row" }}>
-          <text style={{ fg: "magenta", bold: true, bg: "#050505" }}> › </text>
+          <text style={{ fg: "yellow", bold: true, bg: "#050505" }}> › </text>
           <text style={{ fg: "white", bg: "#050505" }}>{query}</text>
-          <text style={{ fg: "magenta", bg: "#050505" }}>█</text>
+          <text style={{ fg: "yellow", bg: "#050505" }}>█</text>
         </box>
 
         {/* Row 2: Top Divider */}
