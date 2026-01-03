@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/termide-banner-cropped.png" width="100%" />
+  <img src="assets/termide-banner-v2.png" width="100%" />
 </p>
 
 <p align="center">
@@ -9,7 +9,7 @@
 ---
 
 <p align="center">
-  <img src="assets/screenshot.png" width="600" alt="termide screenshot" />
+  <img src="assets/termide-screenshot-v2.png" width="600" alt="termide screenshot" />
 </p>
 
 ---
