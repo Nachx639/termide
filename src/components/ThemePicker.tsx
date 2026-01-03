@@ -94,7 +94,7 @@ export function ThemePicker({ isOpen, onClose, currentTheme, onSelect }: ThemePi
 
         {/* Header */}
         <box style={{ paddingX: 1, borderBottom: true, borderColor: "gray", bg: "#1a1a1a" }}>
-          <text style={{ fg: "yellow", bold: true, bg: "#1a1a1a" }}>🎨 Select Theme</text>
+          <text style={{ fg: "#d4a800", bold: true, bg: "#1a1a1a" }}>🎨 Select Theme</text>
         </box>
 
         {/* Theme list */}

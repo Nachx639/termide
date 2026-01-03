@@ -17,7 +17,7 @@ interface NotificationsProps {
 const TYPE_STYLES: Record<NotificationType, { icon: string; fg: string; bg?: string }> = {
   info: { icon: "ℹ", fg: "cyan" },
   success: { icon: "✓", fg: "green" },
-  warning: { icon: "⚠", fg: "yellow" },
+  warning: { icon: "⚠", fg: "#d4a800" },
   error: { icon: "✗", fg: "red" },
 };
 

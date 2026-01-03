@@ -173,7 +173,7 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
                 }}
               >
                 <box style={{ marginBottom: 1, borderBottom: true, borderColor: "blue", bg: "#050505" }}>
-                  <text style={{ fg: "yellow", bold: true, bg: "#050505" }}>
+                  <text style={{ fg: "#d4a800", bold: true, bg: "#050505" }}>
                     {category.title.toUpperCase()}
                   </text>
                 </box>
@@ -198,7 +198,7 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
             <text style={{ fg: "gray", dim: true, bg: "#0b0b0b" }}>
               Termide v0.1.0 - Terminal IDE for AI Coding Agents
             </text>
-            <text style={{ fg: "yellow", bg: "#0b0b0b" }}>Made with ♥</text>
+            <text style={{ fg: "#d4a800", bg: "#0b0b0b" }}>Made with ♥</text>
           </box>
         </box>
       </box>

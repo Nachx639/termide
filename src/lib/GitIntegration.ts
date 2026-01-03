@@ -215,7 +215,7 @@ export function getFileStatusColor(status: FileGitStatus | null): string {
   if (!status) return "white";
 
   switch (status.status) {
-    case "M": return status.staged ? "green" : "yellow";
+    case "M": return status.staged ? "green" : "#d4a800";
     case "A": return "green";
     case "D": return "red";
     case "R": return "cyan";
