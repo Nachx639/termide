@@ -235,7 +235,19 @@ export function GlobalSearch({ rootPath, isOpen, onClose, onSelect }: GlobalSear
         </box>
 
         {/* Results */}
-        <scrollbox style={{ flexDirection: "column", flexGrow: 1, bg: "#1a1a1a" }}>
+        <scrollbox
+          style={{ flexDirection: "column", flexGrow: 1, bg: "#1a1a1a" }}
+          onMouse={(event: any) => {
+            if (event.action === "wheel") {
+              if (event.direction === "up") {
+                setSelectedIndex(i => Math.max(0, i - 1));
+              } else {
+                setSelectedIndex(i => Math.min(results.length - 1, i + 1));
+              }
+            }
+          }}
+        >
+
           {query.length < 2 ? (
             <text style={{ fg: "gray", dim: true, bg: "#1a1a1a", paddingX: 1 }}>Type at least 2 characters to search</text>
           ) : results.length === 0 && !isSearching ? (

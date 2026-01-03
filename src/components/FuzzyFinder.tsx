@@ -264,11 +264,24 @@ export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles =
         <box style={{ paddingX: 1, borderBottom: true, borderColor: "gray", bg: "#1a1a1a" }}>
           <text style={{ fg: "cyan", bg: "#1a1a1a" }}>🔍 </text>
           <text style={{ fg: "white", bg: "#1a1a1a" }}>{query}</text>
-          <text style={{ fg: "cyan", blink: true, bg: "#1a1a1a" }}>▌</text>
+          <text style={{ fg: "cyan", bg: "#1a1a1a" }}>▌</text>
         </box>
 
+
         {/* Results */}
-        <scrollbox style={{ flexDirection: "column", flexGrow: 1, bg: "#1a1a1a" }}>
+        <scrollbox
+          style={{ flexDirection: "column", flexGrow: 1, bg: "#1a1a1a" }}
+          onMouse={(event: any) => {
+            if (event.action === "wheel") {
+              if (event.direction === "up") {
+                setSelectedIndex(i => Math.max(0, i - 1));
+              } else {
+                setSelectedIndex(i => Math.min(matches.length - 1, i + 1));
+              }
+            }
+          }}
+        >
+
           {visibleMatches.length === 0 ? (
             <text style={{ fg: "gray", dim: true, bg: "#1a1a1a", paddingX: 1 }}>No files found</text>
           ) : (
@@ -328,7 +341,7 @@ export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles =
                     )}
                   </box>
                   {match.isRecent && (
-                    <text style={{ fg: isSelected ? "black" : "magenta", bg: isSelected ? "cyan" : "#1a1a1a" as any, dim: !isSelected }}>
+                    <text style={{ fg: isSelected ? "black" : "#d4a800", bg: isSelected ? "cyan" : "#1a1a1a" as any, dim: !isSelected }}>
                       ★ recent
                     </text>
                   )}
