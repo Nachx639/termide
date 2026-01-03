@@ -16,12 +16,54 @@ interface TerminalRef {
   resize: (cols: number, rows: number) => void;
 }
 
+// Convert ALL magenta/pink/purple variants to cyan - comprehensive detection
+const toCyan = (color: string | undefined): string => {
+  if (!color) return "white";
+  const c = String(color).toLowerCase().trim();
+
+  // Named colors - comprehensive list
+  const magentaNames = [
+    "magenta", "brightmagenta", "bright-magenta", "fuchsia", "purple",
+    "pink", "hotpink", "deeppink", "mediumvioletred", "palevioletred",
+    "orchid", "plum", "violet", "darkviolet", "darkorchid", "darkmagenta",
+    "mediumorchid", "mediumpurple", "blueviolet", "indigo", "rebeccapurple"
+  ];
+  if (magentaNames.some(name => c === name || c.includes(name))) return "cyan";
+
+  // Check for #ff00ff variants
+  if (c === "#ff00ff" || c === "#f0f" || c === "#ff0ff" || c === "#f0ff") return "cyan";
+
+  // RGB format: rgb(r, g, b) or rgb(r g b)
+  const rgbMatch = c.match(/rgb[a]?\s*\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/);
+  if (rgbMatch) {
+    const r = parseInt(rgbMatch[1]!), g = parseInt(rgbMatch[2]!), b = parseInt(rgbMatch[3]!);
+    // Magenta family: high red AND high blue, with green lower than both
+    if (r > 80 && b > 80 && g < r && g < b) return "cyan";
+  }
+
+  // Hex format: #RGB, #RRGGBB, or #RRGGBBAA
+  if (c.startsWith("#") && c.length >= 4) {
+    let r = 0, g = 0, b = 0;
+    if (c.length >= 7) {
+      r = parseInt(c.slice(1, 3), 16);
+      g = parseInt(c.slice(3, 5), 16);
+      b = parseInt(c.slice(5, 7), 16);
+    } else if (c.length >= 4) {
+      r = parseInt(c[1]! + c[1]!, 16);
+      g = parseInt(c[2]! + c[2]!, 16);
+      b = parseInt(c[3]! + c[3]!, 16);
+    }
+    if (r > 80 && b > 80 && g < r && g < b) return "cyan";
+  }
+
+  return color;
+};
+
 export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteReady, onCopyReady }: TerminalProps) {
   const dimensions = useTerminalDimensions();
   const [renderCount, setRenderCount] = useState(0);
   const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cursorBlink, setCursorBlink] = useState(true);
 
   // Fixed dimensions for stable PTY
   const cols = dimensions?.width || 80;
@@ -147,18 +189,6 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
     }
   }, [termCols, termRows, initialized]);
 
-  // Cursor blink effect
-  useEffect(() => {
-    if (!focused) {
-      setCursorBlink(true);
-      return;
-    }
-    const blinkInterval = setInterval(() => {
-      setCursorBlink((b) => !b);
-    }, 530);
-    return () => clearInterval(blinkInterval);
-  }, [focused]);
-
   // Handle keyboard input
   useKeyboard((event) => {
     if (!focused || !terminalRef.current) return;
@@ -248,7 +278,7 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
           <text style={{ fg: "gray" }}>Initializing...</text>
         </box>
         <box style={{ flexGrow: 1, justifyContent: "center", alignItems: "center" }}>
-          <text style={{ fg: "#d4a800" }}>Starting shell...</text>
+          <text style={{ fg: "yellow" }}>Starting shell...</text>
         </box>
       </box>
     );
@@ -272,64 +302,23 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
 
       for (let c = 0; c < Math.min(renderCols, row.length); c++) {
         const cell = row[c];
-        const isCursor = cursorVisible && focused && cursorBlink && cursor?.row === r && cursor?.col === c;
+        const isCursor = cursorVisible && focused && cursor?.row === r && cursor?.col === c;
         const isInverse = cell?.style?.inverse || false;
 
-        // Remap magenta-ish colors to yellow for visual harmony
-        const remapColor = (color: string): string => {
-          if (color === "magenta" || color === "brightMagenta") return "#e6b800";
-          if (color === "darkMagenta") return "#b08600";
-
-          // Check for RGB magenta variants
-          if (color.startsWith("rgb(")) {
-            const match = color.match(/rgb\((\d+),(\d+),(\d+)\)/);
-            if (match) {
-              const r = parseInt(match[1]!);
-              const g = parseInt(match[2]!);
-              const b = parseInt(match[3]!);
-              // Detect magenta-ish colors (high red, low green, high blue)
-              if (r > 100 && g < 150 && b > 100 && Math.abs(r - b) < 100) {
-                const brightness = Math.max(r, b);
-                if (brightness > 200) return "#e6b800";
-                if (brightness > 150) return "#d4a800";
-                return "#b08600";
-              }
-            }
-          }
-
-          // Check for hex color magenta variants
-          if (color.startsWith("#") && color.length >= 7) {
-            const r = parseInt(color.slice(1, 3), 16);
-            const g = parseInt(color.slice(3, 5), 16);
-            const b = parseInt(color.slice(5, 7), 16);
-            // Detect magenta-ish colors
-            if (r > 100 && g < 150 && b > 100 && Math.abs(r - b) < 100) {
-              const brightness = Math.max(r, b);
-              if (brightness > 200) return "#e6b800";
-              if (brightness > 150) return "#d4a800";
-              return "#b08600";
-            }
-          }
-
-          return color;
-        };
-
-        // Handle inverse style (used by apps like Claude Code for their cursor)
-        let cellFg = remapColor(cell?.style?.fg || "white");
-        let cellBg = remapColor(cell?.style?.bg || "transparent");
+        // Handle inverse mode (swap fg/bg) - used by Claude Code for user messages
+        let cellFg = toCyan(cell?.style?.fg || "white");
+        let cellBg = toCyan(cell?.style?.bg || "transparent");
 
         if (isInverse) {
-          // Swap foreground and background
-          const tempFg = cellFg;
-          cellFg = cellBg === "transparent" ? "black" : cellBg;
-          cellBg = tempFg;
+          // User messages use inverse - show as white text on transparent bg
+          cellFg = "white";
+          cellBg = "transparent";
         }
 
         if (isCursor) {
           cellFg = "black";
-          cellBg = "white";
+          cellBg = "#d4a800";
         }
-
         const cellDim = cell?.style?.dim || false;
         const cellBold = cell?.style?.bold || false;
         const char = cell?.char || " ";
@@ -382,8 +371,9 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
               <text
                 key={segIdx}
                 style={{
-                  fg: seg.fg === "white" && seg.dim ? "#8a8a8a" : seg.fg as any,
-                  bg: seg.bg as any,
+                  fg: toCyan(seg.fg === "white" && seg.dim ? "#8a8a8a" :
+                      (seg.bg && seg.bg !== "transparent" ? "white" : (seg.fg || "white"))) as any,
+                  bg: "transparent" as any,
                   bold: seg.bold,
                   dim: seg.dim && !seg.isCursor
                 }}
