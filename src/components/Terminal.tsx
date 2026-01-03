@@ -16,49 +16,6 @@ interface TerminalRef {
   resize: (cols: number, rows: number) => void;
 }
 
-// Convert ALL magenta/pink/purple variants to cyan - comprehensive detection
-const toCyan = (color: string | undefined): string => {
-  if (!color) return "white";
-  const c = String(color).toLowerCase().trim();
-
-  // Named colors - comprehensive list
-  const magentaNames = [
-    "magenta", "brightmagenta", "bright-magenta", "fuchsia", "purple",
-    "pink", "hotpink", "deeppink", "mediumvioletred", "palevioletred",
-    "orchid", "plum", "violet", "darkviolet", "darkorchid", "darkmagenta",
-    "mediumorchid", "mediumpurple", "blueviolet", "indigo", "rebeccapurple"
-  ];
-  if (magentaNames.some(name => c === name || c.includes(name))) return "cyan";
-
-  // Check for #ff00ff variants
-  if (c === "#ff00ff" || c === "#f0f" || c === "#ff0ff" || c === "#f0ff") return "cyan";
-
-  // RGB format: rgb(r, g, b) or rgb(r g b)
-  const rgbMatch = c.match(/rgb[a]?\s*\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/);
-  if (rgbMatch) {
-    const r = parseInt(rgbMatch[1]!), g = parseInt(rgbMatch[2]!), b = parseInt(rgbMatch[3]!);
-    // Magenta family: high red AND high blue, with green lower than both
-    if (r > 80 && b > 80 && g < r && g < b) return "cyan";
-  }
-
-  // Hex format: #RGB, #RRGGBB, or #RRGGBBAA
-  if (c.startsWith("#") && c.length >= 4) {
-    let r = 0, g = 0, b = 0;
-    if (c.length >= 7) {
-      r = parseInt(c.slice(1, 3), 16);
-      g = parseInt(c.slice(3, 5), 16);
-      b = parseInt(c.slice(5, 7), 16);
-    } else if (c.length >= 4) {
-      r = parseInt(c[1]! + c[1]!, 16);
-      g = parseInt(c[2]! + c[2]!, 16);
-      b = parseInt(c[3]! + c[3]!, 16);
-    }
-    if (r > 80 && b > 80 && g < r && g < b) return "cyan";
-  }
-
-  return color;
-};
-
 export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteReady, onCopyReady }: TerminalProps) {
   const dimensions = useTerminalDimensions();
   const [renderCount, setRenderCount] = useState(0);
@@ -306,8 +263,8 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
         const isInverse = cell?.style?.inverse || false;
 
         // Handle inverse mode (swap fg/bg) - used by Claude Code for user messages
-        let cellFg = toCyan(cell?.style?.fg || "white");
-        let cellBg = toCyan(cell?.style?.bg || "transparent");
+        let cellFg = cell?.style?.fg || "white";
+        let cellBg = cell?.style?.bg || "transparent";
 
         if (isInverse) {
           // User messages use inverse - show as white text on transparent bg
@@ -371,8 +328,7 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
               <text
                 key={segIdx}
                 style={{
-                  fg: toCyan(seg.fg === "white" && seg.dim ? "#8a8a8a" :
-                      (seg.bg && seg.bg !== "transparent" ? "white" : (seg.fg || "white"))) as any,
+                  fg: (seg.fg || "white") as any,
                   bg: "transparent" as any,
                   bold: seg.bold,
                   dim: seg.dim && !seg.isCursor
