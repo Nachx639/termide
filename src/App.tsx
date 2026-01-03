@@ -81,6 +81,9 @@ export function App({ rootPath }: AppProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [fileStats, setFileStats] = useState<{ size: number; lineCount: number } | null>(null);
   const [antFrame, setAntFrame] = useState(0);
+  const [antStatus, setAntStatus] = useState<"walking" | "dying" | "dead">("walking");
+  const [deathProgress, setDeathProgress] = useState(0);
+  const [isMaximized, setIsMaximized] = useState(false);
   const { notifications, notify, dismiss, success, error } = useNotifications();
   const isAnyModalOpen = showFuzzyFinder || showCommandPalette || showGlobalSearch || showHelpPanel || showThemePicker;
 
@@ -93,33 +96,67 @@ export function App({ rootPath }: AppProps) {
   }, []);
 
   // Animate the ant
-  const isMountedRef = useRef(true);
   useEffect(() => {
-    isMountedRef.current = true;
     const antTimer = setInterval(() => {
-      if (isMountedRef.current) {
+      if (antStatus === "walking") {
         setAntFrame((f) => (f + 1) % 40);
+      } else if (antStatus === "dying") {
+        setDeathProgress((p) => {
+          if (p >= 5) {
+            setAntStatus("dead");
+            return p;
+          }
+          return p + 1;
+        });
       }
-    }, 300);
-    return () => {
-      isMountedRef.current = false;
-      clearInterval(antTimer);
-    };
-  }, []);
+    }, antStatus === "dying" ? 150 : 300);
+    return () => clearInterval(antTimer);
+  }, [antStatus]);
 
-  // Generate animated 3-line ant walking (left to right, facing right)
+  // Generate animated 3-line ant walking or dying
   const getAntLines = (maxWidth: number) => {
-    // Ensure we have at least some space, and account for ant's own width (~12)
+    if (antStatus === "dead") return ["", "", ""];
+
     const antWidth = 12;
     const walkSpace = Math.max(0, maxWidth - antWidth);
-
-    // If no space, don't show the ant or show it static
     if (walkSpace <= 0) return ["", "", ""];
 
     const pos = antFrame % (walkSpace + 1);
     const spaces = " ".repeat(pos);
 
-    // Ant frames with segmented body and walking legs
+    if (antStatus === "dying") {
+      const deathFrames = [
+        [
+          "      * *",
+          "  o O ( x.x )",
+          "    * * * *"
+        ],
+        [
+          "       . .",
+          "    . ( x-x ) .",
+          "       . ."
+        ],
+        [
+          "        *",
+          "      . * .",
+          "        *"
+        ],
+        [
+          "         .",
+          "       . .",
+          "         ."
+        ],
+        [
+          "",
+          "        .",
+          ""
+        ],
+        ["", "", ""]
+      ];
+      const frame = deathFrames[deathProgress] || deathFrames[deathFrames.length - 1];
+      return frame!.map(line => `${spaces}${line}`);
+    }
+
     const frames = [
       [
         "      \\ /",
@@ -134,7 +171,7 @@ export function App({ rootPath }: AppProps) {
     ];
 
     const frame = frames[antFrame % 2] || frames[0];
-    return frame.map(line => `${spaces}${line}`);
+    return frame!.map(line => `${spaces}${line}`);
   };
 
   // Get currently selected file from active tab
@@ -178,8 +215,8 @@ export function App({ rootPath }: AppProps) {
     {
       id: "go-to-file",
       label: "Go to File",
-      description: "Quick open a file",
       shortcut: "Ctrl+P",
+      description: "Quick open a file",
       category: "Navigation",
       action: () => setShowFuzzyFinder(true),
     },
@@ -348,7 +385,7 @@ export function App({ rootPath }: AppProps) {
     if (showHelpPanel) return;
 
     // Ctrl+Shift+F - Global search
-    if (event.ctrl && (event.shift || event.name === "F") && (event.name === "f" || event.name === "F")) {
+    if (event.ctrl && event.shift && (event.name === "f" || event.name === "F")) {
       setShowGlobalSearch(true);
       return;
     }
@@ -412,9 +449,29 @@ export function App({ rootPath }: AppProps) {
       return;
     }
 
+    // Ctrl+G - Toggle mascot
+    if (event.ctrl && (event.name === "g" || event.name === "G")) {
+      if (antStatus === "walking") {
+        setAntStatus("dying");
+        setDeathProgress(0);
+        success("Mascot: Off", 1500);
+      } else {
+        setAntStatus("walking");
+        success("Mascot: On", 1500);
+      }
+      return;
+    }
+
     // Global keybindings
     if (event.ctrl && event.name === "q") {
       process.exit(0);
+    }
+
+    // Ctrl+F - Toggle Center Focus / Maximize
+    if (event.ctrl && !event.shift && (event.name === "f" || event.name === "F")) {
+      setIsMaximized((m) => !m);
+      success(isMaximized ? "Focus: Off" : "Focus: On", 1000);
+      return;
     }
 
     // Panel navigation with Tab
@@ -470,8 +527,12 @@ export function App({ rootPath }: AppProps) {
   const totalHeight = (dimensions.height || 40) - 6; // -6 for header(5) and status bar(1)
   const tabsVisible = openTabs.length > 0;
   const availableContentHeight = totalHeight - (tabsVisible ? 1 : 0);
-  const viewerHeight = Math.floor(availableContentHeight * 0.35); // 35% for viewer
-  const terminalHeight = availableContentHeight - viewerHeight; // Recalculate based on remainder
+
+  // Focus mode calculations
+  const isSidebarFocused = focusedPanel === "tree" || focusedPanel === "source" || focusedPanel === "graph";
+  const currentTreeWidth = isMaximized && isSidebarFocused ? dimensions.width || 80 : (isMaximized ? 0 : treeWidth);
+  const currentViewerHeight = isMaximized ? (focusedPanel === "viewer" ? availableContentHeight : 0) : Math.floor(availableContentHeight * 0.35);
+  const currentTerminalHeight = isMaximized ? (focusedPanel === "terminal" ? availableContentHeight : 0) : (availableContentHeight - currentViewerHeight);
 
   return (
     <box style={{ flexDirection: "column", width: "100%", height: "100%", bg: "#050505" }}>
@@ -487,14 +548,14 @@ export function App({ rootPath }: AppProps) {
           const pathWidth = pathText.length;
           const row1Space = terminalWidth - logoWidth - pathWidth - 4;
 
-          // Row 2: Logo(30) + "TERMINAL IDE"(12)
-          const row2Space = terminalWidth - logoWidth - 12 - 4;
+          // Row 2: Mascot walks + Help part 1 (approx 43-45 chars)
+          const row2Space = terminalWidth - logoWidth - 45 - 4;
 
-          // Row 3: Logo(30) + Shortcuts(47)
-          const row3Space = terminalWidth - logoWidth - 47 - 4;
+          // Row 3: Mascot walks + Help part 2 (approx 46 chars)
+          const row3Space = terminalWidth - logoWidth - 46 - 4;
 
           // The ant walks in the shared space, so we use the minimum available
-          const maxAntSpace = Math.min(row1Space, row2Space, row3Space);
+          const maxAntSpace = Math.max(5, Math.min(row1Space, row2Space, row3Space));
           const antLines = getAntLines(maxAntSpace);
 
           return (
@@ -514,7 +575,7 @@ export function App({ rootPath }: AppProps) {
                 <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
                   <text style={{ fg: "cyan" }}>{antLines[1]}</text>
                 </box>
-                <text style={{ fg: "white", bold: true, bg: "#1a1a1a" }}>TERMINAL IDE</text>
+                <text style={{ fg: "magenta", bg: "#1a1a1a" }}>Ctrl+P: open | Ctrl+K: menu | Ctrl+F: focus</text>
               </box>
 
               {/* Row 3 */}
@@ -523,7 +584,7 @@ export function App({ rootPath }: AppProps) {
                 <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
                   <text style={{ fg: "cyan" }}>{antLines[2]}</text>
                 </box>
-                <text style={{ fg: "magenta", bg: "#1a1a1a" }}>Ctrl+P: find | Ctrl+K: commands | Ctrl+B: help</text>
+                <text style={{ fg: "magenta", bg: "#1a1a1a" }}>Ctrl+B: help | Ctrl+G: ant  | Alt+F: file find</text>
               </box>
             </>
           );
@@ -533,105 +594,126 @@ export function App({ rootPath }: AppProps) {
       {/* Main content */}
       <box style={{ flexGrow: 1, flexDirection: "row" }}>
         {/* Sidebar - Left panel */}
-        <box style={{ width: treeWidth, flexDirection: "column", height: "100%" }}>
-          <box style={{ flexGrow: 4 }}>
-            <FileTree
-              rootPath={rootPath}
-              onFileSelect={handleFileSelect}
-              focused={!isAnyModalOpen && focusedPanel === "tree"}
-            />
+        {currentTreeWidth > 0 && (
+          <box style={{ width: currentTreeWidth, flexDirection: "column", height: "100%" }}>
+            <box style={{ flexGrow: 4 }}>
+              <FileTree
+                rootPath={rootPath}
+                onFileSelect={handleFileSelect}
+                focused={!isAnyModalOpen && focusedPanel === "tree"}
+              />
+            </box>
+            <box style={{ flexGrow: 3 }}>
+              <SourceControl
+                rootPath={rootPath}
+                focused={!isAnyModalOpen && focusedPanel === "source"}
+              />
+            </box>
+            <box style={{ flexGrow: 3 }}>
+              <GitGraph
+                rootPath={rootPath}
+                focused={!isAnyModalOpen && focusedPanel === "graph"}
+              />
+            </box>
           </box>
-          <box style={{ flexGrow: 3 }}>
-            <SourceControl
-              rootPath={rootPath}
-              focused={!isAnyModalOpen && focusedPanel === "source"}
-            />
-          </box>
-          <box style={{ flexGrow: 3 }}>
-            <GitGraph
-              rootPath={rootPath}
-              focused={!isAnyModalOpen && focusedPanel === "graph"}
-            />
-          </box>
-        </box>
+        )}
 
         {/* Right side - Tabs + Viewer + Terminal */}
-        <box style={{ flexDirection: "column", flexGrow: 1 }}>
-          {/* Tab Bar */}
-          {openTabs.length > 0 && (
-            <TabBar
-              tabs={openTabs}
-              activeTabIndex={activeTabIndex}
-              onSelectTab={setActiveTabIndex}
-              onCloseTab={handleCloseTab}
-              focused={!isAnyModalOpen && focusedPanel === "viewer"}
-            />
-          )}
+        {(!isMaximized || !isSidebarFocused) && (
+          <box style={{ flexDirection: "column", flexGrow: 1 }}>
+            {/* Tab Bar */}
+            {openTabs.length > 0 && (
+              <TabBar
+                tabs={openTabs}
+                activeTabIndex={activeTabIndex}
+                onSelectTab={setActiveTabIndex}
+                onCloseTab={handleCloseTab}
+                focused={!isAnyModalOpen && focusedPanel === "viewer"}
+              />
+            )}
 
-          {/* File Viewer - Top right (35%) */}
-          <box style={{ height: viewerHeight }}>
-            <FileViewer
-              filePath={selectedFile}
-              focused={!isAnyModalOpen && focusedPanel === "viewer"}
-              rootPath={rootPath}
-            />
-          </box>
+            {/* File Viewer - Top right (35% or 100% if focused) */}
+            {currentViewerHeight > 0 && (
+              <box style={{ height: currentViewerHeight }}>
+                <FileViewer
+                  filePath={selectedFile}
+                  focused={!isAnyModalOpen && focusedPanel === "viewer"}
+                  rootPath={rootPath}
+                  height={currentViewerHeight}
+                />
+              </box>
+            )}
 
-          {/* Terminal - Bottom (65% height) */}
-          <box style={{ height: terminalHeight }}>
-            <Terminal
-              cwd={rootPath}
-              focused={!isAnyModalOpen && focusedPanel === "terminal"}
-              onFocusRequest={() => setFocusedPanel("terminal")}
-              onPasteReady={(pasteFn) => { terminalPasteRef.current = pasteFn; }}
-              onCopyReady={(copyFn) => { terminalCopyRef.current = copyFn; }}
-              height={terminalHeight}
-            />
+            {/* Terminal - Bottom (65% height or 100% if focused) */}
+            {currentTerminalHeight > 0 && (
+              <box style={{ height: currentTerminalHeight }}>
+                <Terminal
+                  cwd={rootPath}
+                  focused={!isAnyModalOpen && focusedPanel === "terminal"}
+                  onFocusRequest={() => setFocusedPanel("terminal")}
+                  onPasteReady={(pasteFn) => { terminalPasteRef.current = pasteFn; }}
+                  onCopyReady={(copyFn) => { terminalCopyRef.current = copyFn; }}
+                  height={currentTerminalHeight}
+                />
+              </box>
+            )}
           </box>
-        </box>
+        )}
       </box>
 
       {/* Status bar */}
-      <box style={{ paddingX: 1, bg: "black", justifyContent: "space-between" }}>
-        <box style={{ flexDirection: "row" }}>
+      <box style={{ height: 1, paddingX: 1, bg: "black", flexDirection: "row" }}>
+        <box style={{ flexDirection: "row", flexShrink: 1 }}>
           {/* Git branch */}
           {gitStatus?.isRepo && (
-            <>
-              <text style={{ fg: "magenta", bold: true }}></text>
+            <box style={{ flexDirection: "row", flexShrink: 0 }}>
               <text style={{ fg: "magenta" }}>{formatGitBranch(gitStatus)}</text>
               <text style={{ fg: gitStatus.clean ? "green" : "yellow" as any }}>
                 {" "}{formatGitStatus(gitStatus)}
               </text>
               <text style={{ fg: "gray" }}> │ </text>
-            </>
+            </box>
           )}
-          {/* File path */}
-          <text style={{ fg: "yellow" }}>
-            {selectedFile ? path.relative(rootPath, selectedFile) : "No file"}
-          </text>
+          {/* File path - with truncation */}
+          <box style={{ flexShrink: 1 }}>
+            <text style={{ fg: "yellow" }}>
+              {selectedFile ? path.relative(rootPath, selectedFile) : "No file"}
+            </text>
+          </box>
           {/* File stats */}
           {fileStats && (
-            <>
+            <box style={{ flexDirection: "row", flexShrink: 0 }}>
               <text style={{ fg: "gray" }}> │ </text>
               <text style={{ fg: "gray", dim: true }}>
                 {fileStats.lineCount} lines, {formatFileSize(fileStats.size)}
               </text>
-            </>
+            </box>
           )}
         </box>
-        <box style={{ flexDirection: "row", gap: 2 }}>
+
+        {/* Spacer to push content to the right */}
+        <box style={{ flexGrow: 1 }} />
+
+        <box style={{ flexDirection: "row", gap: 2, flexShrink: 0 }}>
           {/* Clock */}
           <text style={{ fg: "gray", dim: true }}>
             {currentTime.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" })}
           </text>
-          {/* Panel indicator */}
+          {/* Panel indicator - Now at the very end */}
           <box style={{ flexDirection: "row" }}>
             <text style={{ fg: "gray" }}>[</text>
-            <text style={{ fg: focusedPanel === "tree" ? "cyan" : "gray" as any, bold: focusedPanel === "tree" }}>1</text>
-            <text style={{ fg: "gray" }}>:</text>
-            <text style={{ fg: focusedPanel === "viewer" ? "cyan" : "gray" as any, bold: focusedPanel === "viewer" }}>2</text>
-            <text style={{ fg: "gray" }}>:</text>
-            <text style={{ fg: focusedPanel === "terminal" ? "cyan" : "gray" as any, bold: focusedPanel === "terminal" }}>3</text>
+            <text style={{ fg: "cyan", bold: true }}>
+              {(() => {
+                switch (focusedPanel) {
+                  case "tree": return "EXPLORER";
+                  case "viewer": return "VIEWER";
+                  case "terminal": return "TERMINAL";
+                  case "source": return "SOURCE";
+                  case "graph": return "GRAPH";
+                  default: return (focusedPanel as string).toUpperCase();
+                }
+              })()}
+            </text>
             <text style={{ fg: "gray" }}>]</text>
           </box>
         </box>

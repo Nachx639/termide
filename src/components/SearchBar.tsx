@@ -129,18 +129,15 @@ export function SearchBar({ isOpen, onClose, content, onJumpToLine, mode }: Sear
   return (
     <box
       style={{
-        position: "absolute",
-        bottom: 2,
-        left: 2,
-        right: 2,
-        height: 3,
+        height: 1,
         flexDirection: "column",
-        border: true,
+        borderTop: true,
         borderColor: borderColor as any,
         bg: "black",
+        paddingX: 1,
       }}
     >
-      <box style={{ paddingX: 1, flexDirection: "row", justifyContent: "space-between" }}>
+      <box style={{ flexDirection: "row", justifyContent: "space-between" }}>
         <box style={{ flexDirection: "row" }}>
           <text style={{ fg: borderColor as any, bold: true }}>{icon}</text>
           <text style={{ fg: "white" }}>{query}</text>
@@ -156,8 +153,8 @@ export function SearchBar({ isOpen, onClose, content, onJumpToLine, mode }: Sear
               {matches.length > 0
                 ? `${currentMatchIndex + 1}/${matches.length}`
                 : query.length > 0
-                ? "No matches"
-                : "Type to search"}
+                  ? "No matches"
+                  : "Type to search"}
             </text>
           )}
         </box>

@@ -33,7 +33,7 @@ async function runGitCommand(args: string[], cwd: string): Promise<string | null
     });
     const output = await new Response(proc.stdout).text();
     await proc.exited;
-    return output.trim();
+    return output;
   } catch {
     return null;
   }
@@ -151,31 +151,28 @@ export async function getFileGitStatus(filePath: string, cwd: string): Promise<F
     try {
       const statusOutput = await runGitCommand(["status", "--porcelain=v1", "-uall"], cwd);
       if (statusOutput) {
-        const lines = statusOutput.split("\n").filter(Boolean);
+        const lines = statusOutput.split("\n");
         for (const line of lines) {
-          try {
-            const x = line[0];
-            const y = line[1];
-            const file = line.slice(3);
+          if (line.length < 4) continue;
+          const x = line[0] || " ";
+          const y = line[1] || " ";
 
-            let status: FileGitStatus["status"] = " ";
-            let staged = false;
+          // Git porcelain v1: XY PATH (where XY are status codes)
+          // The path starts at index 3. If there's an extra space, it's safer to trim starting spaces.
+          const file = line.slice(3).trimStart();
+          const fullPath = path.resolve(cwd, file);
 
-            if (x === "?" || y === "?") {
-              status = "?";
-            } else if (x === "U" || y === "U") {
-              status = "U";
-            } else if (x !== " ") {
-              status = x as FileGitStatus["status"];
-              staged = true;
-            } else if (y !== " ") {
-              status = y as FileGitStatus["status"];
-            }
-
-            const fullPath = path.resolve(cwd, file);
-            fileStatusCache.set(fullPath, { status, staged });
-          } catch {
-            // Skip problematic entries
+          // Staged entry
+          if (x !== " " && x !== "?") {
+            fileStatusCache.set(`${fullPath}:staged`, { status: x as any, staged: true });
+          }
+          // Unstaged entry
+          if (y !== " " && y !== "?") {
+            fileStatusCache.set(`${fullPath}:unstaged`, { status: y as any, staged: false });
+          }
+          // Untracked/Other
+          if (x === "?" || y === "?") {
+            fileStatusCache.set(`${fullPath}:unstaged`, { status: "?", staged: false });
           }
         }
       }
@@ -261,25 +258,28 @@ export async function getGitChanges(cwd: string): Promise<{ path: string; status
   const lines = statusOutput.split("\n").filter(Boolean);
 
   for (const line of lines) {
-    const x = line[0];
-    const y = line[1];
-    const file = line.slice(3);
+    if (line.length < 4) continue;
 
-    let status: FileGitStatus["status"] = " ";
-    let staged = false;
+    // Porcelain v1 format: XY PATH
+    const x = line[0] || " ";
+    const y = line[1] || " ";
+    const file = line.slice(3).trimStart();
 
+    // Untracked
     if (x === "?" || y === "?") {
-      status = "?";
-    } else if (x === "U" || y === "U") {
-      status = "U";
-    } else if (x !== " ") {
-      status = x as FileGitStatus["status"];
-      staged = true;
-    } else if (y !== " ") {
-      status = y as FileGitStatus["status"];
+      changes.push({ path: file, status: { status: "?", staged: false } });
+      continue;
     }
 
-    changes.push({ path: file, status: { status, staged } });
+    // Handle staged
+    if (x !== " ") {
+      changes.push({ path: file, status: { status: x as any, staged: true } });
+    }
+
+    // Handle unstaged
+    if (y !== " ") {
+      changes.push({ path: file, status: { status: y as any, staged: false } });
+    }
   }
 
   return changes;

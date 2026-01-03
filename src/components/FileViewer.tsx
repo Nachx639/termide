@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useKeyboard } from "@opentui/react";
 import * as fs from "fs";
 import * as path from "path";
-import { tokenizeLine, detectLanguage, getTokenColor, Token, DARK_THEME } from "../lib/SyntaxHighlighter";
+import { tokenizeLine, detectLanguage, getTokenColor, type Token, DARK_THEME } from "../lib/SyntaxHighlighter";
 import { SearchBar } from "./SearchBar";
 import { Minimap } from "./Minimap";
 import { MarkdownPreview } from "./MarkdownPreview";
@@ -11,6 +11,7 @@ interface FileViewerProps {
   filePath: string | null;
   focused: boolean;
   rootPath?: string;
+  height: number;
 }
 
 // Breadcrumbs component
@@ -119,7 +120,7 @@ function HighlightedLine({ line, lang, showGuides = false, tabSize = 2 }: { line
   );
 }
 
-export function FileViewer({ filePath, focused, rootPath }: FileViewerProps) {
+export function FileViewer({ filePath, focused, rootPath, height }: FileViewerProps) {
   const [content, setContent] = useState<string[]>([]);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [cursorLine, setCursorLine] = useState(0);
@@ -129,13 +130,18 @@ export function FileViewer({ filePath, focused, rootPath }: FileViewerProps) {
   const [showIndentGuides, setShowIndentGuides] = useState(true);
   const [showMinimap, setShowMinimap] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
-  const viewHeight = 20;
-  const wrapWidth = 80; // Characters per line when wrapping
-  const tabSize = 2;
-  const minimapHeight = 15;
 
-  // Check if current file is markdown
+  // Calculate dynamic heights
   const isMarkdown = filePath?.toLowerCase().endsWith(".md") || filePath?.toLowerCase().endsWith(".markdown");
+  const headerHeight = 1;
+  const headerSeparatorHeight = 1; // The line from borderBottom
+  const chromeHeight = 2; // Outer Border top/bottom
+  const searchHeight = showSearch ? 1 : 0;
+  const viewHeight = Math.max(1, height - headerHeight - headerSeparatorHeight - chromeHeight - searchHeight - 1);
+
+  const wrapWidth = 80;
+  const tabSize = 2;
+  const minimapHeight = Math.max(5, viewHeight);
 
   const language = useMemo(() => {
     return filePath ? detectLanguage(filePath) : null;
@@ -178,7 +184,6 @@ export function FileViewer({ filePath, focused, rootPath }: FileViewerProps) {
 
       return () => watcher.close();
     } catch (e) {
-      // Fallback if watch fails (some OS or file systems)
       console.error("Watcher error:", e);
     }
   }, [filePath]);
@@ -187,42 +192,35 @@ export function FileViewer({ filePath, focused, rootPath }: FileViewerProps) {
   useKeyboard((event) => {
     if (!focused) return;
 
-    // Don't handle if search is open
     if (showSearch) return;
 
-    // Ctrl+F - Open search
-    if (event.ctrl && event.name === "f") {
+    if (event.alt && event.name === "f") {
       setSearchMode("search");
       setShowSearch(true);
       return;
     }
 
-    // Ctrl+G - Go to line
     if (event.ctrl && event.name === "g") {
       setSearchMode("goto");
       setShowSearch(true);
       return;
     }
 
-    // Alt+Z - Toggle word wrap
     if (event.meta && event.name === "z") {
       setWordWrap((w) => !w);
       return;
     }
 
-    // Alt+I - Toggle indent guides
     if (event.meta && event.name === "i") {
       setShowIndentGuides((v) => !v);
       return;
     }
 
-    // Alt+M - Toggle minimap
     if (event.meta && event.name === "m") {
       setShowMinimap((v) => !v);
       return;
     }
 
-    // Alt+P - Toggle markdown preview
     if (event.meta && event.name === "p") {
       if (isMarkdown) {
         setShowPreview((v) => !v);
@@ -230,25 +228,29 @@ export function FileViewer({ filePath, focused, rootPath }: FileViewerProps) {
       return;
     }
 
-    // Don't handle navigation keys if in preview mode
     if (showPreview) return;
 
     if (event.name === "up" || event.name === "k") {
-      setCursorLine((l) => Math.max(0, l - 1));
-      // Auto-scroll if cursor goes above visible area
-      setScrollOffset((o) => {
-        const newCursor = Math.max(0, cursorLine - 1);
-        if (newCursor < o) return newCursor;
-        return o;
-      });
+      const newCursor = Math.max(0, cursorLine - 1);
+      setCursorLine(newCursor);
+
+      // Smart Auto-scroll (edge-triggered)
+      const scrollMargin = 2;
+      if (newCursor < scrollOffset + scrollMargin) {
+        setScrollOffset(Math.max(0, newCursor - scrollMargin));
+      }
     } else if (event.name === "down" || event.name === "j") {
-      setCursorLine((l) => Math.min(content.length - 1, l + 1));
-      // Auto-scroll if cursor goes below visible area
-      setScrollOffset((o) => {
-        const newCursor = Math.min(content.length - 1, cursorLine + 1);
-        if (newCursor >= o + viewHeight) return newCursor - viewHeight + 1;
-        return o;
-      });
+      const newCursor = Math.min(content.length - 1, cursorLine + 1);
+      setCursorLine(newCursor);
+
+      // Smart Auto-scroll (edge-triggered)
+      const scrollMargin = 2;
+      if (newCursor >= scrollOffset + viewHeight - scrollMargin) {
+        setScrollOffset(Math.min(
+          Math.max(0, content.length - viewHeight),
+          newCursor - viewHeight + 1 + scrollMargin
+        ));
+      }
     } else if (event.name === "pageup") {
       const newOffset = Math.max(0, scrollOffset - viewHeight);
       setScrollOffset(newOffset);
@@ -277,27 +279,33 @@ export function FileViewer({ filePath, focused, rootPath }: FileViewerProps) {
 
   return (
     <box style={{ flexDirection: "column", border: true, borderColor, height: "100%" }}>
-      <box style={{ paddingX: 1, justifyContent: "space-between" }}>
-        <box style={{ flexDirection: "row", gap: 1 }}>
+      {/* Header with Breadcrumbs and status indicators */}
+      <box style={{ height: 1, paddingX: 1, flexDirection: "row", justifyContent: "space-between" }}>
+        <box style={{ flexDirection: "row", gap: 1, flexShrink: 1 }}>
           {filePath ? (
-            <Breadcrumbs filePath={filePath} rootPath={rootPath} />
+            <box style={{ flexShrink: 1 }}><Breadcrumbs filePath={filePath} rootPath={rootPath} /></box>
           ) : (
             <text style={{ fg: "cyan", bold: true }}>{fileName}</text>
           )}
-          {langIndicator && <text style={{ fg: "yellow", dim: true }}> [{langIndicator}]</text>}
-          {wordWrap && <text style={{ fg: "magenta", dim: true }}> [wrap]</text>}
-          {showIndentGuides && <text style={{ fg: "gray", dim: true }}> [guides]</text>}
-          {showMinimap && <text style={{ fg: "blue", dim: true }}> [map]</text>}
-          {isMarkdown && (
-            <text style={{ fg: showPreview ? "magenta" : "gray", dim: !showPreview }}>
-              {showPreview ? " [preview]" : " [Alt+P preview]"}
-            </text>
-          )}
+          <box style={{ flexDirection: "row", flexShrink: 0 }}>
+            {langIndicator && <text style={{ fg: "yellow", dim: true }}> [{langIndicator}]</text>}
+            {wordWrap && <text style={{ fg: "magenta", dim: true }}> [wrap]</text>}
+            {showIndentGuides && <text style={{ fg: "gray", dim: true }}> [guides]</text>}
+            {showMinimap && <text style={{ fg: "blue", dim: true }}> [map]</text>}
+            {isMarkdown && (
+              <text style={{ fg: showPreview ? "magenta" : "gray", dim: !showPreview }}>
+                {showPreview ? " [preview]" : " [Alt+P preview]"}
+              </text>
+            )}
+          </box>
         </box>
-        <text style={{ fg: "gray" }}>
-          {filePath ? `Ln ${cursorLine + 1}/${content.length}` : ""}
+        <text style={{ fg: "gray", flexShrink: 0 }}>
+          Ln {cursorLine + 1}/{content.length}
         </text>
       </box>
+
+      {/* Separator line */}
+      <box style={{ height: 1, borderTop: true, borderColor: "gray", dim: true }} />
       {/* Show markdown preview or code view */}
       {showPreview && isMarkdown ? (
         <MarkdownPreview
@@ -306,8 +314,8 @@ export function FileViewer({ filePath, focused, rootPath }: FileViewerProps) {
           rootPath={rootPath}
         />
       ) : (
-        <box style={{ flexDirection: "row", flexGrow: 1 }}>
-          <scrollbox style={{ flexDirection: "column", paddingX: 1, flexGrow: 1 }}>
+        <box style={{ flexDirection: "row", flexGrow: 1, position: "relative" }}>
+          <box style={{ flexDirection: "column", paddingLeft: 1, paddingRight: 2, flexGrow: 1, height: viewHeight, overflow: "hidden" }}>
             {filePath ? (
               visibleLines.map((line, index) => {
                 const lineNum = scrollOffset + index + 1;
@@ -319,15 +327,17 @@ export function FileViewer({ filePath, focused, rootPath }: FileViewerProps) {
                 if (wordWrap && line.length > wrapWidth) {
                   const wrappedLines = wrapLine(line, wrapWidth);
                   return (
-                    <box key={index} style={{ flexDirection: "column" }}>
+                    <box key={index} style={{ flexDirection: "column", overflow: "hidden" }}>
                       {wrappedLines.map((wrappedLine, wrapIdx) => (
-                        <box key={wrapIdx} style={{ flexDirection: "row", bg: lineBg as any }}>
-                          <text style={{ fg: lineNumFg as any, bold: isCurrentLine && wrapIdx === 0 }}>
+                        <box key={wrapIdx} style={{ flexDirection: "row", bg: lineBg as any, overflow: "hidden" }}>
+                          <text style={{ fg: lineNumFg as any, bold: isCurrentLine && wrapIdx === 0, flexShrink: 0 }}>
                             {wrapIdx === 0
                               ? `${String(lineNum).padStart(lineNumWidth, " ")}${isCurrentLine ? " ▸ " : "   "}`
                               : `${" ".repeat(lineNumWidth)}   ↪ `}
                           </text>
-                          <HighlightedLine line={wrappedLine} lang={language} showGuides={showIndentGuides} tabSize={tabSize} />
+                          <box style={{ flexGrow: 1, flexShrink: 1, width: 0, flexDirection: "row", overflow: "hidden" }}>
+                            <HighlightedLine line={wrappedLine} lang={language} showGuides={showIndentGuides} tabSize={tabSize} />
+                          </box>
                         </box>
                       ))}
                     </box>
@@ -335,11 +345,13 @@ export function FileViewer({ filePath, focused, rootPath }: FileViewerProps) {
                 }
 
                 return (
-                  <box key={index} style={{ flexDirection: "row", bg: lineBg as any }}>
-                    <text style={{ fg: lineNumFg as any, bold: isCurrentLine }}>
+                  <box key={index} style={{ flexDirection: "row", bg: lineBg as any, overflow: "hidden" }}>
+                    <text style={{ fg: lineNumFg as any, bold: isCurrentLine, flexShrink: 0 }}>
                       {String(lineNum).padStart(lineNumWidth, " ")}{isCurrentLine ? " ▸ " : "   "}
                     </text>
-                    <HighlightedLine line={line} lang={language} showGuides={showIndentGuides} tabSize={tabSize} />
+                    <box style={{ flexGrow: 1, flexShrink: 1, width: 0, flexDirection: "row", overflow: "hidden", paddingRight: 1 }}>
+                      <HighlightedLine line={line} lang={language} showGuides={showIndentGuides} tabSize={tabSize} />
+                    </box>
                   </box>
                 );
               })
@@ -349,7 +361,7 @@ export function FileViewer({ filePath, focused, rootPath }: FileViewerProps) {
                 <text style={{ fg: "gray", dim: true }}>Use j/k to navigate, Enter to open</text>
               </box>
             )}
-          </scrollbox>
+          </box>
           {/* Minimap */}
           {showMinimap && filePath && content.length > 0 && !showPreview && (
             <Minimap
@@ -364,7 +376,7 @@ export function FileViewer({ filePath, focused, rootPath }: FileViewerProps) {
         </box>
       )}
 
-      {/* Search Bar */}
+      {/* Search Bar - Docked */}
       <SearchBar
         isOpen={showSearch}
         onClose={() => setShowSearch(false)}
