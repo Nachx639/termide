@@ -67,7 +67,7 @@ export function SourceControl({ rootPath, focused, onFocus }: SourceControlProps
                         )}
                         {unstaged.length > 0 && (
                             <box style={{ flexDirection: "column" }}>
-                                <text style={{ fg: "yellow", bold: true }}>Changes ({unstaged.length})</text>
+                                <text style={{ fg: "#d4a800", bold: true }}>Changes ({unstaged.length})</text>
                                 {unstaged.map((change, idx) => {
                                     const isSelected = changes.indexOf(change) === selectedIndex && focused;
                                     return (

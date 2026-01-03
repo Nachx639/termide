@@ -231,7 +231,7 @@ export function GlobalSearch({ rootPath, isOpen, onClose, onSelect }: GlobalSear
           <text style={{ fg: "green", bg: "#1a1a1a" }}>🔎 </text>
           <text style={{ fg: "white", bg: "#1a1a1a" }}>{query}</text>
           <text style={{ fg: "green", blink: true, bg: "#1a1a1a" }}>▌</text>
-          {isSearching && <text style={{ fg: "yellow", bg: "#1a1a1a" }}> Searching...</text>}
+          {isSearching && <text style={{ fg: "#d4a800", bg: "#1a1a1a" }}> Searching...</text>}
         </box>
 
         {/* Results */}

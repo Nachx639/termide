@@ -10,8 +10,8 @@ export interface FileIcon {
 
 // Default icons
 const DEFAULT_FILE: FileIcon = { icon: "📄", color: "white" };
-const DEFAULT_FOLDER: FileIcon = { icon: "📁", color: "yellow" };
-const DEFAULT_FOLDER_OPEN: FileIcon = { icon: "📂", color: "yellow" };
+const DEFAULT_FOLDER: FileIcon = { icon: "📁", color: "#d4a800" };
+const DEFAULT_FOLDER_OPEN: FileIcon = { icon: "📂", color: "#d4a800" };
 
 // Special folder names
 const FOLDER_ICONS: Record<string, FileIcon> = {
@@ -19,9 +19,9 @@ const FOLDER_ICONS: Record<string, FileIcon> = {
   "node_modules": { icon: "📦", color: "green" },
   "src": { icon: "📁", color: "blue" },
   "lib": { icon: "📚", color: "blue" },
-  "test": { icon: "🧪", color: "yellow" },
-  "tests": { icon: "🧪", color: "yellow" },
-  "__tests__": { icon: "🧪", color: "yellow" },
+  "test": { icon: "🧪", color: "#d4a800" },
+  "tests": { icon: "🧪", color: "#d4a800" },
+  "__tests__": { icon: "🧪", color: "#d4a800" },
   "dist": { icon: "📦", color: "gray" },
   "build": { icon: "🔨", color: "gray" },
   "public": { icon: "🌐", color: "cyan" },
@@ -30,8 +30,8 @@ const FOLDER_ICONS: Record<string, FileIcon> = {
   "docs": { icon: "📖", color: "cyan" },
   "components": { icon: "🧩", color: "blue" },
   "hooks": { icon: "🪝", color: "cyan" },
-  "utils": { icon: "🔧", color: "yellow" },
-  "helpers": { icon: "🔧", color: "yellow" },
+  "utils": { icon: "🔧", color: "#d4a800" },
+  "helpers": { icon: "🔧", color: "#d4a800" },
   "config": { icon: "⚙️", color: "gray" },
   "scripts": { icon: "📜", color: "green" },
   "styles": { icon: "🎨", color: "magenta" },
@@ -39,7 +39,7 @@ const FOLDER_ICONS: Record<string, FileIcon> = {
   "api": { icon: "🔌", color: "green" },
   "pages": { icon: "📄", color: "blue" },
   "routes": { icon: "🛤️", color: "blue" },
-  "middleware": { icon: "⚡", color: "yellow" },
+  "middleware": { icon: "⚡", color: "#d4a800" },
   "models": { icon: "💾", color: "blue" },
   "services": { icon: "⚙️", color: "green" },
   "controllers": { icon: "🎮", color: "blue" },
@@ -50,12 +50,12 @@ const FOLDER_ICONS: Record<string, FileIcon> = {
 // File extension icons
 const EXTENSION_ICONS: Record<string, FileIcon> = {
   // JavaScript/TypeScript
-  ".js": { icon: "󰌞", color: "yellow" },
+  ".js": { icon: "󰌞", color: "#d4a800" },
   ".jsx": { icon: "⚛️", color: "cyan" },
   ".ts": { icon: "󰛦", color: "blue" },
   ".tsx": { icon: "⚛️", color: "blue" },
-  ".mjs": { icon: "󰌞", color: "yellow" },
-  ".cjs": { icon: "󰌞", color: "yellow" },
+  ".mjs": { icon: "󰌞", color: "#d4a800" },
+  ".cjs": { icon: "󰌞", color: "#d4a800" },
   ".mts": { icon: "󰛦", color: "blue" },
   ".cts": { icon: "󰛦", color: "blue" },
 
@@ -66,17 +66,17 @@ const EXTENSION_ICONS: Record<string, FileIcon> = {
   ".scss": { icon: "🎨", color: "magenta" },
   ".sass": { icon: "🎨", color: "magenta" },
   ".less": { icon: "🎨", color: "blue" },
-  ".svg": { icon: "🖼️", color: "yellow" },
+  ".svg": { icon: "🖼️", color: "#d4a800" },
 
   // Data/Config
-  ".json": { icon: "📋", color: "yellow" },
-  ".jsonc": { icon: "📋", color: "yellow" },
+  ".json": { icon: "📋", color: "#d4a800" },
+  ".jsonc": { icon: "📋", color: "#d4a800" },
   ".yaml": { icon: "📋", color: "cyan" },
   ".yml": { icon: "📋", color: "cyan" },
   ".toml": { icon: "📋", color: "gray" },
   ".xml": { icon: "📋", color: "red" },
   ".ini": { icon: "⚙️", color: "gray" },
-  ".env": { icon: "🔒", color: "yellow" },
+  ".env": { icon: "🔒", color: "#d4a800" },
 
   // Programming Languages
   ".py": { icon: "🐍", color: "blue" },
@@ -93,7 +93,7 @@ const EXTENSION_ICONS: Record<string, FileIcon> = {
   ".hpp": { icon: "📎", color: "magenta" },
   ".cs": { icon: "🟪", color: "magenta" },
   ".lua": { icon: "🌙", color: "blue" },
-  ".zig": { icon: "⚡", color: "yellow" },
+  ".zig": { icon: "⚡", color: "#d4a800" },
 
   // Shell/Scripts
   ".sh": { icon: "📜", color: "green" },
@@ -129,11 +129,11 @@ const EXTENSION_ICONS: Record<string, FileIcon> = {
   ".avi": { icon: "🎬", color: "magenta" },
 
   // Archives
-  ".zip": { icon: "📦", color: "yellow" },
-  ".tar": { icon: "📦", color: "yellow" },
-  ".gz": { icon: "📦", color: "yellow" },
-  ".rar": { icon: "📦", color: "yellow" },
-  ".7z": { icon: "📦", color: "yellow" },
+  ".zip": { icon: "📦", color: "#d4a800" },
+  ".tar": { icon: "📦", color: "#d4a800" },
+  ".gz": { icon: "📦", color: "#d4a800" },
+  ".rar": { icon: "📦", color: "#d4a800" },
+  ".7z": { icon: "📦", color: "#d4a800" },
 
   // Database
   ".sql": { icon: "💾", color: "cyan" },
@@ -154,11 +154,11 @@ const EXTENSION_ICONS: Record<string, FileIcon> = {
 const SPECIAL_FILES: Record<string, FileIcon> = {
   "package.json": { icon: "📦", color: "green" },
   "package-lock.json": { icon: "🔒", color: "gray" },
-  "bun.lockb": { icon: "🔒", color: "yellow" },
+  "bun.lockb": { icon: "🔒", color: "#d4a800" },
   "yarn.lock": { icon: "🔒", color: "blue" },
-  "pnpm-lock.yaml": { icon: "🔒", color: "yellow" },
+  "pnpm-lock.yaml": { icon: "🔒", color: "#d4a800" },
   "tsconfig.json": { icon: "⚙️", color: "blue" },
-  "jsconfig.json": { icon: "⚙️", color: "yellow" },
+  "jsconfig.json": { icon: "⚙️", color: "#d4a800" },
   ".gitignore": { icon: "🙈", color: "gray" },
   ".gitattributes": { icon: "", color: "gray" },
   ".gitmodules": { icon: "", color: "gray" },
@@ -174,8 +174,8 @@ const SPECIAL_FILES: Record<string, FileIcon> = {
   ".eslintignore": { icon: "🔍", color: "gray" },
   "README.md": { icon: "📖", color: "cyan" },
   "README": { icon: "📖", color: "cyan" },
-  "LICENSE": { icon: "📜", color: "yellow" },
-  "LICENSE.md": { icon: "📜", color: "yellow" },
+  "LICENSE": { icon: "📜", color: "#d4a800" },
+  "LICENSE.md": { icon: "📜", color: "#d4a800" },
   "CHANGELOG.md": { icon: "📋", color: "green" },
   "CONTRIBUTING.md": { icon: "🤝", color: "blue" },
   "Dockerfile": { icon: "🐳", color: "blue" },
@@ -193,8 +193,8 @@ const SPECIAL_FILES: Record<string, FileIcon> = {
   "Pipfile.lock": { icon: "🔒", color: "gray" },
   "setup.py": { icon: "🐍", color: "blue" },
   "pyproject.toml": { icon: "🐍", color: "blue" },
-  ".env": { icon: "🔒", color: "yellow" },
-  ".env.local": { icon: "🔒", color: "yellow" },
+  ".env": { icon: "🔒", color: "#d4a800" },
+  ".env.local": { icon: "🔒", color: "#d4a800" },
   ".env.development": { icon: "🔒", color: "green" },
   ".env.production": { icon: "🔒", color: "red" },
   ".env.example": { icon: "📋", color: "gray" },
@@ -203,8 +203,8 @@ const SPECIAL_FILES: Record<string, FileIcon> = {
   "vite.config.js": { icon: "⚡", color: "magenta" },
   "webpack.config.js": { icon: "📦", color: "blue" },
   "rollup.config.js": { icon: "📦", color: "red" },
-  "babel.config.js": { icon: "🔧", color: "yellow" },
-  ".babelrc": { icon: "🔧", color: "yellow" },
+  "babel.config.js": { icon: "🔧", color: "#d4a800" },
+  ".babelrc": { icon: "🔧", color: "#d4a800" },
   "jest.config.js": { icon: "🧪", color: "red" },
   "jest.config.ts": { icon: "🧪", color: "red" },
   "vitest.config.ts": { icon: "🧪", color: "green" },
@@ -252,8 +252,8 @@ export function getFileIconSimple(filename: string, isDirectory: boolean, isExpa
 
   if (isDirectory) {
     return isExpanded
-      ? { icon: "▼", color: "yellow" }
-      : { icon: "▶", color: "yellow" };
+      ? { icon: "▼", color: "#d4a800" }
+      : { icon: "▶", color: "#d4a800" };
   }
 
   // Get extension
@@ -269,7 +269,7 @@ export function getFileIconSimple(filename: string, isDirectory: boolean, isExpa
     case ".tsx":
     case ".mjs":
     case ".cjs":
-      return { icon: "◆", color: "yellow" };
+      return { icon: "◆", color: "#d4a800" };
 
     // Web files
     case ".html":

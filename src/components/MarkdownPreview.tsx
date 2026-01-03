@@ -105,7 +105,7 @@ function renderMarkdown(content: string): RenderedLine[] {
     if (line.startsWith(">")) {
       rendered.push({
         text: "┃ " + line.slice(1).trim(),
-        style: { fg: "yellow", dim: true },
+        style: { fg: "#d4a800", dim: true },
       });
       continue;
     }
@@ -203,7 +203,7 @@ export function MarkdownPreview({ filePath, focused, rootPath }: MarkdownPreview
     <box style={{ flexDirection: "column", border: true, borderColor, height: "100%" }}>
       <box style={{ paddingX: 1, justifyContent: "space-between" }}>
         <box style={{ flexDirection: "row", gap: 1 }}>
-          <text style={{ fg: "yellow", bold: true }}>📖 Markdown Preview</text>
+          <text style={{ fg: "#d4a800", bold: true }}>📖 Markdown Preview</text>
           <text style={{ fg: "gray", dim: true }}>- {fileName}</text>
         </box>
         <text style={{ fg: "gray" }}>
