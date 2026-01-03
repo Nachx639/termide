@@ -168,20 +168,20 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
           position: "relative",
         }}
       >
-        {/* Force opacity with a backdrop that stays inside the borders */}
+        {/* Force opacity with backdrop - offset by 1 to protect borders */}
         <box
           style={{
             position: "absolute",
-            top: 0,
-            left: 0,
+            top: 1,
+            left: 1,
             width: "100%",
-            height: "100%",
+            height: 17,
             bg: "#050505",
             flexDirection: "column",
           }}
         >
-          {Array.from({ length: 40 }).map((_, i) => (
-            <text key={i} style={{ bg: "#050505" }}>{" ".repeat(250)}</text>
+          {Array.from({ length: 17 }).map((_, i) => (
+            <text key={i} style={{ bg: "#050505" }}>{" ".repeat(150)}</text>
           ))}
         </box>
 
@@ -253,7 +253,7 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
           {/* 5. Footer Instructions (Height 1) */}
           <box style={{ paddingX: 2, height: 1, bg: "#050505" }}>
             <text style={{ fg: "gray", dim: true, bg: "#050505" }}>
-              {(`${filteredCommands.length} commands | ↑↓ select | Enter run | Esc close`).padEnd(width)}
+              {`${filteredCommands.length} commands | ↑↓ select | Enter run | Esc close`}
             </text>
           </box>
         </box>
