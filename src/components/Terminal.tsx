@@ -21,6 +21,7 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
   const [renderCount, setRenderCount] = useState(0);
   const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cursorBlink, setCursorBlink] = useState(true);
 
   // Fixed dimensions for stable PTY
   const cols = dimensions?.width || 80;
@@ -146,6 +147,18 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
     }
   }, [termCols, termRows, initialized]);
 
+  // Cursor blink effect
+  useEffect(() => {
+    if (!focused) {
+      setCursorBlink(true);
+      return;
+    }
+    const blinkInterval = setInterval(() => {
+      setCursorBlink((b) => !b);
+    }, 530);
+    return () => clearInterval(blinkInterval);
+  }, [focused]);
+
   // Handle keyboard input
   useKeyboard((event) => {
     if (!focused || !terminalRef.current) return;
@@ -259,7 +272,7 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
 
       for (let c = 0; c < Math.min(renderCols, row.length); c++) {
         const cell = row[c];
-        const isCursor = cursorVisible && focused && cursor?.row === r && cursor?.col === c;
+        const isCursor = cursorVisible && focused && cursorBlink && cursor?.row === r && cursor?.col === c;
 
         const cellFg = isCursor ? "black" : (cell?.style?.fg || "white");
         const cellBg = isCursor ? "white" : (cell?.style?.bg || "transparent");
