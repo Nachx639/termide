@@ -595,7 +595,28 @@ export function App({ rootPath }: AppProps) {
       <box style={{ flexGrow: 1, flexDirection: "row" }}>
         {/* Sidebar - Left panel */}
         {currentTreeWidth > 0 && (
-          <box style={{ width: currentTreeWidth, flexDirection: "column", height: "100%" }}>
+          <box
+            style={{ width: currentTreeWidth, flexDirection: "column", height: "100%" }}
+            onMouseDown={(event: any) => {
+              // Calculate which panel was clicked based on y coordinate
+              // Header is 5 lines, sidebar panels use flexGrow 4:3:3 ratio
+              const sidebarHeight = totalHeight;
+              const headerOffset = 5;
+              const relativeY = event.y - headerOffset;
+
+              // FlexGrow ratios: tree=4, source=3, graph=3 (total=10)
+              const treeHeight = Math.floor(sidebarHeight * 0.4);
+              const sourceHeight = Math.floor(sidebarHeight * 0.3);
+
+              if (relativeY < treeHeight) {
+                setFocusedPanel("tree");
+              } else if (relativeY < treeHeight + sourceHeight) {
+                setFocusedPanel("source");
+              } else {
+                setFocusedPanel("graph");
+              }
+            }}
+          >
             <box style={{ flexGrow: 4 }}>
               <FileTree
                 rootPath={rootPath}
