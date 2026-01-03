@@ -198,7 +198,7 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
             <text style={{ fg: "gray", dim: true, bg: "#0b0b0b" }}>
               Termide v0.1.0 - Terminal IDE for AI Coding Agents
             </text>
-            <text style={{ fg: "magenta", bg: "#0b0b0b" }}>Made with ♥</text>
+            <text style={{ fg: "yellow", bg: "#0b0b0b" }}>Made with ♥</text>
           </box>
         </box>
       </box>

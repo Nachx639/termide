@@ -575,7 +575,7 @@ export function App({ rootPath }: AppProps) {
                 <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
                   <text style={{ fg: "cyan" }}>{antLines[1]}</text>
                 </box>
-                <text style={{ fg: "magenta", bg: "#1a1a1a" }}>Ctrl+P: open | Ctrl+K: menu | Ctrl+F: focus</text>
+                <text style={{ fg: "yellow", bg: "#1a1a1a" }}>Ctrl+P: open | Ctrl+K: menu | Ctrl+F: focus</text>
               </box>
 
               {/* Row 3 */}
@@ -584,7 +584,7 @@ export function App({ rootPath }: AppProps) {
                 <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
                   <text style={{ fg: "cyan" }}>{antLines[2]}</text>
                 </box>
-                <text style={{ fg: "magenta", bg: "#1a1a1a" }}>Ctrl+B: help | Ctrl+G: ant  | Alt+F: file find</text>
+                <text style={{ fg: "yellow", bg: "#1a1a1a" }}>Ctrl+B: help | Ctrl+G: ant  | Alt+F: file find</text>
               </box>
             </>
           );
@@ -691,7 +691,7 @@ export function App({ rootPath }: AppProps) {
           {/* Git branch */}
           {gitStatus?.isRepo && (
             <box style={{ flexDirection: "row", flexShrink: 0 }}>
-              <text style={{ fg: "magenta" }}>{formatGitBranch(gitStatus)}</text>
+              <text style={{ fg: "yellow" }}>{formatGitBranch(gitStatus)}</text>
               <text style={{ fg: gitStatus.clean ? "green" : "yellow" as any }}>
                 {" "}{formatGitStatus(gitStatus)}
               </text>
