@@ -19,6 +19,7 @@ interface FileTreeProps {
   rootPath: string;
   onFileSelect: (filePath: string) => void;
   focused: boolean;
+  onFocus?: () => void;
 }
 
 function buildTree(dirPath: string, level: number = 0): FileNode[] {
@@ -55,7 +56,7 @@ function flattenTree(nodes: FileNode[]): FileNode[] {
   return result;
 }
 
-export function FileTree({ rootPath, onFileSelect, focused }: FileTreeProps) {
+export function FileTree({ rootPath, onFileSelect, focused, onFocus }: FileTreeProps) {
   const [tree, setTree] = useState<FileNode[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [scrollTop, setScrollTop] = useState(0);
@@ -157,7 +158,7 @@ export function FileTree({ rootPath, onFileSelect, focused }: FileTreeProps) {
   const borderColor = focused ? "cyan" : "gray";
 
   return (
-    <box style={{ flexDirection: "column", border: true, borderColor, height: "100%", bg: "#0b0b0b" }}>
+    <box style={{ flexDirection: "column", border: true, borderColor, height: "100%", bg: "#0b0b0b" }} onMouseDown={onFocus}>
       <box style={{ paddingX: 1, height: 1, bg: "#1a1a1a" }}>
         <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a" }}>Explorer</text>
       </box>
