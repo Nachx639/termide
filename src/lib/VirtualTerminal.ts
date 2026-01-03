@@ -35,9 +35,10 @@ const DEFAULT_STYLE: CellStyle = {
 };
 
 // ANSI color codes to named colors
+// Note: magenta remapped to yellow for better visual harmony with cyan theme
 const COLORS_16 = [
-  "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
-  "gray", "brightRed", "brightGreen", "brightYellow", "brightBlue", "brightMagenta", "brightCyan", "brightWhite"
+  "black", "red", "green", "yellow", "blue", "yellow", "cyan", "white",
+  "gray", "brightRed", "brightGreen", "brightYellow", "brightBlue", "brightYellow", "brightCyan", "brightWhite"
 ];
 
 export class VirtualTerminal {
@@ -365,8 +366,8 @@ export class VirtualTerminal {
           this.currentStyle.fg = this.color256ToName(args[i + 2]!);
           i += 2;
         } else if (args[i + 1] === 2 && args[i + 4] !== undefined) {
-          // RGB color
-          this.currentStyle.fg = `rgb(${args[i + 2]!},${args[i + 3]!},${args[i + 4]!})`;
+          // RGB color - use rgbToColor for magenta remapping
+          this.currentStyle.fg = this.rgbToColor(args[i + 2]!, args[i + 3]!, args[i + 4]!);
           i += 4;
         }
       } else if (code === 39) {
@@ -379,7 +380,8 @@ export class VirtualTerminal {
           this.currentStyle.bg = this.color256ToName(args[i + 2]!);
           i += 2;
         } else if (args[i + 1] === 2 && args[i + 4] !== undefined) {
-          this.currentStyle.bg = `rgb(${args[i + 2]!},${args[i + 3]!},${args[i + 4]!})`;
+          // RGB color - use rgbToColor for magenta remapping
+          this.currentStyle.bg = this.rgbToColor(args[i + 2]!, args[i + 3]!, args[i + 4]!);
           i += 4;
         }
       } else if (code === 49) {
@@ -392,6 +394,27 @@ export class VirtualTerminal {
     }
   }
 
+  /**
+   * Remap magenta-ish colors to yellow for visual harmony with cyan theme
+   * Detects various shades of magenta/purple and converts to yellow
+   */
+  private remapMagentaToYellow(r: number, g: number, b: number): string | null {
+    // Detect magenta: high red, low green, high blue
+    // Also catches purple variants
+    if (r > 100 && g < 150 && b > 100 && Math.abs(r - b) < 100) {
+      // Return a yellow shade proportional to the brightness
+      const brightness = Math.max(r, b);
+      if (brightness > 200) {
+        return "#ffff55"; // Bright yellow
+      } else if (brightness > 150) {
+        return "#dddd00"; // Medium yellow
+      } else {
+        return "#aa8800"; // Dark yellow/gold
+      }
+    }
+    return null;
+  }
+
   private color256ToName(code: number): string {
     if (code < 16) {
       return COLORS_16[code] || "white";
@@ -401,13 +424,29 @@ export class VirtualTerminal {
       const r = Math.floor(idx / 36);
       const g = Math.floor((idx % 36) / 6);
       const b = idx % 6;
-      const toHex = (v: number) => (v === 0 ? 0 : v * 40 + 55);
-      return `rgb(${toHex(r)},${toHex(g)},${toHex(b)})`;
+      // Convert to actual RGB values
+      const toRgb = (v: number) => (v === 0 ? 0 : v * 40 + 55);
+      const rVal = toRgb(r);
+      const gVal = toRgb(g);
+      const bVal = toRgb(b);
+      // Check for magenta-ish colors and remap to yellow
+      const remapped = this.remapMagentaToYellow(rVal, gVal, bVal);
+      if (remapped) return remapped;
+      return `rgb(${rVal},${gVal},${bVal})`;
     } else {
       // Grayscale
       const gray = (code - 232) * 10 + 8;
       return `rgb(${gray},${gray},${gray})`;
     }
+  }
+
+  /**
+   * Convert RGB values to color string, remapping magenta to yellow
+   */
+  private rgbToColor(r: number, g: number, b: number): string {
+    const remapped = this.remapMagentaToYellow(r, g, b);
+    if (remapped) return remapped;
+    return `rgb(${r},${g},${b})`;
   }
 
   private putChar(char: string) {

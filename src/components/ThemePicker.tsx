@@ -70,7 +70,7 @@ export function ThemePicker({ isOpen, onClose, currentTheme, onSelect }: ThemePi
           height: THEMES.length + 5,
           flexDirection: "column",
           border: true,
-          borderColor: "magenta",
+          borderColor: "yellow",
           bg: "#0b0b0b",
           position: "relative",
         }}
@@ -94,7 +94,7 @@ export function ThemePicker({ isOpen, onClose, currentTheme, onSelect }: ThemePi
 
         {/* Header */}
         <box style={{ paddingX: 1, borderBottom: true, borderColor: "gray", bg: "#1a1a1a" }}>
-          <text style={{ fg: "magenta", bold: true, bg: "#1a1a1a" }}>🎨 Select Theme</text>
+          <text style={{ fg: "yellow", bold: true, bg: "#1a1a1a" }}>🎨 Select Theme</text>
         </box>
 
         {/* Theme list */}
