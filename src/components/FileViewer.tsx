@@ -286,6 +286,9 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
   // Relative line numbers state
   const [relativeLineNumbers, setRelativeLineNumbers] = useState(false);
 
+  // Show/hide line numbers state
+  const [showLineNumbers, setShowLineNumbers] = useState(true);
+
   // Git gutter state (inline diff indicators)
   const [showGitGutter, setShowGitGutter] = useState(true);
   const [lineDiffs, setLineDiffs] = useState<Map<number, LineDiffInfo>>(new Map());
@@ -297,6 +300,83 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
   const [highlightedWord, setHighlightedWord] = useState<string | null>(null);
   const [wordOccurrences, setWordOccurrences] = useState<Array<{ line: number; column: number }>>([]);
   const [currentOccurrenceIndex, setCurrentOccurrenceIndex] = useState(0);
+
+  // Sticky Scroll state
+  const [showStickyScroll, setShowStickyScroll] = useState(true);
+
+  // Calculate dynamic heights (MOVED HERE - before stickyScrollContext useMemo)
+  const isMarkdown = filePath?.toLowerCase().endsWith(".md") || filePath?.toLowerCase().endsWith(".markdown");
+  const headerHeight = 1;
+  const headerSeparatorHeight = 1; // The line from borderBottom
+  const chromeHeight = 2; // Outer Border top/bottom
+  const searchHeight = showSearch ? 1 : 0;
+  const viewHeight = Math.max(1, height - headerHeight - headerSeparatorHeight - chromeHeight - searchHeight - 1);
+
+  const wrapWidth = 80;
+  const tabSize = 2;
+  const minimapHeight = Math.max(5, viewHeight);
+
+  const language = useMemo(() => {
+    return filePath ? detectLanguage(filePath) : null;
+  }, [filePath]);
+
+  // Compute sticky scroll context - shows parent function/class headers
+  const stickyScrollContext = useMemo(() => {
+    if (!showStickyScroll || content.length === 0) return [];
+
+    const contexts: Array<{ line: number; text: string; kind: string }> = [];
+
+    // Find all scope-defining lines that are above the current scroll position
+    // but whose scope includes the visible area
+    const scopePatterns = [
+      { regex: /^(export\s+)?(async\s+)?function\s+\w+/, kind: "function" },
+      { regex: /^(export\s+)?class\s+\w+/, kind: "class" },
+      { regex: /^(export\s+)?interface\s+\w+/, kind: "interface" },
+      { regex: /^(export\s+)?const\s+\w+\s*=\s*(async\s+)?\(/, kind: "function" },
+      { regex: /^(export\s+)?const\s+\w+\s*=\s*(async\s+)?function/, kind: "function" },
+      { regex: /^\s+(async\s+)?(?:public|private|protected)?\s*\w+\s*\([^)]*\)\s*[:{]/, kind: "method" },
+    ];
+
+    // Track nesting level using braces
+    let braceCount = 0;
+    const scopeStack: Array<{ line: number; text: string; kind: string; braceLevel: number }> = [];
+
+    for (let i = 0; i < content.length && i <= scrollOffset + viewHeight; i++) {
+      const line = content[i] || "";
+      const trimmed = line.trim();
+
+      // Count braces
+      for (const char of line) {
+        if (char === '{') braceCount++;
+        else if (char === '}') {
+          braceCount--;
+          // Pop scopes that have closed
+          while (scopeStack.length > 0 && scopeStack[scopeStack.length - 1]!.braceLevel >= braceCount) {
+            scopeStack.pop();
+          }
+        }
+      }
+
+      // Check if this line starts a new scope
+      for (const { regex, kind } of scopePatterns) {
+        if (regex.test(trimmed)) {
+          scopeStack.push({
+            line: i,
+            text: trimmed.slice(0, 60) + (trimmed.length > 60 ? "..." : ""),
+            kind,
+            braceLevel: braceCount
+          });
+          break;
+        }
+      }
+    }
+
+    // Return scopes that are above scroll offset but still open
+    return scopeStack
+      .filter(s => s.line < scrollOffset)
+      .slice(-3) // Show at most 3 levels of context
+      .map(s => ({ line: s.line, text: s.text, kind: s.kind }));
+  }, [showStickyScroll, content, scrollOffset, viewHeight]);
 
   // Compute symbols for current file
   const fileSymbols = useMemo(() => {
@@ -714,7 +794,7 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
 
     // Jump to Symbol (Ctrl+Shift+O or @)
     if ((event.ctrl && event.shift && (event.name === "o" || event.name === "O")) ||
-        (event.name === "@" || (event.shift && event.name === "2"))) {
+      (event.name === "@" || (event.shift && event.name === "2"))) {
       if (filePath && fileSymbols.length > 0) {
         setShowSymbolPicker(true);
       }
@@ -743,7 +823,8 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
       return;
     }
 
-    if (event.meta && event.name === "z") {
+    // Ctrl+Alt+W - Toggle word wrap
+    if (event.ctrl && event.alt && event.name === "w") {
       setWordWrap((w) => !w);
       return;
     }
@@ -753,20 +834,33 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
       return;
     }
 
-    if (event.meta && event.name === "m") {
+    // Ctrl+Alt+M - Toggle minimap
+    if (event.ctrl && event.alt && event.name === "m") {
       setShowMinimap((v) => !v);
       return;
     }
 
     // Alt+L - Toggle relative line numbers
-    if (event.alt && event.name === "l") {
+    if (event.alt && !event.ctrl && event.name === "l") {
       setRelativeLineNumbers((v) => !v);
+      return;
+    }
+
+    // Ctrl+Alt+L - Toggle line numbers visibility
+    if (event.ctrl && event.alt && event.name === "l") {
+      setShowLineNumbers((v) => !v);
       return;
     }
 
     // Alt+G - Toggle git gutter
     if (event.alt && event.name === "g") {
       setShowGitGutter((v) => !v);
+      return;
+    }
+
+    // Ctrl+Alt+S - Toggle sticky scroll
+    if (event.ctrl && event.alt && event.name === "s") {
+      setShowStickyScroll((v) => !v);
       return;
     }
 
@@ -1002,9 +1096,11 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
             {showIndentGuides && <text style={{ fg: "gray", dim: true }}> [guides]</text>}
             {showMinimap && <text style={{ fg: "blue", dim: true }}> [map]</text>}
             {relativeLineNumbers && <text style={{ fg: "yellow", dim: true }}> [rel]</text>}
+            {!showLineNumbers && <text style={{ fg: "gray", dim: true }}> [noln]</text>}
             {foldedRegions.size > 0 && <text style={{ fg: "cyan", dim: true }}> [{foldedRegions.size} folded]</text>}
             {showBlame && <text style={{ fg: "magenta", dim: true }}> [blame]</text>}
             {showGitGutter && lineDiffs.size > 0 && <text style={{ fg: "#4ec9b0", dim: true }}> [git]</text>}
+            {showStickyScroll && <text style={{ fg: "#c586c0", dim: true }}> [sticky]</text>}
             {highlightedWord && <text style={{ fg: "#569cd6", dim: false }}> [{currentOccurrenceIndex + 1}/{wordOccurrences.length}]</text>}
             {isMarkdown && (
               <text style={{ fg: showPreview ? "#d4a800" : "gray", dim: !showPreview }}>
@@ -1034,6 +1130,22 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
           onMouseScroll={handleMouseScroll}
         >
           <box style={{ flexDirection: "column", paddingLeft: 1, paddingRight: 1, flexGrow: 1, height: viewHeight, overflow: "hidden" }} onMouse={handleMouseScroll} onMouseScroll={handleMouseScroll}>
+            {/* Sticky Scroll Context - shows parent function/class headers */}
+            {filePath && stickyScrollContext.length > 0 && (
+              <box style={{ flexDirection: "column", bg: "#1e1e2e", borderBottom: true, borderColor: "gray" }}>
+                {stickyScrollContext.map((ctx, idx) => {
+                  const indent = "  ".repeat(idx);
+                  const kindColor = ctx.kind === "class" ? "#4ec9b0" : ctx.kind === "function" || ctx.kind === "method" ? "#dcdcaa" : "#9cdcfe";
+                  return (
+                    <box key={`${ctx.line}-${idx}`} style={{ flexDirection: "row", paddingX: 1, bg: "#252530" }}>
+                      <text style={{ fg: "gray", dim: true }}>{String(ctx.line + 1).padStart(lineNumWidth, " ")}  </text>
+                      <text style={{ fg: "gray", dim: true }}>{indent}</text>
+                      <text style={{ fg: kindColor as any }}>{ctx.text}</text>
+                    </box>
+                  );
+                })}
+              </box>
+            )}
             {filePath ? (
               visibleLines.map((line, index) => {
                 const lineNum = scrollOffset + index + 1;
@@ -1076,8 +1188,8 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
                 // Get word highlight occurrences for this line
                 const lineWordOccurrences = highlightedWord
                   ? wordOccurrences
-                      .filter(occ => occ.line === actualLineNum)
-                      .map(occ => occ.column)
+                    .filter(occ => occ.line === actualLineNum)
+                    .map(occ => occ.column)
                   : [];
                 const currentOccurrence = wordOccurrences[currentOccurrenceIndex];
                 const currentOccurrenceCol = currentOccurrence && currentOccurrence.line === actualLineNum
@@ -1095,11 +1207,13 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
                     <box key={index} style={{ flexDirection: "column", overflow: "hidden" }}>
                       {wrappedLines.map((wrappedLine, wrapIdx) => (
                         <box key={wrapIdx} style={{ flexDirection: "row", bg: lineBg as any, overflow: "hidden" }}>
-                          <text style={{ fg: lineNumFg as any, bold: isCurrentLine && wrapIdx === 0, flexShrink: 0 }}>
-                            {wrapIdx === 0
-                              ? `${String(wrapDisplayNum).padStart(lineNumWidth, " ")}${isCurrentLine ? " ▸ " : "   "}`
-                              : `${" ".repeat(lineNumWidth)}   ↪ `}
-                          </text>
+                          {showLineNumbers && (
+                            <text style={{ fg: lineNumFg as any, bold: isCurrentLine && wrapIdx === 0, flexShrink: 0 }}>
+                              {wrapIdx === 0
+                                ? `${String(wrapDisplayNum).padStart(lineNumWidth, " ")}${isCurrentLine ? " ▸ " : "   "}`
+                                : `${" ".repeat(lineNumWidth)}   ↪ `}
+                            </text>
+                          )}
                           <box style={{ flexGrow: 1, flexShrink: 1, width: 0, flexDirection: "row", overflow: "hidden" }}>
                             <HighlightedLine
                               line={wrappedLine}
@@ -1151,9 +1265,11 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
                         {blameAnnotation ? blameAnnotation.padEnd(12) : "            "}
                       </text>
                     )}
-                    <text style={{ fg: lineNumFg as any, bold: isCurrentLine, flexShrink: 0 }}>
-                      {String(displayLineNum).padStart(lineNumWidth, " ")}{isCurrentLine ? " ▸ " : "   "}
-                    </text>
+                    {showLineNumbers && (
+                      <text style={{ fg: lineNumFg as any, bold: isCurrentLine, flexShrink: 0 }}>
+                        {String(displayLineNum).padStart(lineNumWidth, " ")}{isCurrentLine ? " ▸ " : "   "}
+                      </text>
+                    )}
                     <box style={{ flexGrow: 1, flexShrink: 1, width: 0, flexDirection: "row", overflow: "hidden", paddingRight: 1 }}>
                       <HighlightedLine
                         line={line}
