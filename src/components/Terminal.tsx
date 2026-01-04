@@ -21,16 +21,19 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
   const [renderCount, setRenderCount] = useState(0);
   const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scrollOffset, setScrollOffset] = useState(0);
 
   // Fixed dimensions for stable PTY
-  const cols = dimensions?.width || 80;
-  const treeWidth = 30;
+  // Default to larger width to utilize space better if dimensions are pending
+  const cols = dimensions?.width || 120;
+  const treeWidth = 30; // Approximation if we don't know state, but ideally should be passed via props
   // Terminal panel is about 2/3 of screen width (after tree panel of ~30 cols)
-  const termCols = Math.max(30, cols - treeWidth - 4);
-  const safeHeight = typeof height === 'number' && !isNaN(height) ? height : 30;
+  // Give it more space: -2 instead of -4 for margin
+  const termCols = Math.max(40, cols - treeWidth - 2);
+  const safeHeight = typeof height === 'number' && !isNaN(height) ? Math.floor(height) : 30;
   // Subtract terminal chrome: top border (1) + bottom border (1) = 2
   // We remove the internal header to gain more space for CLI tools like Claude Code
-  const termRows = Math.max(10, safeHeight - 2);
+  const termRows = Math.max(5, safeHeight - 2);
 
   const vtRef = useRef<VirtualTerminal | null>(null);
   const terminalRef = useRef<TerminalRef | null>(null);
@@ -38,8 +41,12 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
   const initRef = useRef(false);
   const pendingUpdateRef = useRef(false);
   const updateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
 
   const scheduleUpdate = useCallback(() => {
+    // Prevent updates after unmount
+    if (!isMountedRef.current) return;
+    // If we are scrolling, don't auto-scroll to bottom unless offset is 0
     if (pendingUpdateRef.current) return;
     pendingUpdateRef.current = true;
 
@@ -48,8 +55,12 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
     }
 
     updateTimeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return; // Double-check before setState
       pendingUpdateRef.current = false;
       setRenderCount((n) => n + 1);
+      // Optional: Auto-reset scroll if new data comes? 
+      // Typically terminals stay scrolled unless at bottom. 
+      // Implementation: We let the user manually scroll back.
     }, 16);
   }, []);
 
@@ -59,98 +70,297 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
     initRef.current = true;
 
     // Use actual visible size so apps like Claude adapt to it
+
     const initCols = Math.max(80, termCols);
+
     const initRows = Math.max(15, termRows);
+
+
 
     vtRef.current = new VirtualTerminal(initRows, initCols);
 
+
+
+    // Enable Mouse Tracking (Send to stdout so real terminal sees it)
+
+    process.stdout.write("\x1b[?1000h");
+
+    // Also enable SGR mouse mode for better coordinate handling
+
+    process.stdout.write("\x1b[?1006h");
+
+
+
     const shell = process.env.SHELL || "/bin/zsh";
 
+
+
     try {
+
       const proc = Bun.spawn([shell], {
+
         terminal: {
+
           data(terminal: TerminalRef, data: Uint8Array) {
+
             terminalRef.current = terminal;
+
             const text = new TextDecoder().decode(data);
 
             // Handle Cursor Position Report (CPR) query: ESC [ 6 n
-            if (text.includes("\x1b[6n") && vtRef.current) {
+
+            // DISABLED to prevent echo artifacts
+
+            /* if (text.includes("\x1b[6n") && vtRef.current) {
+
               const { row, col } = vtRef.current.getCursor();
+
               // Respond with ESC [ row ; col R (1-indexed)
+
               terminal.write(`\x1b[${row + 1};${col + 1}R`);
-            }
+
+            } */
+
+
 
             if (vtRef.current) {
+
               vtRef.current.write(text);
+
+              // Reset scroll if we were at the bottom (offset 0)
+
+              // If user is scrolled up, we might want to keep it, but standard behavior 
+
+              // often jumps to bottom on output or keeps view. 
+
+              // Let's keep view for now to allow reading history while outputting.
+
               scheduleUpdate();
+
             }
+
           },
+
         },
+
         env: {
+
           ...process.env,
+
           TERM: "xterm-256color",
+
           COLORTERM: "truecolor",
+
         },
+
         cwd: cwd,
+
       });
 
+
+
       procRef.current = proc;
+
       setInitialized(true);
+
       setError(null);
 
+
+
+
+
       if (onPasteReady) {
+
         onPasteReady((text: string) => {
-          if (terminalRef.current) {
+
+          if (terminalRef.current && isMountedRef.current) {
+
             terminalRef.current.write(text);
+
+            setScrollOffset(0); // Jump to bottom on input
+
           }
+
         });
+
       }
+
+
 
       if (onCopyReady) {
+
         onCopyReady(() => {
+
           if (!vtRef.current) return "";
+
           const buffer = vtRef.current.getBuffer();
+
           const lines: string[] = [];
+
           for (const row of buffer) {
+
             let line = "";
+
             for (const cell of row) {
+
               line += cell?.char || " ";
+
             }
+
             lines.push(line.trimEnd());
+
           }
+
           while (lines.length > 0 && lines[lines.length - 1] === "") {
+
             lines.pop();
+
           }
+
           return lines.join("\n");
+
         });
+
       }
+
     } catch (err: any) {
+
       setError(err.message || "Failed to spawn terminal");
+
     }
 
+
+
     return () => {
+      // Mark as unmounted FIRST to prevent any state updates
+      isMountedRef.current = false;
+
+      // Disable Mouse Tracking on cleanup
+      process.stdout.write("\x1b[?1000l");
+      process.stdout.write("\x1b[?1006l");
+
       if (updateTimeoutRef.current) {
         clearTimeout(updateTimeoutRef.current);
       }
+
+      // Kill the PTY process
       procRef.current?.kill();
     };
+
   }, [cwd, scheduleUpdate, onPasteReady, onCopyReady]);
 
-  // Handle resize after init
+
+
+  // Debounce resize to prevent infinite loop crashes in Yoga/OpenTUI
+
   useEffect(() => {
-    if (terminalRef.current && vtRef.current && initialized && termCols > 5 && termRows > 3) {
-      try {
-        terminalRef.current.resize(termCols, termRows);
-        vtRef.current.resize(termRows, termCols);
-      } catch { }
-    }
+
+    const timer = setTimeout(() => {
+
+      if (terminalRef.current && vtRef.current && initialized && termCols > 5 && termRows > 3) {
+
+        try {
+
+          // Only resize if dimensions actually changed significantly
+
+          const currentRows = vtRef.current.getRows();
+
+          const currentCols = vtRef.current.getCols();
+
+          if (Math.abs(currentRows - termRows) > 0 || Math.abs(currentCols - termCols) > 1) {
+
+            terminalRef.current.resize(termCols, termRows);
+
+            vtRef.current.resize(termRows, termCols);
+
+          }
+
+        } catch { }
+
+      }
+
+    }, 100); // 100ms debounce
+
+    return () => clearTimeout(timer);
+
   }, [termCols, termRows, initialized]);
 
+
+
+
+
   // Handle keyboard input
+
   useKeyboard((event) => {
+
     if (!focused || !terminalRef.current) return;
+
+
+
+    // Alt + Arrows for scrolling (Minimalist Keyboard friendly)
+
+
+
+    // Also support Ctrl + Shift + Arrows as a robust alternative
+
+
+
+    if ((event.meta && event.name === "up") || (event.ctrl && event.shift && event.name === "up")) {
+
+
+
+      setScrollOffset(prev => Math.min(prev + 15, vtRef.current?.getHistorySize() || 0));
+
+
+
+      return;
+
+
+
+    }
+
+
+
+    if ((event.meta && event.name === "down") || (event.ctrl && event.shift && event.name === "down")) {
+
+
+
+      setScrollOffset(prev => Math.max(prev - 15, 0));
+
+
+
+      return;
+
+
+
+    }
+
+
+
     if (event.meta) return;
+
     if (event.shift && event.name === "tab") return;
+
+    // Scroll Handling
+
+    if (event.name === "pageup") {
+
+
+      setScrollOffset(prev => Math.min(prev + termRows, vtRef.current?.getHistorySize() || 0));
+      return;
+    }
+    if (event.name === "pagedown") {
+      setScrollOffset(prev => Math.max(prev - termRows, 0));
+      return;
+    }
+    if (event.shift && event.name === "up") {
+      setScrollOffset(prev => Math.min(prev + 1, vtRef.current?.getHistorySize() || 0));
+      return;
+    }
+    if (event.shift && event.name === "down") {
+      setScrollOffset(prev => Math.max(prev - 1, 0));
+      return;
+    }
 
     let data = "";
 
@@ -174,8 +384,10 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
       data = "\x17";
     } else if (event.name === "return") {
       data = "\r";
+      setScrollOffset(0); // Jump to bottom on enter
     } else if (event.name === "backspace") {
       data = "\x7f";
+      setScrollOffset(0);
     } else if (event.name === "tab" && !event.shift) {
       data = "\t";
     } else if (event.name === "escape") {
@@ -192,18 +404,16 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
       data = "\x1b[H";
     } else if (event.name === "end") {
       data = "\x1b[F";
-    } else if (event.name === "pageup") {
-      data = "\x1b[5~";
-    } else if (event.name === "pagedown") {
-      data = "\x1b[6~";
     } else if (event.name === "delete") {
       data = "\x1b[3~";
     } else if (event.name === "insert") {
       data = "\x1b[2~";
     } else if (event.name === "space") {
       data = " ";
+      setScrollOffset(0);
     } else if (event.name && event.name.length === 1 && !event.ctrl && !event.meta) {
       data = event.name;
+      setScrollOffset(0); // Jump to bottom on typing
     }
 
     if (data) {
@@ -211,7 +421,8 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
     }
   });
 
-  const buffer = vtRef.current?.getBuffer() || [];
+  // Use getView to support scrolling
+  const buffer = vtRef.current?.getView(scrollOffset, termRows) || [];
   const borderColor = focused ? "cyan" : "gray";
 
   if (error) {
@@ -322,23 +533,16 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
   return (
     <box style={{ flexDirection: "column", border: true, borderColor, height: "100%" }}>
       <box style={{ flexDirection: "column", flexGrow: 1, overflow: "hidden", paddingX: 1 }}>
-        {renderRows.map((rowSegments, rowIdx) => (
-          <box key={rowIdx} style={{ flexDirection: "row" }}>
-            {rowSegments.map((seg, segIdx) => (
-              <text
-                key={segIdx}
-                style={{
-                  fg: (seg.fg || "white") as any,
-                  bg: "transparent" as any,
-                  bold: seg.bold,
-                  dim: seg.dim && !seg.isCursor
-                }}
-              >
-                {seg.text}
-              </text>
-            ))}
-          </box>
-        ))}
+        {renderRows.map((rowSegments, rowIdx) => {
+          // Concatenate all segments into a single string per row
+          // This avoids Yoga "measure functions cannot have children" errors
+          const rowText = rowSegments.map(seg => seg.text || "").join("");
+          return (
+            <text key={rowIdx} style={{ fg: "white" as any }}>
+              {rowText || " "}
+            </text>
+          );
+        })}
       </box>
     </box>
   );

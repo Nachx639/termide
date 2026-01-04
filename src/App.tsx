@@ -668,7 +668,7 @@ export function App({ rootPath }: AppProps) {
               </box>
             )}
 
-            {/* Terminal - Bottom (65% height or 100% if focused) */}
+            {/* Terminal - Bottom (occupies remaining space) */}
             {currentTerminalHeight > 0 && (
               <box style={{ height: currentTerminalHeight }} onMouseDown={() => setFocusedPanel("terminal")}>
                 <Terminal
