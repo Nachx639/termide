@@ -58,7 +58,7 @@ export function WelcomeScreen({
       }}
     >
       {/* Logo */}
-      <box style={{ flexDirection: "column", alignItems: "center", marginBottom: 1 }}>
+      <box style={{ flexDirection: "column", alignItems: "center", marginBottom: 1, height: 5 }}>
         <text style={{ fg: "cyan", bold: true }}>
           {` _____ _____ ____  __  __ ___ ____  _____
 |_   _| ____|  _ \\|  \\/  |_ _|  _ \\| ____|

@@ -29,29 +29,31 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
                 {focused && <text style={{ fg: "black", bg: "cyan", bold: true }}> FOCUS </text>}
                 <text style={{ fg: "#d4a800", bold: true, bg: "#1a1a1a" }}>Git Graph</text>
             </box>
-            <scrollbox style={{ flexDirection: "column", flexGrow: 1, paddingX: 1, bg: "#0b0b0b" }}>
-                {logLines.length === 0 ? (
-                    <text style={{ fg: "gray", dim: true, padding: 1 }}>No history found</text>
-                ) : (
-                    logLines.map((line, idx) => {
-                        // Simple coloring for the graph parts vs text parts
-                        // Git --graph uses characters like *, |, /, \, _
-                        const graphChars = /[*|/\\ _-]/;
-                        let firstTextIdx = line.search(/[0-9a-f]/);
-                        if (firstTextIdx === -1) firstTextIdx = line.length;
+            <box style={{ flexDirection: "column", flexGrow: 1, bg: "#0b0b0b" }}>
+                <scrollbox style={{ flexGrow: 1, paddingX: 1, bg: "#0b0b0b" }}>
+                    {logLines.length === 0 ? (
+                        <text style={{ fg: "gray", dim: true, padding: 1 }}>No history found</text>
+                    ) : (
+                        logLines.map((line, idx) => {
+                            // Simple coloring for the graph parts vs text parts
+                            // Git --graph uses characters like *, |, /, \, _
+                            const graphChars = /[*|/\\ _-]/;
+                            let firstTextIdx = line.search(/[0-9a-f]/);
+                            if (firstTextIdx === -1) firstTextIdx = line.length;
 
-                        const graphPart = line.slice(0, firstTextIdx);
-                        const textPart = line.slice(firstTextIdx);
+                            const graphPart = line.slice(0, firstTextIdx);
+                            const textPart = line.slice(firstTextIdx);
 
-                        return (
-                            <box key={idx} style={{ flexDirection: "row" }}>
-                                <text style={{ fg: "cyan" }}>{graphPart}</text>
-                                <text style={{ fg: "white" }}>{textPart}</text>
-                            </box>
-                        );
-                    })
-                )}
-            </scrollbox>
+                            return (
+                                <box key={idx} style={{ flexDirection: "row" }}>
+                                    <text style={{ fg: "cyan" }}>{graphPart}</text>
+                                    <text style={{ fg: "white" }}>{textPart}</text>
+                                </box>
+                            );
+                        })
+                    )}
+                </scrollbox>
+            </box>
         </box>
     );
 }
