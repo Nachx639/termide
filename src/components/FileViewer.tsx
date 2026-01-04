@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useKeyboard } from "@opentui/react";
 import * as fs from "fs";
 import * as path from "path";
@@ -6,6 +6,7 @@ import { tokenizeLine, detectLanguage, getTokenColor, type Token, DARK_THEME } f
 import { SearchBar } from "./SearchBar";
 import { Minimap } from "./Minimap";
 import { MarkdownPreview } from "./MarkdownPreview";
+import { FindReplace } from "./FindReplace";
 
 interface FileViewerProps {
   filePath: string | null;
@@ -126,6 +127,7 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
   const [cursorLine, setCursorLine] = useState(0);
   const [showSearch, setShowSearch] = useState(false);
   const [searchMode, setSearchMode] = useState<"search" | "goto">("search");
+  const [showFindReplace, setShowFindReplace] = useState(false);
   const [wordWrap, setWordWrap] = useState(false);
   const [showIndentGuides, setShowIndentGuides] = useState(true);
   const [showMinimap, setShowMinimap] = useState(true);
@@ -154,6 +156,17 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
     const newOffset = Math.max(0, Math.min(lineIndex - Math.floor(viewHeight / 2), Math.max(0, content.length - viewHeight)));
     setScrollOffset(newOffset);
   };
+
+  // Handle replacing content from Find & Replace
+  const handleReplaceContent = useCallback((newContent: string) => {
+    if (!filePath) return;
+    try {
+      fs.writeFileSync(filePath, newContent, "utf-8");
+      setContent(newContent.split("\n"));
+    } catch (e) {
+      console.error("Error saving file:", e);
+    }
+  }, [filePath]);
 
   useEffect(() => {
     if (!filePath || !fs.existsSync(filePath)) {
@@ -192,7 +205,7 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
   useKeyboard((event) => {
     if (!focused) return;
 
-    if (showSearch) return;
+    if (showSearch || showFindReplace) return;
 
     if (event.alt && event.name === "f") {
       setSearchMode("search");
@@ -203,6 +216,12 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
     if (event.ctrl && event.name === "g") {
       setSearchMode("goto");
       setShowSearch(true);
+      return;
+    }
+
+    // Find & Replace (Ctrl+H)
+    if (event.ctrl && event.name === "h") {
+      setShowFindReplace(true);
       return;
     }
 
@@ -428,6 +447,15 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
         content={content}
         onJumpToLine={handleJumpToLine}
         mode={searchMode}
+      />
+
+      {/* Find & Replace Modal */}
+      <FindReplace
+        isOpen={showFindReplace}
+        onClose={() => setShowFindReplace(false)}
+        content={content.join("\n")}
+        onReplace={handleReplaceContent}
+        filePath={filePath}
       />
     </box>
   );
