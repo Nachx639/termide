@@ -17,6 +17,7 @@ import { Notifications, useNotifications } from "./components/Notifications";
 import { MiniMode } from "./components/MiniMode";
 import { CompactHeader } from "./components/CompactHeader";
 import { FileOperationsModal, type FileOperation } from "./components/FileOperationsModal";
+import { WelcomeScreen } from "./components/WelcomeScreen";
 import * as path from "path";
 import { getGitStatus, formatGitBranch, formatGitStatus, invalidateGitCache } from "./lib/GitIntegration";
 import type { GitStatus } from "./lib/GitIntegration";
@@ -838,15 +839,29 @@ export function App({ rootPath }: AppProps) {
               />
             )}
 
-            {/* File Viewer - Top right (35% or 100% if focused) */}
+            {/* File Viewer / Welcome Screen - Top right (35% or 100% if focused) */}
             {currentViewerHeight > 0 && (
               <box style={{ height: currentViewerHeight }} onMouseDown={() => setFocusedPanel("viewer")}>
-                <FileViewer
-                  filePath={selectedFile}
-                  focused={!isAnyModalOpen && focusedPanel === "viewer"}
-                  rootPath={rootPath}
-                  height={currentViewerHeight}
-                />
+                {openTabs.length === 0 ? (
+                  <WelcomeScreen
+                    height={currentViewerHeight}
+                    onOpenFile={() => setShowFuzzyFinder(true)}
+                    onOpenTerminal={() => setFocusedPanel("terminal")}
+                    onShowHelp={() => setShowHelpPanel(true)}
+                    onShowCommandPalette={() => setShowCommandPalette(true)}
+                    recentFiles={recentFiles}
+                    onOpenRecentFile={handleFileSelect}
+                    rootPath={rootPath}
+                    isCompact={isCompactMode}
+                  />
+                ) : (
+                  <FileViewer
+                    filePath={selectedFile}
+                    focused={!isAnyModalOpen && focusedPanel === "viewer"}
+                    rootPath={rootPath}
+                    height={currentViewerHeight}
+                  />
+                )}
               </box>
             )}
 
