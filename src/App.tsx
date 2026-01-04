@@ -107,6 +107,11 @@ export function App({ rootPath }: AppProps) {
   const [deathProgress, setDeathProgress] = useState(0);
   const [isMaximized, setIsMaximized] = useState(false);
   const [showAgent, setShowAgent] = useState(false);
+
+  // Split view state
+  const [splitMode, setSplitMode] = useState<"none" | "vertical" | "horizontal">("none");
+  const [splitFile, setSplitFile] = useState<string | null>(null);
+  const [activeSplit, setActiveSplit] = useState<"left" | "right">("left");
   const { notifications, notify, dismiss, success, error } = useNotifications();
 
   // File operations state
@@ -621,6 +626,43 @@ export function App({ rootPath }: AppProps) {
       });
     }
 
+    // Split view: Ctrl+\ to toggle vertical split
+    if (event.ctrl && event.name === "\\") {
+      if (splitMode === "vertical") {
+        // Close split
+        setSplitMode("none");
+        setSplitFile(null);
+        success("Split: Closed", 1000);
+      } else if (selectedFile && openTabs.length > 1) {
+        // Open vertical split with another open file
+        setSplitMode("vertical");
+        // Find a different file to show in the split
+        const otherTab = openTabs.find((t) => t.filePath !== selectedFile);
+        if (otherTab) {
+          setSplitFile(otherTab.filePath);
+          success("Split: Vertical", 1000);
+        }
+      } else if (selectedFile) {
+        // Just split with the same file
+        setSplitMode("vertical");
+        setSplitFile(selectedFile);
+        success("Split: Vertical (same file)", 1000);
+      }
+      return;
+    }
+
+    // Alt+Left/Right to switch between splits
+    if (splitMode !== "none" && event.alt) {
+      if (event.name === "left" || event.name === "h") {
+        setActiveSplit("left");
+        return;
+      }
+      if (event.name === "right" || event.name === "l") {
+        setActiveSplit("right");
+        return;
+      }
+    }
+
   });
 
   // Open file in a new tab or switch to existing tab
@@ -880,6 +922,39 @@ export function App({ rootPath }: AppProps) {
                     rootPath={rootPath}
                     isCompact={isCompactMode}
                   />
+                ) : splitMode === "vertical" && splitFile ? (
+                  <box style={{ flexDirection: "row", height: "100%" }}>
+                    {/* Left split */}
+                    <box
+                      style={{ width: "50%", height: "100%" }}
+                      onMouseDown={() => setActiveSplit("left")}
+                    >
+                      <FileViewer
+                        filePath={selectedFile}
+                        focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "left"}
+                        rootPath={rootPath}
+                        height={currentViewerHeight}
+                        onJumpToFile={(targetPath, line) => {
+                          handleFileSelect(targetPath);
+                        }}
+                      />
+                    </box>
+                    {/* Right split */}
+                    <box
+                      style={{ width: "50%", height: "100%" }}
+                      onMouseDown={() => setActiveSplit("right")}
+                    >
+                      <FileViewer
+                        filePath={splitFile}
+                        focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "right"}
+                        rootPath={rootPath}
+                        height={currentViewerHeight}
+                        onJumpToFile={(targetPath, line) => {
+                          setSplitFile(targetPath);
+                        }}
+                      />
+                    </box>
+                  </box>
                 ) : (
                   <FileViewer
                     filePath={selectedFile}
@@ -978,6 +1053,12 @@ export function App({ rootPath }: AppProps) {
         <box style={{ flexGrow: 1 }} />
 
         <box style={{ flexDirection: "row", gap: 2, flexShrink: 0 }}>
+          {/* Split view indicator */}
+          {splitMode !== "none" && (
+            <text style={{ fg: "cyan" }}>
+              SPLIT {activeSplit.toUpperCase()}
+            </text>
+          )}
           {/* Screen size indicator */}
           <text style={{ fg: isCompactMode ? "yellow" : "gray", dim: !isCompactMode }}>
             {getScreenSizeLabel(layoutConfig.screenSize)}
