@@ -5,10 +5,20 @@
 - **Right side**: Termide application window
 
 ## Coordinates Reference (based on screen resolution ~2880x1800)
-- **Right terminal (Termide) safe click area**: (2537, 623)
-- **Agent Panel input area**: (2537, 623) - same as above when Agent Panel is open
-- **File viewer area**: approximately (1650, 320) - DO NOT click here for Agent Panel
-- **Left terminal (Claude Code)**: x < 1400 - AVOID clicking here
+
+### Termide UI Elements
+| Element | Coordinates | Description |
+|---------|-------------|-------------|
+| Explorer | (1836, 239) | File explorer panel on the left |
+| Source Control | (1836, 456) | Git status and changes panel |
+| Git Graph | (1836, 677) | Git commit history visualization |
+| Viewer/File Editor | (2554, 249) | Main file viewing/editing area |
+| Agent Panel Input | (2537, 623) | AI Agent chat input box |
+
+### Safety Zones
+- **Screen center X**: 1717
+- **Left terminal (Claude Code)**: x < 1717 - AVOID clicking here
+- **Termide area**: x > 1717
 
 ## Important: Double Click Safety Protocol
 When interacting with Termide from another terminal, you need TWO SEPARATE double-clicks:
@@ -25,13 +35,15 @@ peekaboo click --coords 2537,623 && sleep 0.3 && peekaboo click --coords 2537,62
 
 ### Full sequence for sending a message:
 ```bash
-# First double-click: focus terminal
-peekaboo click --coords 2537,623 && sleep 0.3 && peekaboo click --coords 2537,623 && sleep 0.3 && \
+# First double-click: focus terminal (use 1 second sleeps!)
+peekaboo click --coords 2537,623 && sleep 1 && peekaboo click --coords 2537,623 && sleep 1 && \
 # Second double-click: focus agent input
-peekaboo click --coords 2537,623 && sleep 0.3 && peekaboo click --coords 2537,623 && sleep 0.3 && \
+peekaboo click --coords 2537,623 && sleep 1 && peekaboo click --coords 2537,623 && sleep 1 && \
 # Type and send
-peekaboo type "message" && sleep 0.3 && peekaboo press return
+peekaboo type "message" && sleep 0.5 && peekaboo press return
 ```
+
+**IMPORTANT**: Use `sleep 1` between clicks, NOT `sleep 0.3`. Shorter sleeps often fail to register clicks properly.
 
 **Why 4 clicks total?**
 1. First 2 clicks: Ensures Terminal.app window is focused
@@ -41,6 +53,27 @@ peekaboo type "message" && sleep 0.3 && peekaboo press return
 ```bash
 cd ~/Projects/termide && bun run dev
 ```
+
+### How to Verify Termide is Running
+**IMPORTANT**: Don't confuse seeing "termide" in the terminal prompt (just the directory name) with Termide actually running!
+
+**Termide NOT running** = Black terminal with just a bash prompt
+**Termide IS running** = Full UI with multiple panels:
+- Explorer panel (left)
+- Source Control panel (left)
+- Git Graph panel (left)
+- File Viewer (top right)
+- Terminal/Agent Panel (bottom right)
+- Status bar at bottom
+
+Always take a screenshot and visually verify the UI panels are visible before proceeding.
+
+### How to Verify Which Panel Has Focus
+Each panel has a border that indicates focus state:
+- **Cyan border** = Panel HAS focus (active, receives keyboard input)
+- **Gray border** = Panel does NOT have focus
+
+When testing click interactions, always verify the target panel's border changed to cyan after clicking.
 
 ## Stopping Termide
 **IMPORTANT**: Press Ctrl+C TWICE to properly close Termide:

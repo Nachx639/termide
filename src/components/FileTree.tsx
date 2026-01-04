@@ -159,7 +159,8 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus }: FileTreeP
 
   return (
     <box style={{ flexDirection: "column", border: true, borderColor, height: "100%", bg: "#0b0b0b" }} onMouseDown={onFocus}>
-      <box style={{ paddingX: 1, height: 1, bg: "#1a1a1a" }}>
+      <box style={{ paddingX: 1, height: 1, bg: "#1a1a1a", flexDirection: "row" }}>
+        {focused && <text style={{ fg: "black", bg: "cyan", bold: true }}> FOCUS </text>}
         <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a" }}>Explorer</text>
       </box>
       <box
