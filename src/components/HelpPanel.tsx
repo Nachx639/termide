@@ -24,7 +24,8 @@ const SHORTCUTS: ShortcutCategory[] = [
       { keys: "Shift+Tab", description: "Switch to previous panel" },
       { keys: "Ctrl+P", description: "Quick open file (fuzzy finder)" },
       { keys: "Ctrl+K", description: "Open command palette" },
-      { keys: "Ctrl+Shift+F", description: "Search in all files" },
+      { keys: "Ctrl+G", description: "Go to line" },
+      { keys: "Ctrl+Shift+O / @", description: "Go to symbol" },
     ],
   },
   {
@@ -37,19 +38,25 @@ const SHORTCUTS: ShortcutCategory[] = [
     ],
   },
   {
-    title: "File Viewer",
+    title: "Editor View",
+    shortcuts: [
+      { keys: "Ctrl+W", description: "Toggle word wrap" },
+      { keys: "Ctrl+E", description: "Toggle minimap" },
+      { keys: "Ctrl+N", description: "Toggle line numbers" },
+      { keys: "Ctrl+R", description: "Toggle relative numbers" },
+      { keys: "Ctrl+Y", description: "Toggle sticky scroll" },
+      { keys: "Ctrl+I", description: "Toggle git gutter" },
+    ],
+  },
+  {
+    title: "Editor Navigation",
     shortcuts: [
       { keys: "j / ↓", description: "Scroll down" },
       { keys: "k / ↑", description: "Scroll up" },
-      { keys: "PageUp / PageDown", description: "Page scroll" },
       { keys: "g", description: "Go to start" },
       { keys: "G", description: "Go to end" },
-      { keys: "Ctrl+F", description: "Find in file" },
-      { keys: "Ctrl+G", description: "Go to line" },
-      { keys: "Alt+Z", description: "Toggle word wrap" },
-      { keys: "Alt+I", description: "Toggle indent guides" },
-      { keys: "Alt+M", description: "Toggle minimap" },
-      { keys: "Alt+P", description: "Toggle markdown preview" },
+      { keys: "Ctrl+D", description: "Select word / next occurrence" },
+      { keys: "z / Z", description: "Fold / Fold all" },
     ],
   },
   {
@@ -57,32 +64,15 @@ const SHORTCUTS: ShortcutCategory[] = [
     shortcuts: [
       { keys: "Any key", description: "Type in terminal" },
       { keys: "Ctrl+C", description: "Interrupt command" },
-      { keys: "Ctrl+D", description: "Send EOF" },
       { keys: "Ctrl+L", description: "Clear screen" },
-    ],
-  },
-  {
-    title: "Tabs",
-    shortcuts: [
-      { keys: "Ctrl+W", description: "Close current tab" },
-      { keys: "Ctrl+Tab", description: "Next tab" },
-      { keys: "Ctrl+Shift+Tab", description: "Previous tab" },
-    ],
-  },
-  {
-    title: "Clipboard",
-    shortcuts: [
-      { keys: "Cmd+C", description: "Copy selection (standard Mac)" },
-      { keys: "Ctrl+Shift+C", description: "Copy panel content" },
-      { keys: "Ctrl+Shift+V", description: "Paste to terminal" },
-      { keys: "Opt+Select", description: "Mac selection bypass" },
     ],
   },
   {
     title: "Application",
     shortcuts: [
-      { keys: "Ctrl+B / F1 / ?", description: "Toggle this help panel" },
-      { keys: "Ctrl+Q", description: "Quit application" },
+      { keys: "Ctrl+Q", description: "Zen Mode (distraction-free)" },
+      { keys: "Ctrl+B / ?", description: "Toggle this help panel" },
+      { keys: "Ctrl+Space", description: "Toggle AI agent panel" },
     ],
   },
 ];
