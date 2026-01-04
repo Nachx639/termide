@@ -629,8 +629,9 @@ export function App({ rootPath }: AppProps) {
       return;
     }
 
-    // Ctrl+Shift+Z - Zen Mode (distraction-free)
-    if (event.ctrl && event.shift && (event.name === "z" || event.name === "Z")) {
+    // Ctrl+\ or Ctrl+Shift+Z - Zen Mode (distraction-free)
+    if ((event.ctrl && event.name === "\\") ||
+        (event.ctrl && event.shift && (event.name === "z" || event.name === "Z"))) {
       setZenMode(z => !z);
       return;
     }
@@ -1237,7 +1238,7 @@ export function App({ rootPath }: AppProps) {
       {/* Zen Mode indicator */}
       {zenMode && (
         <box style={{ position: "absolute", top: 0, right: 2, height: 1 }}>
-          <text style={{ fg: "cyan", dim: true }}>ZEN (Ctrl+Shift+Z to exit)</text>
+          <text style={{ fg: "cyan", dim: true }}>ZEN (Ctrl+\ to exit)</text>
         </box>
       )}
 
