@@ -10,6 +10,7 @@ import { FindReplace } from "./FindReplace";
 import { findMatchingBracket, isBracket, type BracketMatch } from "../lib/BracketMatcher";
 import { findDefinition, getWordAtPosition, type SymbolLocation } from "../lib/SymbolFinder";
 import { detectFoldableRegions, getFoldMarker, toggleFold, foldAll, unfoldAll, type FoldableRegion } from "../lib/CodeFolding";
+import { getGitBlame, getBlameAnnotation, getBlameColor, type BlameLine } from "../lib/GitBlame";
 
 interface FileViewerProps {
   filePath: string | null;
@@ -198,6 +199,10 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile }
 
   // Code folding state
   const [foldedRegions, setFoldedRegions] = useState<Set<number>>(new Set());
+
+  // Git blame state
+  const [showBlame, setShowBlame] = useState(false);
+  const [blameData, setBlameData] = useState<BlameLine[]>([]);
 
   // Calculate dynamic heights
   const isMarkdown = filePath?.toLowerCase().endsWith(".md") || filePath?.toLowerCase().endsWith(".markdown");
@@ -465,6 +470,17 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile }
     }
   }, [filePath]);
 
+  // Load git blame data when enabled
+  useEffect(() => {
+    if (!showBlame || !filePath) {
+      setBlameData([]);
+      return;
+    }
+
+    // Load blame data asynchronously
+    const blame = getGitBlame(filePath);
+    setBlameData(blame);
+  }, [showBlame, filePath]);
 
   useKeyboard((event) => {
     if (!focused) return;
@@ -508,6 +524,12 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile }
     if (event.alt && event.name === "z") {
       // Alt+Z = unfold all
       handleUnfoldAll();
+      return;
+    }
+
+    // Git blame: Ctrl+Shift+G
+    if (event.ctrl && event.shift && (event.name === "g" || event.name === "G")) {
+      setShowBlame((v) => !v);
       return;
     }
 
@@ -702,6 +724,7 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile }
             {showIndentGuides && <text style={{ fg: "gray", dim: true }}> [guides]</text>}
             {showMinimap && <text style={{ fg: "blue", dim: true }}> [map]</text>}
             {foldedRegions.size > 0 && <text style={{ fg: "cyan", dim: true }}> [{foldedRegions.size} folded]</text>}
+            {showBlame && <text style={{ fg: "magenta", dim: true }}> [blame]</text>}
             {isMarkdown && (
               <text style={{ fg: showPreview ? "#d4a800" : "gray", dim: !showPreview }}>
                 {showPreview ? " [preview]" : " [Alt+P preview]"}
@@ -814,9 +837,19 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile }
                   foldableRegions.find((r) => r.startLine === actualLineNum) : null;
                 const foldedCount = foldInfo ? foldInfo.endLine - foldInfo.startLine : 0;
 
+                // Get blame info for this line
+                const blameLine = showBlame && blameData[actualLineNum];
+                const blameAnnotation = blameLine ? getBlameAnnotation(blameLine) : "";
+                const blameColor = blameLine ? getBlameColor(blameLine.date) : "gray";
+
                 return (
                   <box key={index} style={{ flexDirection: "row", bg: lineBg as any, overflow: "hidden" }}>
                     <text style={{ fg: foldColor as any, flexShrink: 0 }}>{foldIndicator}</text>
+                    {showBlame && (
+                      <text style={{ fg: blameColor as any, dim: true, flexShrink: 0 }}>
+                        {blameAnnotation ? blameAnnotation.padEnd(12) : "            "}
+                      </text>
+                    )}
                     <text style={{ fg: lineNumFg as any, bold: isCurrentLine, flexShrink: 0 }}>
                       {String(lineNum).padStart(lineNumWidth, " ")}{isCurrentLine ? " ▸ " : "   "}
                     </text>
