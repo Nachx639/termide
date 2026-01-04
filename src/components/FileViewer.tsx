@@ -726,6 +726,24 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
 
   // Mouse scroll handler - at top level so it works anywhere in the viewer
   const handleMouseScroll = (event: any) => {
+    // OpenTUI scroll events have type "scroll" and scroll.direction
+    if (event.type === "scroll" && event.scroll) {
+      if (event.scroll.direction === "up") {
+        const newOffset = Math.max(0, scrollOffset - 3);
+        setScrollOffset(newOffset);
+        if (cursorLine >= newOffset + viewHeight) {
+          setCursorLine(newOffset + viewHeight - 1);
+        }
+      } else if (event.scroll.direction === "down") {
+        const maxOffset = Math.max(0, content.length - viewHeight);
+        const newOffset = Math.min(maxOffset, scrollOffset + 3);
+        setScrollOffset(newOffset);
+        if (cursorLine < newOffset) {
+          setCursorLine(newOffset);
+        }
+      }
+    }
+    // Also support wheel action format for compatibility
     if (event.action === "wheel") {
       if (event.direction === "up") {
         const newOffset = Math.max(0, scrollOffset - 3);
@@ -748,6 +766,7 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
     <box
       style={{ flexDirection: "column", border: true, borderColor, height: "100%" }}
       onMouse={handleMouseScroll}
+      onMouseScroll={handleMouseScroll}
     >
       {/* Header with Breadcrumbs and status indicators */}
       <box style={{ height: 1, paddingX: 1, flexDirection: "row", justifyContent: "space-between" }}>
@@ -791,8 +810,9 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
         <box
           style={{ flexDirection: "row", flexGrow: 1, position: "relative" }}
           onMouse={handleMouseScroll}
+          onMouseScroll={handleMouseScroll}
         >
-          <box style={{ flexDirection: "column", paddingLeft: 1, paddingRight: 1, flexGrow: 1, height: viewHeight, overflow: "hidden" }}>
+          <box style={{ flexDirection: "column", paddingLeft: 1, paddingRight: 1, flexGrow: 1, height: viewHeight, overflow: "hidden" }} onMouse={handleMouseScroll} onMouseScroll={handleMouseScroll}>
             {filePath ? (
               visibleLines.map((line, index) => {
                 const lineNum = scrollOffset + index + 1;
@@ -902,7 +922,7 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
 
           {/* Scrollbar */}
           {content.length > viewHeight && (
-            <box style={{ width: 1, height: viewHeight, flexDirection: "column", bg: "#050505", borderLeft: true, borderColor: "gray", dim: true }}>
+            <box style={{ width: 1, height: viewHeight, flexDirection: "column", bg: "#050505", borderLeft: true, borderColor: "gray", dim: true }} onMouse={handleMouseScroll} onMouseScroll={handleMouseScroll}>
               {(() => {
                 const scrollPercentage = scrollOffset / (content.length - viewHeight);
                 const thumbHeight = Math.max(1, Math.floor((viewHeight / content.length) * viewHeight));
