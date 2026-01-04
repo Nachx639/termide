@@ -768,7 +768,7 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
         <box
           style={{ flexDirection: "row", flexGrow: 1, position: "relative" }}
           onMouse={(event: any) => {
-            if (!focused) return;
+            // Allow mouse scroll even when not focused
             if (event.action === "wheel") {
               if (event.direction === "up") {
                 const newOffset = Math.max(0, scrollOffset - 3);

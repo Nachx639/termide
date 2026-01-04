@@ -731,16 +731,25 @@ export function App({ rootPath }: AppProps) {
     }
 
     // Panel navigation with Tab
+    // Include "agent" instead of "terminal" when agent panel is visible
     if (event.name === "tab" && !event.shift) {
       setFocusedPanel((current) => {
-        const order: Panel[] = ["tree", "source", "graph", "viewer", "terminal"];
+        const order: Panel[] = showAgent
+          ? ["tree", "source", "graph", "viewer", "agent"]
+          : ["tree", "source", "graph", "viewer", "terminal"];
         const currentIndex = order.indexOf(current);
+        // Handle case where current panel is not in the order (e.g., terminal when agent is shown)
+        if (currentIndex === -1) return order[0] as Panel;
         return order[(currentIndex + 1) % order.length] as Panel;
       });
     } else if (event.name === "tab" && event.shift) {
       setFocusedPanel((current) => {
-        const order: Panel[] = ["tree", "source", "graph", "viewer", "terminal"];
+        const order: Panel[] = showAgent
+          ? ["tree", "source", "graph", "viewer", "agent"]
+          : ["tree", "source", "graph", "viewer", "terminal"];
         const currentIndex = order.indexOf(current);
+        // Handle case where current panel is not in the order
+        if (currentIndex === -1) return order[order.length - 1] as Panel;
         return order[(currentIndex - 1 + order.length) % order.length] as Panel;
       });
     }
