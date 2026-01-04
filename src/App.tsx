@@ -629,9 +629,8 @@ export function App({ rootPath }: AppProps) {
       return;
     }
 
-    // Ctrl+\ or Ctrl+Shift+Z - Zen Mode (distraction-free)
-    if ((event.ctrl && event.name === "\\") ||
-        (event.ctrl && event.shift && (event.name === "z" || event.name === "Z"))) {
+    // Ctrl+Q - Zen Mode (Q for Quiet/distraction-free)
+    if (event.ctrl && !event.shift && event.name === "q") {
       setZenMode(z => !z);
       return;
     }
