@@ -9,6 +9,7 @@ import type { Command } from "./components/CommandPalette";
 import { GlobalSearch } from "./components/GlobalSearch";
 import { ThemePicker } from "./components/ThemePicker";
 import { HelpPanel } from "./components/HelpPanel";
+import { KeyboardShortcuts } from "./components/KeyboardShortcuts";
 import { TabBar } from "./components/TabBar";
 import { SourceControl } from "./components/SourceControl";
 import { GitGraph } from "./components/GitGraph";
@@ -83,6 +84,7 @@ export function App({ rootPath }: AppProps) {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [showHelpPanel, setShowHelpPanel] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [showQuickSettings, setShowQuickSettings] = useState(false);
   const [theme, setTheme] = useState<Theme>(DARK_THEME);
@@ -120,7 +122,7 @@ export function App({ rootPath }: AppProps) {
   const [fileOpsTarget, setFileOpsTarget] = useState("");
   const [treeRefreshKey, setTreeRefreshKey] = useState(0);
 
-  const isAnyModalOpen = showFuzzyFinder || showCommandPalette || showGlobalSearch || showHelpPanel || showThemePicker || showFileOps || showQuickSettings;
+  const isAnyModalOpen = showFuzzyFinder || showCommandPalette || showGlobalSearch || showHelpPanel || showShortcuts || showThemePicker || showFileOps || showQuickSettings;
 
   // Responsive layout configuration
   const layoutConfig = getLayoutConfig(dimensions.width || 80, dimensions.height || 24);
@@ -501,7 +503,13 @@ export function App({ rootPath }: AppProps) {
     }
 
     // Don't handle other keys if help is open
-    if (showHelpPanel) return;
+    if (showHelpPanel || showShortcuts) return;
+
+    // Ctrl+Shift+/ - Keyboard shortcuts overlay
+    if (event.ctrl && event.shift && event.name === "/") {
+      setShowShortcuts(true);
+      return;
+    }
 
     // Ctrl+, - Quick settings
     if (event.ctrl && event.name === ",") {
@@ -1162,6 +1170,13 @@ export function App({ rootPath }: AppProps) {
               setTheme(changes.theme);
             }
           }}
+        />
+      )}
+
+      {showShortcuts && (
+        <KeyboardShortcuts
+          isOpen={showShortcuts}
+          onClose={() => setShowShortcuts(false)}
         />
       )}
 
