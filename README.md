@@ -34,6 +34,30 @@
 
 The name is a playful fusion of **Terminal** + **IDE**, with a nod to the industrious **termite**—building complex structures from the ground up, bit by bit.
 
+---
+
+## 🤖 Built for AI Coding Agents
+
+Unlike traditional IDEs, **termide** is designed with AI-first workflows in mind:
+
+| Traditional IDEs | termide |
+| :--- | :--- |
+| Heavy GUI, slow startup | Instant launch, minimal footprint |
+| Mouse-dependent workflows | 100% keyboard-driven |
+| AI tools run in separate terminal | AI agent runs **inside** your IDE |
+| Context switch between windows | Everything in one view |
+| Complex plugin systems | Simple, focused, opinionated |
+
+### Perfect for:
+- **Claude Code** — Full-screen terminal with file browser context
+- **Aider** — See git changes while AI codes
+- **Cursor/Copilot CLI** — Clean environment without distractions
+- **Custom agents** — PTY access for any terminal-based AI
+
+> **The insight:** AI agents don't need syntax highlighting or autocomplete—they need a **clean terminal** with **file context**. That's exactly what termide provides.
+
+---
+
 ### Built With Modern Tech
 
 - **[Bun](https://bun.sh)** — Lightning-fast JavaScript runtime
