@@ -12,6 +12,7 @@ import { HelpPanel } from "./components/HelpPanel";
 import { TabBar } from "./components/TabBar";
 import { SourceControl } from "./components/SourceControl";
 import { GitGraph } from "./components/GitGraph";
+import { AgentPanel } from "./components/AgentPanel";
 import { Notifications, useNotifications } from "./components/Notifications";
 import * as path from "path";
 import { getGitStatus, formatGitBranch, formatGitStatus, invalidateGitCache } from "./lib/GitIntegration";
@@ -19,7 +20,7 @@ import type { GitStatus } from "./lib/GitIntegration";
 import { DARK_THEME, THEMES } from "./lib/ThemeSystem";
 import type { Theme } from "./lib/ThemeSystem";
 
-type Panel = "tree" | "viewer" | "terminal" | "source" | "graph";
+type Panel = "tree" | "viewer" | "terminal" | "source" | "graph" | "agent";
 
 // Format file size for display
 function formatFileSize(bytes: number): string {
@@ -84,6 +85,7 @@ export function App({ rootPath }: AppProps) {
   const [antStatus, setAntStatus] = useState<"walking" | "dying" | "dead">("walking");
   const [deathProgress, setDeathProgress] = useState(0);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [showAgent, setShowAgent] = useState(false);
   const { notifications, notify, dismiss, success, error } = useNotifications();
   const isAnyModalOpen = showFuzzyFinder || showCommandPalette || showGlobalSearch || showHelpPanel || showThemePicker;
 
@@ -250,6 +252,16 @@ export function App({ rootPath }: AppProps) {
       action: () => setFocusedPanel("terminal"),
     },
     {
+      id: "focus-agent",
+      label: "Focus AI Agent",
+      shortcut: "Tab",
+      category: "Navigation",
+      action: () => {
+        setShowAgent(true);
+        setFocusedPanel("agent");
+      },
+    },
+    {
       id: "focus-source-control",
       label: "Focus Source Control",
       shortcut: "Tab",
@@ -328,6 +340,21 @@ export function App({ rootPath }: AppProps) {
       description: "Focus terminal panel",
       category: "View",
       action: () => setFocusedPanel("terminal"),
+    },
+    {
+      id: "toggle-agent",
+      label: "Toggle AI Agent",
+      description: "Show/Hide Agent Panel",
+      shortcut: "Ctrl+Space",
+      category: "View",
+      action: () => {
+        setShowAgent(v => {
+          const newState = !v;
+          if (newState) setFocusedPanel("agent");
+          else setFocusedPanel("terminal");
+          return newState;
+        });
+      }
     },
     {
       id: "change-theme",
@@ -471,6 +498,18 @@ export function App({ rootPath }: AppProps) {
     if (event.ctrl && !event.shift && (event.name === "f" || event.name === "F")) {
       setIsMaximized((m) => !m);
       success(isMaximized ? "Focus: Off" : "Focus: On", 1000);
+      return;
+    }
+
+    // Ctrl+Space - Toggle Agent
+    // Depending on the terminal, this might come as name="space" + ctrl, or name=" " + ctrl
+    if (event.ctrl && (event.name === "space" || event.name === " ")) {
+      setShowAgent(v => {
+        const newState = !v;
+        if (newState) setFocusedPanel("agent");
+        else setFocusedPanel("terminal");
+        return newState;
+      });
       return;
     }
 
@@ -670,15 +709,25 @@ export function App({ rootPath }: AppProps) {
 
             {/* Terminal - Bottom (occupies remaining space) */}
             {currentTerminalHeight > 0 && (
-              <box style={{ height: currentTerminalHeight }} onMouseDown={() => setFocusedPanel("terminal")}>
-                <Terminal
-                  cwd={rootPath}
-                  focused={!isAnyModalOpen && focusedPanel === "terminal"}
-                  onFocusRequest={() => setFocusedPanel("terminal")}
-                  onPasteReady={(pasteFn) => { terminalPasteRef.current = pasteFn; }}
-                  onCopyReady={(copyFn) => { terminalCopyRef.current = copyFn; }}
-                  height={currentTerminalHeight}
-                />
+              <box style={{ height: currentTerminalHeight }}>
+                {showAgent ? (
+                  <AgentPanel
+                    rootPath={rootPath}
+                    focused={!isAnyModalOpen && focusedPanel === "agent"}
+                    onFocus={() => setFocusedPanel("agent")}
+                  />
+                ) : (
+                  <box onMouseDown={() => setFocusedPanel("terminal")} style={{ height: "100%" }}>
+                    <Terminal
+                      cwd={rootPath}
+                      focused={!isAnyModalOpen && focusedPanel === "terminal"}
+                      onFocusRequest={() => setFocusedPanel("terminal")}
+                      onPasteReady={(pasteFn) => { terminalPasteRef.current = pasteFn; }}
+                      onCopyReady={(copyFn) => { terminalCopyRef.current = copyFn; }}
+                      height={currentTerminalHeight}
+                    />
+                  </box>
+                )}
               </box>
             )}
           </box>
