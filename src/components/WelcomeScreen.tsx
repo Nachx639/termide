@@ -108,6 +108,11 @@ export function WelcomeScreen({
           <text style={{ fg: "cyan", bold: true }}>Ctrl+Space</text>
           <text style={{ fg: "gray" }}> - Toggle AI agent</text>
         </box>
+
+        <box style={{ flexDirection: "row" }}>
+          <text style={{ fg: "cyan", bold: true }}>F12</text>
+          <text style={{ fg: "gray" }}> - Go to definition</text>
+        </box>
       </box>
 
       <box style={{ height: 1 }} />
