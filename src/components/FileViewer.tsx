@@ -724,8 +724,31 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
   // Get file type indicator
   const langIndicator = language ? language.toUpperCase() : "";
 
+  // Mouse scroll handler - at top level so it works anywhere in the viewer
+  const handleMouseScroll = (event: any) => {
+    if (event.action === "wheel") {
+      if (event.direction === "up") {
+        const newOffset = Math.max(0, scrollOffset - 3);
+        setScrollOffset(newOffset);
+        if (cursorLine >= newOffset + viewHeight) {
+          setCursorLine(newOffset + viewHeight - 1);
+        }
+      } else if (event.direction === "down") {
+        const maxOffset = Math.max(0, content.length - viewHeight);
+        const newOffset = Math.min(maxOffset, scrollOffset + 3);
+        setScrollOffset(newOffset);
+        if (cursorLine < newOffset) {
+          setCursorLine(newOffset);
+        }
+      }
+    }
+  };
+
   return (
-    <box style={{ flexDirection: "column", border: true, borderColor, height: "100%" }}>
+    <box
+      style={{ flexDirection: "column", border: true, borderColor, height: "100%" }}
+      onMouse={handleMouseScroll}
+    >
       {/* Header with Breadcrumbs and status indicators */}
       <box style={{ height: 1, paddingX: 1, flexDirection: "row", justifyContent: "space-between" }}>
         <box style={{ flexDirection: "row", gap: 1, flexShrink: 1 }}>
@@ -767,27 +790,6 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
       ) : (
         <box
           style={{ flexDirection: "row", flexGrow: 1, position: "relative" }}
-          onMouse={(event: any) => {
-            // Allow mouse scroll even when not focused
-            if (event.action === "wheel") {
-              if (event.direction === "up") {
-                const newOffset = Math.max(0, scrollOffset - 3);
-                setScrollOffset(newOffset);
-                // Also move cursor if it's out of view
-                if (cursorLine >= newOffset + viewHeight) {
-                  setCursorLine(newOffset + viewHeight - 1);
-                }
-              } else {
-                const maxOffset = Math.max(0, content.length - viewHeight);
-                const newOffset = Math.min(maxOffset, scrollOffset + 3);
-                setScrollOffset(newOffset);
-                // Also move cursor if it's out of view
-                if (cursorLine < newOffset) {
-                  setCursorLine(newOffset);
-                }
-              }
-            }
-          }}
         >
           <box style={{ flexDirection: "column", paddingLeft: 1, paddingRight: 1, flexGrow: 1, height: viewHeight, overflow: "hidden" }}>
             {filePath ? (
