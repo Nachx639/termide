@@ -66,6 +66,7 @@ const SHORTCUTS: ShortcutCategory[] = [
       { keys: "Cmd+Z", description: "Toggle word wrap" },
       { keys: "Cmd+I", description: "Toggle indent guides" },
       { keys: "Cmd+M", description: "Toggle minimap" },
+      { keys: "Alt+L", description: "Toggle relative line numbers" },
       { keys: "Ctrl+,", description: "Quick settings" },
     ],
   },

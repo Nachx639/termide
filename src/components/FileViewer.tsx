@@ -204,6 +204,9 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile }
   const [showBlame, setShowBlame] = useState(false);
   const [blameData, setBlameData] = useState<BlameLine[]>([]);
 
+  // Relative line numbers state
+  const [relativeLineNumbers, setRelativeLineNumbers] = useState(false);
+
   // Calculate dynamic heights
   const isMarkdown = filePath?.toLowerCase().endsWith(".md") || filePath?.toLowerCase().endsWith(".markdown");
   const headerHeight = 1;
@@ -548,6 +551,12 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile }
       return;
     }
 
+    // Alt+L - Toggle relative line numbers
+    if (event.alt && event.name === "l") {
+      setRelativeLineNumbers((v) => !v);
+      return;
+    }
+
     if (event.meta && event.name === "p") {
       if (isMarkdown) {
         setShowPreview((v) => !v);
@@ -723,6 +732,7 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile }
             {wordWrap && <text style={{ fg: "#d4a800", dim: true }}> [wrap]</text>}
             {showIndentGuides && <text style={{ fg: "gray", dim: true }}> [guides]</text>}
             {showMinimap && <text style={{ fg: "blue", dim: true }}> [map]</text>}
+            {relativeLineNumbers && <text style={{ fg: "yellow", dim: true }}> [rel]</text>}
             {foldedRegions.size > 0 && <text style={{ fg: "cyan", dim: true }}> [{foldedRegions.size} folded]</text>}
             {showBlame && <text style={{ fg: "magenta", dim: true }}> [blame]</text>}
             {isMarkdown && (
@@ -814,13 +824,17 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile }
                 // Handle word wrap
                 if (wordWrap && line.length > wrapWidth) {
                   const wrappedLines = wrapLine(line, wrapWidth);
+                  // Calculate display line number for relative mode
+                  const wrapDisplayNum = relativeLineNumbers && !isCurrentLine
+                    ? Math.abs(actualLineNum - cursorLine)
+                    : lineNum;
                   return (
                     <box key={index} style={{ flexDirection: "column", overflow: "hidden" }}>
                       {wrappedLines.map((wrappedLine, wrapIdx) => (
                         <box key={wrapIdx} style={{ flexDirection: "row", bg: lineBg as any, overflow: "hidden" }}>
                           <text style={{ fg: lineNumFg as any, bold: isCurrentLine && wrapIdx === 0, flexShrink: 0 }}>
                             {wrapIdx === 0
-                              ? `${String(lineNum).padStart(lineNumWidth, " ")}${isCurrentLine ? " ▸ " : "   "}`
+                              ? `${String(wrapDisplayNum).padStart(lineNumWidth, " ")}${isCurrentLine ? " ▸ " : "   "}`
                               : `${" ".repeat(lineNumWidth)}   ↪ `}
                           </text>
                           <box style={{ flexGrow: 1, flexShrink: 1, width: 0, flexDirection: "row", overflow: "hidden" }}>
@@ -842,6 +856,11 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile }
                 const blameAnnotation = blameLine ? getBlameAnnotation(blameLine) : "";
                 const blameColor = blameLine ? getBlameColor(blameLine.date) : "gray";
 
+                // Calculate display line number (absolute or relative)
+                const displayLineNum = relativeLineNumbers && !isCurrentLine
+                  ? Math.abs(actualLineNum - cursorLine)
+                  : lineNum;
+
                 return (
                   <box key={index} style={{ flexDirection: "row", bg: lineBg as any, overflow: "hidden" }}>
                     <text style={{ fg: foldColor as any, flexShrink: 0 }}>{foldIndicator}</text>
@@ -851,7 +870,7 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile }
                       </text>
                     )}
                     <text style={{ fg: lineNumFg as any, bold: isCurrentLine, flexShrink: 0 }}>
-                      {String(lineNum).padStart(lineNumWidth, " ")}{isCurrentLine ? " ▸ " : "   "}
+                      {String(displayLineNum).padStart(lineNumWidth, " ")}{isCurrentLine ? " ▸ " : "   "}
                     </text>
                     <box style={{ flexGrow: 1, flexShrink: 1, width: 0, flexDirection: "row", overflow: "hidden", paddingRight: 1 }}>
                       <HighlightedLine line={line} lang={language} showGuides={showIndentGuides} tabSize={tabSize} bracketHighlight={bracketHighlightCol} />
