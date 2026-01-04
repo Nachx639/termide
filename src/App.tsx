@@ -112,6 +112,9 @@ export function App({ rootPath }: AppProps) {
 
   // Split view state
   const [splitMode, setSplitMode] = useState<"none" | "vertical" | "horizontal">("none");
+
+  // Cursor position tracking
+  const [cursorPos, setCursorPos] = useState<{ line: number; column: number }>({ line: 1, column: 1 });
   const [splitFile, setSplitFile] = useState<string | null>(null);
   const [activeSplit, setActiveSplit] = useState<"left" | "right">("left");
   const { notifications, notify, dismiss, success, error } = useNotifications();
@@ -1050,6 +1053,7 @@ export function App({ rootPath }: AppProps) {
                         focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "left"}
                         rootPath={rootPath}
                         height={currentViewerHeight}
+                        onCursorChange={activeSplit === "left" ? (line, column) => setCursorPos({ line, column }) : undefined}
                         onJumpToFile={(targetPath, line) => {
                           handleFileSelect(targetPath);
                         }}
@@ -1065,6 +1069,7 @@ export function App({ rootPath }: AppProps) {
                         focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "right"}
                         rootPath={rootPath}
                         height={currentViewerHeight}
+                        onCursorChange={activeSplit === "right" ? (line, column) => setCursorPos({ line, column }) : undefined}
                         onJumpToFile={(targetPath, line) => {
                           setSplitFile(targetPath);
                         }}
@@ -1077,6 +1082,7 @@ export function App({ rootPath }: AppProps) {
                     focused={!isAnyModalOpen && focusedPanel === "viewer"}
                     rootPath={rootPath}
                     height={currentViewerHeight}
+                    onCursorChange={(line, column) => setCursorPos({ line, column })}
                     onJumpToFile={(targetPath, line) => {
                       // Open the file and optionally jump to line
                       handleFileSelect(targetPath);
@@ -1169,6 +1175,12 @@ export function App({ rootPath }: AppProps) {
         <box style={{ flexGrow: 1 }} />
 
         <box style={{ flexDirection: "row", gap: 2, flexShrink: 0 }}>
+          {/* Cursor position */}
+          {selectedFile && !isCompactMode && (
+            <text style={{ fg: "gray" }}>
+              Ln {cursorPos.line}, Col {cursorPos.column}
+            </text>
+          )}
           {/* Split view indicator */}
           {splitMode !== "none" && (
             <text style={{ fg: "cyan" }}>

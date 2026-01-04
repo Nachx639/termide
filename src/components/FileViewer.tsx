@@ -18,6 +18,7 @@ interface FileViewerProps {
   rootPath?: string;
   height: number;
   onJumpToFile?: (filePath: string, line?: number) => void;
+  onCursorChange?: (line: number, column: number) => void;
 }
 
 // Breadcrumbs component
@@ -178,7 +179,7 @@ function HighlightedLine({ line, lang, showGuides = false, tabSize = 2, bracketH
   );
 }
 
-export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile }: FileViewerProps) {
+export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, onCursorChange }: FileViewerProps) {
   const [content, setContent] = useState<string[]>([]);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [cursorLine, setCursorLine] = useState(0);
@@ -206,6 +207,13 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile }
 
   // Relative line numbers state
   const [relativeLineNumbers, setRelativeLineNumbers] = useState(false);
+
+  // Notify parent of cursor position changes
+  useEffect(() => {
+    if (onCursorChange && filePath) {
+      onCursorChange(cursorLine + 1, cursorColumn + 1); // 1-indexed for display
+    }
+  }, [cursorLine, cursorColumn, onCursorChange, filePath]);
 
   // Calculate dynamic heights
   const isMarkdown = filePath?.toLowerCase().endsWith(".md") || filePath?.toLowerCase().endsWith(".markdown");
