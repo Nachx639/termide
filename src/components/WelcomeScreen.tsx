@@ -118,6 +118,11 @@ export function WelcomeScreen({
           <text style={{ fg: "cyan", bold: true }}>Ctrl+\</text>
           <text style={{ fg: "gray" }}> - Toggle split view</text>
         </box>
+
+        <box style={{ flexDirection: "row" }}>
+          <text style={{ fg: "cyan", bold: true }}>z/Z/Alt+Z</text>
+          <text style={{ fg: "gray" }}> - Toggle/Fold all/Unfold</text>
+        </box>
       </box>
 
       <box style={{ height: 1 }} />

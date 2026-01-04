@@ -9,6 +9,7 @@ import { MarkdownPreview } from "./MarkdownPreview";
 import { FindReplace } from "./FindReplace";
 import { findMatchingBracket, isBracket, type BracketMatch } from "../lib/BracketMatcher";
 import { findDefinition, getWordAtPosition, type SymbolLocation } from "../lib/SymbolFinder";
+import { detectFoldableRegions, getFoldMarker, toggleFold, foldAll, unfoldAll, type FoldableRegion } from "../lib/CodeFolding";
 
 interface FileViewerProps {
   filePath: string | null;
@@ -195,6 +196,9 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile }
   const [showMinimap, setShowMinimap] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
 
+  // Code folding state
+  const [foldedRegions, setFoldedRegions] = useState<Set<number>>(new Set());
+
   // Calculate dynamic heights
   const isMarkdown = filePath?.toLowerCase().endsWith(".md") || filePath?.toLowerCase().endsWith(".markdown");
   const headerHeight = 1;
@@ -227,6 +231,30 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile }
     }
     return null;
   }, [content, cursorLine]);
+
+  // Detect foldable regions
+  const foldableRegions = useMemo((): FoldableRegion[] => {
+    if (content.length === 0) return [];
+    return detectFoldableRegions(content, language);
+  }, [content, language]);
+
+  // Handle toggling fold at cursor line
+  const handleToggleFold = useCallback(() => {
+    const region = foldableRegions.find((r) => r.startLine === cursorLine);
+    if (region) {
+      setFoldedRegions(toggleFold(cursorLine, foldableRegions, foldedRegions));
+    }
+  }, [cursorLine, foldableRegions, foldedRegions]);
+
+  // Handle folding all regions
+  const handleFoldAll = useCallback(() => {
+    setFoldedRegions(foldAll(foldableRegions));
+  }, [foldableRegions]);
+
+  // Handle unfolding all regions
+  const handleUnfoldAll = useCallback(() => {
+    setFoldedRegions(unfoldAll());
+  }, []);
 
   // Handle jumping to a line (from search or goto)
   const handleJumpToLine = (lineIndex: number) => {
@@ -467,6 +495,22 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile }
       return;
     }
 
+    // Code folding: z = toggle fold, zM = fold all, zR = unfold all
+    if (event.name === "z" && !event.ctrl && !event.meta && !event.alt) {
+      handleToggleFold();
+      return;
+    }
+    if ((event.shift && event.name === "z") || event.name === "Z") {
+      // Shift+Z = fold all
+      handleFoldAll();
+      return;
+    }
+    if (event.alt && event.name === "z") {
+      // Alt+Z = unfold all
+      handleUnfoldAll();
+      return;
+    }
+
     if (event.meta && event.name === "z") {
       setWordWrap((w) => !w);
       return;
@@ -657,6 +701,7 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile }
             {wordWrap && <text style={{ fg: "#d4a800", dim: true }}> [wrap]</text>}
             {showIndentGuides && <text style={{ fg: "gray", dim: true }}> [guides]</text>}
             {showMinimap && <text style={{ fg: "blue", dim: true }}> [map]</text>}
+            {foldedRegions.size > 0 && <text style={{ fg: "cyan", dim: true }}> [{foldedRegions.size} folded]</text>}
             {isMarkdown && (
               <text style={{ fg: showPreview ? "#d4a800" : "gray", dim: !showPreview }}>
                 {showPreview ? " [preview]" : " [Alt+P preview]"}
@@ -721,6 +766,18 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile }
                 const lineNumFg = isCurrentLine ? "yellow" : isSelected ? "cyan" : "gray";
                 const lineBg = isSelected ? "#2a2a4a" : (isCurrentLine && focused ? "#1a1a1a" : undefined);
 
+                // Check if line is inside a folded region (skip rendering)
+                const isInsideFold = Array.from(foldedRegions).some((startLine) => {
+                  const region = foldableRegions.find((r) => r.startLine === startLine);
+                  return region && actualLineNum > startLine && actualLineNum <= region.endLine;
+                });
+                if (isInsideFold) return null;
+
+                // Get fold marker for this line
+                const foldMarker = getFoldMarker(actualLineNum, foldableRegions, foldedRegions);
+                const foldIndicator = foldMarker === "collapsed" ? "▶" : foldMarker === "expanded" ? "▼" : " ";
+                const foldColor = foldMarker !== "none" ? "cyan" : "gray";
+
                 // Determine bracket highlight for this line
                 let bracketHighlightCol: number | undefined;
                 if (bracketMatch) {
@@ -752,13 +809,22 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile }
                   );
                 }
 
+                // Show fold count for collapsed lines
+                const foldInfo = foldMarker === "collapsed" ?
+                  foldableRegions.find((r) => r.startLine === actualLineNum) : null;
+                const foldedCount = foldInfo ? foldInfo.endLine - foldInfo.startLine : 0;
+
                 return (
                   <box key={index} style={{ flexDirection: "row", bg: lineBg as any, overflow: "hidden" }}>
+                    <text style={{ fg: foldColor as any, flexShrink: 0 }}>{foldIndicator}</text>
                     <text style={{ fg: lineNumFg as any, bold: isCurrentLine, flexShrink: 0 }}>
                       {String(lineNum).padStart(lineNumWidth, " ")}{isCurrentLine ? " ▸ " : "   "}
                     </text>
                     <box style={{ flexGrow: 1, flexShrink: 1, width: 0, flexDirection: "row", overflow: "hidden", paddingRight: 1 }}>
                       <HighlightedLine line={line} lang={language} showGuides={showIndentGuides} tabSize={tabSize} bracketHighlight={bracketHighlightCol} />
+                      {foldMarker === "collapsed" && (
+                        <text style={{ fg: "gray", dim: true }}> ⋯ ({foldedCount} lines)</text>
+                      )}
                     </box>
                   </box>
                 );
