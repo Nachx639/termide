@@ -532,6 +532,13 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
 
   return (
     <box style={{ flexDirection: "column", border: true, borderColor, height: "100%" }}>
+      {/* Focus indicator header */}
+      {focused && (
+        <box style={{ paddingX: 1, height: 1, flexDirection: "row" }}>
+          <text style={{ fg: "black", bg: "cyan", bold: true }}> FOCUS </text>
+          <text style={{ fg: "cyan", bold: true }}> Terminal</text>
+        </box>
+      )}
       <box style={{ flexDirection: "column", flexGrow: 1, overflow: "hidden", paddingX: 1 }}>
         {renderRows.map((rowSegments, rowIdx) => (
           <box key={rowIdx} style={{ flexDirection: "row" }}>

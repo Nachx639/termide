@@ -282,6 +282,7 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
       {/* Header with Breadcrumbs and status indicators */}
       <box style={{ height: 1, paddingX: 1, flexDirection: "row", justifyContent: "space-between" }}>
         <box style={{ flexDirection: "row", gap: 1, flexShrink: 1 }}>
+          {focused && <text style={{ fg: "black", bg: "cyan", bold: true }}> FOCUS </text>}
           {filePath ? (
             <box style={{ flexShrink: 1 }}><Breadcrumbs filePath={filePath} rootPath={rootPath} /></box>
           ) : (

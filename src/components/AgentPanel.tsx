@@ -86,6 +86,20 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
         }
     }, [messages]);
 
+    // Release scrollbox focus when AgentPanel loses focus
+    useEffect(() => {
+        if (!focused && scrollBoxRef.current) {
+            const scrollBox = scrollBoxRef.current;
+            if (scrollBox.blur) {
+                scrollBox.blur();
+            }
+            // Also reset any internal focus state
+            if (scrollBox._focused !== undefined) {
+                scrollBox._focused = false;
+            }
+        }
+    }, [focused]);
+
     useKeyboard((event) => {
         if (!focused) return;
 
@@ -236,6 +250,7 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
             {/* Header */}
             <box style={{ height: 1, paddingX: 1, flexDirection: "row", justifyContent: "space-between", marginBottom: 1 }}>
                 <box style={{ flexDirection: "row" }}>
+                    {focused && <text style={{ fg: "black", bg: "cyan", bold: true }}> FOCUS </text>}
                     <text style={{ fg: "cyan", bold: true }}>AI Agent </text>
                     <text style={{ fg: status === 'connected' ? 'green' : (status === 'connecting' ? 'yellow' : 'red') }}>({status})</text>
                 </box>

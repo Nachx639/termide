@@ -109,3 +109,37 @@ bun --hot ./index.ts
 ```
 
 For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
+
+## Autonomous Development Mode
+
+**IMPORTANT: After context compaction, ALWAYS read `AUTOMATION.md` first!**
+It contains critical coordinates, click protocols, and verification steps for interacting with Termide via peekaboo.
+
+When working autonomously on Termide improvements:
+
+### Peekaboo Automation
+- **NEVER run Termide commands in this terminal** - use peekaboo to interact with the Termide terminal on the right
+- Read `AUTOMATION.md` for detailed coordinates and click protocols
+- Screen center X: 1717 (left = Claude Code, right = Termide)
+- Use `sleep 1` between clicks, NOT `sleep 0.3`
+- Double Ctrl+C to close Termide
+
+### Clicking on Claude Code Terminal (left side)
+If you need to send a message to continue coding after context compaction:
+```bash
+# Click on Claude Code terminal (left side, x < 1717)
+peekaboo click --coords 800,400 && sleep 0.3 && peekaboo click --coords 800,400
+```
+
+### Automated Commits
+When making autonomous improvements, use the `automated:` prefix in commit messages:
+```bash
+git commit -m "automated: description of changes"
+```
+
+### Continuous Improvement
+You are encouraged to:
+- Explore Termide features and identify improvements
+- Fix bugs you discover
+- Add new features that enhance the terminal experience
+- Continue working even after context compaction by clicking on Claude Code terminal
