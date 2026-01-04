@@ -121,6 +121,7 @@ export function App({ rootPath }: AppProps) {
 
   // File operations state
   const [showFileOps, setShowFileOps] = useState(false);
+  const [zenMode, setZenMode] = useState(false);
   const [fileOpsOperation, setFileOpsOperation] = useState<FileOperation>("create-file");
   const [fileOpsTarget, setFileOpsTarget] = useState("");
   const [treeRefreshKey, setTreeRefreshKey] = useState(0);
@@ -628,6 +629,12 @@ export function App({ rootPath }: AppProps) {
       return;
     }
 
+    // Ctrl+Shift+Z - Zen Mode (distraction-free)
+    if (event.ctrl && event.shift && (event.name === "z" || event.name === "Z")) {
+      setZenMode(z => !z);
+      return;
+    }
+
     // Ctrl+Shift+F - Global search
     if (event.ctrl && event.shift && (event.name === "f" || event.name === "F")) {
       setShowGlobalSearch(true);
@@ -902,8 +909,8 @@ export function App({ rootPath }: AppProps) {
 
   return (
     <box style={{ flexDirection: "column", width: "100%", height: "100%", bg: "#050505" }}>
-      {/* Top Header - Compact or Full */}
-      {isCompactMode ? (
+      {/* Top Header - Compact or Full (hidden in Zen Mode) */}
+      {!zenMode && (isCompactMode ? (
         <CompactHeader rootPath={rootPath} width={dimensions.width || 80} />
       ) : (
       <box style={{ height: 5, borderBottom: true, borderColor: "cyan", flexDirection: "column", bg: "#0b0b0b" }}>
@@ -959,12 +966,12 @@ export function App({ rootPath }: AppProps) {
           );
         })()}
       </box>
-      )}
+      ))}
 
       {/* Main content */}
       <box style={{ flexGrow: 1, flexDirection: "row" }}>
-        {/* Sidebar - Left panel */}
-        {currentTreeWidth > 0 && (
+        {/* Sidebar - Left panel (hidden in Zen Mode) */}
+        {currentTreeWidth > 0 && !zenMode && (
           <box
             style={{ width: currentTreeWidth, flexDirection: "column", height: "100%" }}
             onMouseDown={(event: any) => {
@@ -1024,8 +1031,8 @@ export function App({ rootPath }: AppProps) {
         {/* Right side - Tabs + Viewer + Terminal */}
         {(!isMaximized || !isSidebarFocused) && (
           <box style={{ flexDirection: "column", flexGrow: 1 }}>
-            {/* Tab Bar */}
-            {openTabs.length > 0 && (
+            {/* Tab Bar (hidden in Zen Mode) */}
+            {openTabs.length > 0 && !zenMode && (
               <TabBar
                 tabs={openTabs}
                 activeTabIndex={activeTabIndex}
@@ -1102,8 +1109,8 @@ export function App({ rootPath }: AppProps) {
               </box>
             )}
 
-            {/* Terminal - Bottom (occupies remaining space) */}
-            {currentTerminalHeight > 0 && (
+            {/* Terminal - Bottom (occupies remaining space, hidden in Zen Mode) */}
+            {currentTerminalHeight > 0 && !zenMode && (
               <box style={{ height: currentTerminalHeight }}>
                 {showAgent ? (
                   <AgentPanel
@@ -1129,8 +1136,8 @@ export function App({ rootPath }: AppProps) {
         )}
       </box>
 
-      {/* Status bar */}
-      <box style={{ height: 1, paddingX: 1, bg: "black", flexDirection: "row" }}>
+      {/* Status bar (hidden in Zen Mode) */}
+      {!zenMode && <box style={{ height: 1, paddingX: 1, bg: "black", flexDirection: "row" }}>
         <box style={{ flexDirection: "row", flexShrink: 1 }}>
           {/* Git branch */}
           {gitStatus?.isRepo && (
@@ -1225,7 +1232,14 @@ export function App({ rootPath }: AppProps) {
             <text style={{ fg: "gray" }}>]</text>
           </box>
         </box>
-      </box>
+      </box>}
+
+      {/* Zen Mode indicator */}
+      {zenMode && (
+        <box style={{ position: "absolute", top: 0, right: 2, height: 1 }}>
+          <text style={{ fg: "cyan", dim: true }}>ZEN (Ctrl+Shift+Z to exit)</text>
+        </box>
+      )}
 
       {/* Overlays */}
       {showFuzzyFinder && (
