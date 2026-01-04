@@ -20,6 +20,7 @@ interface FileTreeProps {
   onFileSelect: (filePath: string) => void;
   focused: boolean;
   onFocus?: () => void;
+  onFileOperation?: (operation: "create-file" | "create-folder" | "rename" | "delete", targetPath: string) => void;
 }
 
 function buildTree(dirPath: string, level: number = 0): FileNode[] {
@@ -56,7 +57,7 @@ function flattenTree(nodes: FileNode[]): FileNode[] {
   return result;
 }
 
-export function FileTree({ rootPath, onFileSelect, focused, onFocus }: FileTreeProps) {
+export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOperation }: FileTreeProps) {
   const [tree, setTree] = useState<FileNode[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [scrollTop, setScrollTop] = useState(0);
@@ -151,6 +152,36 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus }: FileTreeP
           });
         };
         setTree(collapse(tree));
+      }
+    }
+
+    // File operations (only if onFileOperation is provided)
+    if (onFileOperation) {
+      const selected = flatList[selectedIndex];
+      const targetDir = selected?.isDirectory ? selected.path : (selected ? path.dirname(selected.path) : rootPath);
+
+      // n = new file
+      if (event.name === "n" && !event.shift) {
+        onFileOperation("create-file", targetDir);
+        return;
+      }
+
+      // N (shift+n) = new folder
+      if (event.name === "N" || (event.name === "n" && event.shift)) {
+        onFileOperation("create-folder", targetDir);
+        return;
+      }
+
+      // r = rename
+      if (event.name === "r" && selected) {
+        onFileOperation("rename", selected.path);
+        return;
+      }
+
+      // d or Delete = delete
+      if ((event.name === "d" || event.name === "delete") && selected) {
+        onFileOperation("delete", selected.path);
+        return;
       }
     }
   });
