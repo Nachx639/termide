@@ -50,11 +50,28 @@ Unlike traditional IDEs, **termide** is designed with AI-first workflows in mind
 
 ### Perfect for:
 - **Claude Code** — Full-screen terminal with file browser context
+- **Gemini CLI** — Google's Gemini in ACP mode
 - **Aider** — See git changes while AI codes
-- **Cursor/Copilot CLI** — Clean environment without distractions
 - **Custom agents** — PTY access for any terminal-based AI
 
 > **The insight:** AI agents don't need syntax highlighting or autocomplete—they need a **clean terminal** with **file context**. That's exactly what termide provides.
+
+### 🌀 AI Agent Panel
+
+termide includes a dedicated **Agent Panel** that connects to AI coding agents using the [Agent Client Protocol (ACP)](https://github.com/anthropics/acp):
+
+| Agent | Status |
+| :--- | :--- |
+| 🤖 **Claude Code** | ✅ Full support (requires `claude-code-acp`) |
+| 🌀 **Claude (Antigravity)** | ✅ Free tokens via [Antigravity proxy](https://github.com/badri-s2001/antigravity-claude-proxy) |
+| ✨ **Gemini CLI** | ✅ Full support (`gemini --experimental-acp`) |
+| ⚙️ **Custom** | ✅ Any ACP-compatible agent |
+
+**To use Antigravity (free Claude/Gemini tokens):**
+1. Install the proxy: `npm install -g antigravity-claude-proxy`
+2. Log in: `antigravity-claude-proxy start` (first time only)
+3. Select "🌀 Claude (Antigravity)" in termide's Agent Panel
+4. Choose your model and start coding!
 
 ---
 

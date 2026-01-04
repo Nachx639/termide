@@ -1,0 +1,15 @@
+#!/bin/bash
+# Claude Code via Antigravity Proxy
+# Uses a completely isolated HOME directory to avoid conflicts
+
+# Store original HOME
+ORIGINAL_HOME="$HOME"
+
+# Use a separate HOME for Antigravity config
+export HOME="$ORIGINAL_HOME/.claude-antigravity-home"
+
+# Create the config directory if it doesn't exist
+mkdir -p "$HOME/.claude"
+
+# Run claude-code-acp with the isolated config
+exec claude-code-acp "$@"

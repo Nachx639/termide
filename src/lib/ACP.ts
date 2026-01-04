@@ -30,6 +30,7 @@ export interface ACPOptions {
   command: string;
   args?: string[];
   cwd?: string;
+  env?: Record<string, string>;
   onNotification?: (method: string, params: any) => void;
   onRequest?: (method: string, params: any) => Promise<any>;
 }
@@ -47,11 +48,17 @@ export class ACPClient {
     if (this.isConnected) return;
 
     try {
+      // Build environment with custom overrides
+      const spawnEnv = this.options.env
+        ? { ...process.env, ...this.options.env } as Record<string, string | undefined>
+        : process.env;
+
       this.proc = spawn([this.options.command, ...(this.options.args || [])], {
         cwd: this.options.cwd || process.cwd(),
         stdin: "pipe",
         stdout: "pipe",
         stderr: "ignore", // Suppress agent debug output (e.g. "Spawning Claude Code...")
+        env: spawnEnv,
       });
 
       this.isConnected = true;
