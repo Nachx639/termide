@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { ACPClient } from "../lib/ACP";
+import { spawn } from "bun";
 
 export interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -13,18 +14,51 @@ export function useACP() {
   const [status, setStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [error, setError] = useState<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const proxyProcRef = useRef<any>(null);
 
-  const connect = useCallback(async (command: string, args: string[] = []) => {
+  // Kill proxy helper
+  const killProxy = useCallback(() => {
+    if (proxyProcRef.current) {
+      try {
+        proxyProcRef.current.kill();
+      } catch { }
+      proxyProcRef.current = null;
+    }
+  }, []);
+
+  const connect = useCallback(async (command: string, args: string[] = [], env?: Record<string, string>, proxyCommand?: string) => {
     if (client) {
       client.kill();
     }
+    killProxy();
 
     setStatus('connecting');
     setError(null);
 
+    // Start proxy if specified
+    if (proxyCommand) {
+      try {
+        const proxyParts = proxyCommand.split(" ");
+        const proxyCmd = proxyParts[0]!;
+        const proxyArgs = proxyParts.slice(1);
+        proxyProcRef.current = spawn([proxyCmd, ...proxyArgs], {
+          stdin: "ignore",
+          stdout: "ignore",
+          stderr: "ignore",
+        });
+        // Wait a bit for proxy to start
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      } catch (e) {
+        setError(`Failed to start proxy: ${e}`);
+        setStatus('disconnected');
+        return;
+      }
+    }
+
     const newClient = new ACPClient({
       command,
       args,
+      env,
       onNotification: (method, params) => {
         // Handle session/update notifications (streaming responses)
         if (method === 'session/update') {
@@ -85,9 +119,10 @@ export function useACP() {
       addMessage('system', `Connected to agent: ${command}`);
 
       // Create a new session
-      // Note: Don't send mcpServers if empty, as some agents (like Gemini) have strict validation
+      // mcpServers is required by Gemini, must be an array (can be empty)
       const sessionResult = await newClient.sendRequest('session/new', {
-        cwd: process.cwd()
+        cwd: process.cwd(),
+        mcpServers: []
       });
 
       sessionIdRef.current = sessionResult?.sessionId || sessionResult?.id || 'default';
@@ -111,7 +146,8 @@ export function useACP() {
       sessionIdRef.current = null;
       addMessage('system', "Disconnected");
     }
-  }, [client]);
+    killProxy();
+  }, [client, killProxy]);
 
   const addMessage = (role: Message['role'], content: string) => {
     setMessages(prev => [...prev, { role, content, timestamp: Date.now() }]);
