@@ -8,7 +8,8 @@ import { Minimap } from "./Minimap";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { FindReplace } from "./FindReplace";
 import { findMatchingBracket, isBracket, type BracketMatch } from "../lib/BracketMatcher";
-import { findDefinition, getWordAtPosition, type SymbolLocation } from "../lib/SymbolFinder";
+import { findDefinition, getWordAtPosition, getAllSymbols, type SymbolLocation } from "../lib/SymbolFinder";
+import { SymbolPicker } from "./SymbolPicker";
 import { detectFoldableRegions, getFoldMarker, toggleFold, foldAll, unfoldAll, type FoldableRegion } from "../lib/CodeFolding";
 import { getGitBlame, getBlameAnnotation, getBlameColor, type BlameLine } from "../lib/GitBlame";
 import { getFileLineDiffs, getLineDiffIndicator, type LineDiffInfo } from "../lib/GitIntegration";
@@ -98,18 +99,46 @@ interface HighlightedLineProps {
   showGuides?: boolean;
   tabSize?: number;
   bracketHighlight?: number; // Column to highlight as matching bracket
+  wordHighlight?: string | null; // Word to highlight all occurrences
+  wordHighlightOccurrences?: Array<number>; // Column positions of occurrences on this line
+  currentWordOccurrence?: number | null; // The current occurrence column (for extra emphasis)
 }
 
 // Component to render a line with syntax highlighting
-function HighlightedLine({ line, lang, showGuides = false, tabSize = 2, bracketHighlight }: HighlightedLineProps) {
+function HighlightedLine({ line, lang, showGuides = false, tabSize = 2, bracketHighlight, wordHighlight, wordHighlightOccurrences, currentWordOccurrence }: HighlightedLineProps) {
   const tokens = useMemo(() => tokenizeLine(line, lang), [line, lang]);
+
+  // Build a set of columns that are part of word highlight occurrences
+  const highlightRanges = useMemo(() => {
+    if (!wordHighlight || !wordHighlightOccurrences || wordHighlightOccurrences.length === 0) return null;
+    const ranges: Array<{ start: number; end: number; isCurrent: boolean }> = [];
+    for (const col of wordHighlightOccurrences) {
+      ranges.push({
+        start: col,
+        end: col + wordHighlight.length,
+        isCurrent: col === currentWordOccurrence,
+      });
+    }
+    return ranges;
+  }, [wordHighlight, wordHighlightOccurrences, currentWordOccurrence]);
 
   // Calculate indent and strip leading whitespace for guides
   const indentLevel = getIndentLevel(line, tabSize);
   const leadingSpaces = line.match(/^[\s]*/)?.[0].length || 0;
   const trimmedLine = line.slice(leadingSpaces);
 
-  // Helper to render tokens with bracket highlighting
+  // Check if a column is within a word highlight range
+  const getWordHighlightInfo = (col: number): { highlighted: boolean; isCurrent: boolean } | null => {
+    if (!highlightRanges) return null;
+    for (const range of highlightRanges) {
+      if (col >= range.start && col < range.end) {
+        return { highlighted: true, isCurrent: range.isCurrent };
+      }
+    }
+    return null;
+  };
+
+  // Helper to render tokens with bracket and word highlighting
   const renderTokens = (tokensToRender: Token[], offset: number = 0) => {
     const result: React.ReactNode[] = [];
     let currentCol = offset;
@@ -146,6 +175,54 @@ function HighlightedLine({ line, lang, showGuides = false, tabSize = 2, bracketH
             </text>
           );
         }
+      } else if (highlightRanges && highlightRanges.length > 0) {
+        // Check for word highlighting - need to render character by character for highlighted ranges
+        let charIdx = 0;
+        let segments: React.ReactNode[] = [];
+        let segmentStart = 0;
+        let currentHighlight: { highlighted: boolean; isCurrent: boolean } | null = null;
+
+        while (charIdx <= token.text.length) {
+          const absCol = tokenStart + charIdx;
+          const newHighlight = charIdx < token.text.length ? getWordHighlightInfo(absCol) : null;
+
+          const highlightChanged = (
+            (currentHighlight === null && newHighlight !== null) ||
+            (currentHighlight !== null && newHighlight === null) ||
+            (currentHighlight !== null && newHighlight !== null && currentHighlight.isCurrent !== newHighlight.isCurrent)
+          );
+
+          if (highlightChanged || charIdx === token.text.length) {
+            // Flush the current segment
+            if (charIdx > segmentStart) {
+              const segmentText = token.text.slice(segmentStart, charIdx);
+              if (currentHighlight) {
+                segments.push(
+                  <text
+                    key={`${idx}-seg-${segmentStart}`}
+                    style={{
+                      fg: currentHighlight.isCurrent ? "black" : getTokenColor(token.type) as any,
+                      bg: currentHighlight.isCurrent ? "#569cd6" : "#3a3d41",
+                      bold: currentHighlight.isCurrent,
+                    }}
+                  >
+                    {segmentText}
+                  </text>
+                );
+              } else {
+                segments.push(
+                  <text key={`${idx}-seg-${segmentStart}`} style={{ fg: getTokenColor(token.type) as any }}>
+                    {segmentText}
+                  </text>
+                );
+              }
+            }
+            segmentStart = charIdx;
+            currentHighlight = newHighlight;
+          }
+          charIdx++;
+        }
+        result.push(...segments);
       } else {
         result.push(
           <text key={idx} style={{ fg: getTokenColor(token.type) as any }}>
@@ -212,6 +289,20 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
   // Git gutter state (inline diff indicators)
   const [showGitGutter, setShowGitGutter] = useState(true);
   const [lineDiffs, setLineDiffs] = useState<Map<number, LineDiffInfo>>(new Map());
+
+  // Symbol picker state (Ctrl+Shift+O)
+  const [showSymbolPicker, setShowSymbolPicker] = useState(false);
+
+  // Multi-cursor / word highlight state (Ctrl+D)
+  const [highlightedWord, setHighlightedWord] = useState<string | null>(null);
+  const [wordOccurrences, setWordOccurrences] = useState<Array<{ line: number; column: number }>>([]);
+  const [currentOccurrenceIndex, setCurrentOccurrenceIndex] = useState(0);
+
+  // Compute symbols for current file
+  const fileSymbols = useMemo(() => {
+    if (!filePath || content.length === 0) return [];
+    return getAllSymbols(content.join("\n"), filePath);
+  }, [filePath, content]);
 
   // Fetch git line diffs when file changes
   useEffect(() => {
@@ -520,10 +611,82 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
     setBlameData(blame);
   }, [showBlame, filePath]);
 
+  // Handle symbol selection - jump to symbol's line
+  const handleSymbolSelect = useCallback((symbol: SymbolLocation) => {
+    handleJumpToLine(symbol.line);
+    setCursorColumn(symbol.column);
+  }, [handleJumpToLine]);
+
+  // Find all occurrences of a word in content
+  const findWordOccurrences = useCallback((word: string): Array<{ line: number; column: number }> => {
+    const occurrences: Array<{ line: number; column: number }> = [];
+    const wordRegex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g');
+
+    for (let lineNum = 0; lineNum < content.length; lineNum++) {
+      const line = content[lineNum]!;
+      let match;
+      while ((match = wordRegex.exec(line)) !== null) {
+        occurrences.push({ line: lineNum, column: match.index });
+      }
+    }
+
+    return occurrences;
+  }, [content]);
+
+  // Handle Ctrl+D - select word and find occurrences, or jump to next
+  const handleSelectWord = useCallback(() => {
+    if (!filePath || content.length === 0) return;
+
+    const currentLine = content[cursorLine];
+    if (!currentLine) return;
+
+    // Get word at cursor
+    const wordInfo = getWordAtPosition(currentLine, cursorColumn);
+    if (!wordInfo) return;
+
+    if (highlightedWord === wordInfo.word && wordOccurrences.length > 0) {
+      // Already highlighting this word, jump to next occurrence
+      const nextIndex = (currentOccurrenceIndex + 1) % wordOccurrences.length;
+      setCurrentOccurrenceIndex(nextIndex);
+      const nextOccurrence = wordOccurrences[nextIndex]!;
+      handleJumpToLine(nextOccurrence.line);
+      setCursorColumn(nextOccurrence.column);
+    } else {
+      // New word - find all occurrences
+      const occurrences = findWordOccurrences(wordInfo.word);
+      setHighlightedWord(wordInfo.word);
+      setWordOccurrences(occurrences);
+
+      // Find current occurrence index
+      const currentIdx = occurrences.findIndex(
+        occ => occ.line === cursorLine && occ.column >= wordInfo.startColumn && occ.column <= wordInfo.endColumn
+      );
+      setCurrentOccurrenceIndex(currentIdx >= 0 ? currentIdx : 0);
+    }
+  }, [filePath, content, cursorLine, cursorColumn, highlightedWord, wordOccurrences, currentOccurrenceIndex, findWordOccurrences, handleJumpToLine]);
+
+  // Clear word highlight when cursor moves away from highlighted word or escape pressed
+  useEffect(() => {
+    if (!highlightedWord) return;
+
+    const currentLine = content[cursorLine];
+    if (!currentLine) {
+      setHighlightedWord(null);
+      setWordOccurrences([]);
+      return;
+    }
+
+    const wordInfo = getWordAtPosition(currentLine, cursorColumn);
+    if (!wordInfo || wordInfo.word !== highlightedWord) {
+      // Don't clear immediately - only clear if we've moved to a different word
+      // This allows jumping between occurrences
+    }
+  }, [cursorLine, cursorColumn, content, highlightedWord]);
+
   useKeyboard((event) => {
     if (!focused) return;
 
-    if (showSearch || showFindReplace) return;
+    if (showSearch || showFindReplace || showSymbolPicker) return;
 
     if (event.alt && event.name === "f") {
       setSearchMode("search");
@@ -546,6 +709,15 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
     // Go to definition (F12)
     if (event.name === "f12") {
       goToDefinition();
+      return;
+    }
+
+    // Jump to Symbol (Ctrl+Shift+O or @)
+    if ((event.ctrl && event.shift && (event.name === "o" || event.name === "O")) ||
+        (event.name === "@" || (event.shift && event.name === "2"))) {
+      if (filePath && fileSymbols.length > 0) {
+        setShowSymbolPicker(true);
+      }
       return;
     }
 
@@ -658,8 +830,14 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
       return;
     }
 
-    // Ctrl+D = Duplicate line(s)
+    // Ctrl+D = Select word and find occurrences (VSCode-style)
     if (event.ctrl && event.name === "d") {
+      handleSelectWord();
+      return;
+    }
+
+    // Alt+Shift+D = Duplicate line(s)
+    if (event.alt && event.shift && (event.name === "d" || event.name === "D")) {
       duplicateLines();
       return;
     }
@@ -670,11 +848,19 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
       return;
     }
 
-    // Escape = Clear selection
-    if (event.name === "escape" && selectionStart !== null) {
-      setSelectionStart(null);
-      setSelectionEnd(null);
-      return;
+    // Escape = Clear selection and word highlight
+    if (event.name === "escape") {
+      if (highlightedWord) {
+        setHighlightedWord(null);
+        setWordOccurrences([]);
+        setCurrentOccurrenceIndex(0);
+        return;
+      }
+      if (selectionStart !== null) {
+        setSelectionStart(null);
+        setSelectionEnd(null);
+        return;
+      }
     }
 
     if (showPreview) return;
@@ -819,6 +1005,7 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
             {foldedRegions.size > 0 && <text style={{ fg: "cyan", dim: true }}> [{foldedRegions.size} folded]</text>}
             {showBlame && <text style={{ fg: "magenta", dim: true }}> [blame]</text>}
             {showGitGutter && lineDiffs.size > 0 && <text style={{ fg: "#4ec9b0", dim: true }}> [git]</text>}
+            {highlightedWord && <text style={{ fg: "#569cd6", dim: false }}> [{currentOccurrenceIndex + 1}/{wordOccurrences.length}]</text>}
             {isMarkdown && (
               <text style={{ fg: showPreview ? "#d4a800" : "gray", dim: !showPreview }}>
                 {showPreview ? " [preview]" : " [Alt+P preview]"}
@@ -886,6 +1073,17 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
                   }
                 }
 
+                // Get word highlight occurrences for this line
+                const lineWordOccurrences = highlightedWord
+                  ? wordOccurrences
+                      .filter(occ => occ.line === actualLineNum)
+                      .map(occ => occ.column)
+                  : [];
+                const currentOccurrence = wordOccurrences[currentOccurrenceIndex];
+                const currentOccurrenceCol = currentOccurrence && currentOccurrence.line === actualLineNum
+                  ? currentOccurrence.column
+                  : null;
+
                 // Handle word wrap
                 if (wordWrap && line.length > wrapWidth) {
                   const wrappedLines = wrapLine(line, wrapWidth);
@@ -903,7 +1101,16 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
                               : `${" ".repeat(lineNumWidth)}   ↪ `}
                           </text>
                           <box style={{ flexGrow: 1, flexShrink: 1, width: 0, flexDirection: "row", overflow: "hidden" }}>
-                            <HighlightedLine line={wrappedLine} lang={language} showGuides={showIndentGuides} tabSize={tabSize} bracketHighlight={bracketHighlightCol} />
+                            <HighlightedLine
+                              line={wrappedLine}
+                              lang={language}
+                              showGuides={showIndentGuides}
+                              tabSize={tabSize}
+                              bracketHighlight={bracketHighlightCol}
+                              wordHighlight={highlightedWord}
+                              wordHighlightOccurrences={lineWordOccurrences}
+                              currentWordOccurrence={currentOccurrenceCol}
+                            />
                           </box>
                         </box>
                       ))}
@@ -948,7 +1155,16 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
                       {String(displayLineNum).padStart(lineNumWidth, " ")}{isCurrentLine ? " ▸ " : "   "}
                     </text>
                     <box style={{ flexGrow: 1, flexShrink: 1, width: 0, flexDirection: "row", overflow: "hidden", paddingRight: 1 }}>
-                      <HighlightedLine line={line} lang={language} showGuides={showIndentGuides} tabSize={tabSize} bracketHighlight={bracketHighlightCol} />
+                      <HighlightedLine
+                        line={line}
+                        lang={language}
+                        showGuides={showIndentGuides}
+                        tabSize={tabSize}
+                        bracketHighlight={bracketHighlightCol}
+                        wordHighlight={highlightedWord}
+                        wordHighlightOccurrences={lineWordOccurrences}
+                        currentWordOccurrence={currentOccurrenceCol}
+                      />
                       {foldMarker === "collapsed" && (
                         <text style={{ fg: "gray", dim: true }}> ⋯ ({foldedCount} lines)</text>
                       )}
@@ -1014,6 +1230,14 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
         content={content.join("\n")}
         onReplace={handleReplaceContent}
         filePath={filePath}
+      />
+
+      {/* Symbol Picker (Ctrl+Shift+O or @) */}
+      <SymbolPicker
+        symbols={fileSymbols}
+        isOpen={showSymbolPicker}
+        onClose={() => setShowSymbolPicker(false)}
+        onSelect={handleSymbolSelect}
       />
     </box>
   );
