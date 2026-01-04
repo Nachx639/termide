@@ -24,6 +24,7 @@ import { DARK_THEME, THEMES } from "./lib/ThemeSystem";
 import type { Theme } from "./lib/ThemeSystem";
 import { getLayoutConfig, getScreenSizeLabel } from "./lib/ResponsiveLayout";
 import type { LayoutConfig, ScreenSize } from "./lib/ResponsiveLayout";
+import { loadSession, saveSession, addRecentFile } from "./lib/SessionManager";
 
 type Panel = "tree" | "viewer" | "terminal" | "source" | "graph" | "agent";
 
@@ -105,6 +106,54 @@ export function App({ rootPath }: AppProps) {
   const layoutConfig = getLayoutConfig(dimensions.width || 80, dimensions.height || 24);
   const isMiniMode = layoutConfig.isMiniMode;
   const isCompactMode = layoutConfig.screenSize === "compact";
+
+  // Load session on mount
+  useEffect(() => {
+    const session = loadSession(rootPath);
+    if (session.openTabs.length > 0) {
+      setOpenTabs(session.openTabs.map(f => ({ filePath: f })));
+      if (session.activeTab) {
+        const activeIndex = session.openTabs.indexOf(session.activeTab);
+        if (activeIndex >= 0) setActiveTabIndex(activeIndex);
+      }
+    }
+    if (session.focusedPanel) {
+      setFocusedPanel(session.focusedPanel as Panel);
+    }
+    if (session.treeWidth) {
+      setTreeWidth(session.treeWidth);
+    }
+    if (session.showAgent !== undefined) {
+      setShowAgent(session.showAgent);
+    }
+    if (session.recentFiles) {
+      setRecentFiles(session.recentFiles);
+    }
+  }, [rootPath]);
+
+  // Save session when state changes (debounced)
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = setTimeout(() => {
+      saveSession(rootPath, {
+        openTabs: openTabs.map(t => t.filePath),
+        activeTab: openTabs[activeTabIndex]?.filePath || null,
+        focusedPanel,
+        treeWidth,
+        showAgent,
+        recentFiles,
+      });
+    }, 1000); // Debounce 1 second
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [rootPath, openTabs, activeTabIndex, focusedPanel, treeWidth, showAgent, recentFiles]);
 
   // Update clock every second
   useEffect(() => {
