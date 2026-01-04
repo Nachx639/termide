@@ -53,7 +53,7 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
     const [customCommand, setCustomCommand] = useState("");
 
     const lastEscapeRef = React.useRef<number>(0);
-    const scrollEndRef = useRef<any>(null);
+    const scrollBoxRef = useRef<any>(null);
     // Model selection for Antigravity
     const [isModelSelectMode, setIsModelSelectMode] = useState(false);
     const [selectedModelIndex, setSelectedModelIndex] = useState(0);
@@ -67,6 +67,24 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
         }
         // Don't change isSetup when status is 'connecting' - we'll handle that in the UI
     }, [status]);
+
+    // Auto-scroll to bottom when messages change
+    useEffect(() => {
+        if (scrollBoxRef.current && messages.length > 0) {
+            // Reset manual scroll flag and force scroll to bottom
+            const scrollBox = scrollBoxRef.current;
+            if (scrollBox._hasManualScroll !== undefined) {
+                scrollBox._hasManualScroll = false;
+            }
+            // Calculate max scroll position and scroll to it
+            const maxScroll = Math.max(0, scrollBox.scrollHeight - (scrollBox.viewport?.height || 0));
+            if (scrollBox.scrollTo) {
+                scrollBox.scrollTo(maxScroll);
+            } else if (scrollBox.scrollTop !== undefined) {
+                scrollBox.scrollTop = maxScroll;
+            }
+        }
+    }, [messages]);
 
     useKeyboard((event) => {
         if (!focused) return;
@@ -287,7 +305,7 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
                 ) : (
                     <box style={{ flexDirection: "column", flexGrow: 1, justifyContent: "space-between" }}>
                         {/* Chat History */}
-                        <scrollbox style={{ flexGrow: 1 }}>
+                        <scrollbox ref={scrollBoxRef} style={{ flexGrow: 1 }} stickyScroll stickyStart="bottom">
                             <text style={{ fg: "white" as any }}>
                                 {messages
                                     .filter(msg => {
@@ -306,7 +324,6 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
                                     .join('\n\n') // Separate messages with blank line
                                 }
                             </text>
-                            <box ref={scrollEndRef} style={{ height: 0 }} />
                         </scrollbox>
 
                         {/* Input Area - at bottom */}
