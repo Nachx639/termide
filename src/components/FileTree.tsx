@@ -210,7 +210,7 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
           }
         }}
       >
-        <scrollbox style={{ flexDirection: "column", paddingX: 1, flexGrow: 1, bg: "#0b0b0b" }}>
+        <box style={{ flexDirection: "column", paddingX: 1, flexGrow: 1, bg: "#0b0b0b", overflow: "hidden" }}>
           {flatList.slice(scrollTop, scrollTop + 20).map((node, index) => {
             const actualIndex = index + scrollTop;
             const isSelected = actualIndex === selectedIndex && focused;
@@ -281,7 +281,7 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
               </box>
             );
           })}
-        </scrollbox>
+        </box>
 
         {/* Scrollbar */}
         {flatList.length > 20 && (
