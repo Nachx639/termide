@@ -700,8 +700,8 @@ export function App({ rootPath }: AppProps) {
       return;
     }
 
-    // Ctrl+G - Toggle mascot
-    if (event.ctrl && (event.name === "g" || event.name === "G")) {
+    // Ctrl+Shift+M - Toggle mascot
+    if (event.ctrl && event.shift && (event.name === "m" || event.name === "M")) {
       if (antStatus === "walking") {
         setAntStatus("dying");
         setDeathProgress(0);
@@ -963,7 +963,7 @@ export function App({ rootPath }: AppProps) {
                 <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
                   <text style={{ fg: "cyan" }}>{antLines[2]}</text>
                 </box>
-                <text style={{ fg: "#d4a800", bg: "#1a1a1a" }}>Ctrl+Space: agent | Ctrl+B: help | Ctrl+G: ant</text>
+                <text style={{ fg: "#d4a800", bg: "#1a1a1a" }}>Ctrl+Space: agent | Ctrl+B: help | Ctrl+Q: zen</text>
               </box>
             </>
           );
