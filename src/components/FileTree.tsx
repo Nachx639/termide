@@ -199,13 +199,19 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
         onMouse={(event: any) => {
           if (!focused) return;
           if (event.action === "wheel") {
+            const visibleHeight = 20;
             if (event.direction === "up") {
-              setSelectedIndex(i => Math.max(0, i - 1));
-              if (selectedIndex - 1 < scrollTop) setScrollTop(Math.max(0, scrollTop - 1));
-            } else {
-              setSelectedIndex(i => Math.min(flatList.length - 1, i + 1));
-              const visibleHeight = 20;
-              if (selectedIndex + 1 >= scrollTop + visibleHeight) setScrollTop(scrollTop + 1);
+              const newIndex = Math.max(0, selectedIndex - 1);
+              setSelectedIndex(newIndex);
+              if (newIndex < scrollTop) {
+                setScrollTop(Math.max(0, scrollTop - 1));
+              }
+            } else if (event.direction === "down") {
+              const newIndex = Math.min(flatList.length - 1, selectedIndex + 1);
+              setSelectedIndex(newIndex);
+              if (newIndex >= scrollTop + visibleHeight) {
+                setScrollTop(scrollTop + 1);
+              }
             }
           }
         }}
