@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useKeyboard } from "@opentui/react";
 import { useACP } from "../hooks/useACP";
 
@@ -51,8 +51,9 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
     const [selectedAgentIndex, setSelectedAgentIndex] = useState(0);
     const [isCustomMode, setIsCustomMode] = useState(false);
     const [customCommand, setCustomCommand] = useState("");
-    const [scrollOffset, setScrollOffset] = useState(0);
+
     const lastEscapeRef = React.useRef<number>(0);
+    const scrollEndRef = useRef<any>(null);
     // Model selection for Antigravity
     const [isModelSelectMode, setIsModelSelectMode] = useState(false);
     const [selectedModelIndex, setSelectedModelIndex] = useState(0);
@@ -64,6 +65,7 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
         } else if (status === 'disconnected') {
             setIsSetup(true);
         }
+        // Don't change isSetup when status is 'connecting' - we'll handle that in the UI
     }, [status]);
 
     useKeyboard((event) => {
@@ -198,16 +200,6 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
                         return prev < AGENTS.length - 1 ? prev + 1 : 0;
                     }
                 });
-            } else if (!isSetup) {
-                // Scroll chat history
-                setScrollOffset(prev => {
-                    const maxScroll = Math.max(0, messages.length - 10);
-                    if (event.name === "up") {
-                        return Math.min(prev + 1, maxScroll);
-                    } else {
-                        return Math.max(prev - 1, 0);
-                    }
-                });
             }
             return;
         }
@@ -229,12 +221,19 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
                     <text style={{ fg: "cyan", bold: true }}>AI Agent </text>
                     <text style={{ fg: status === 'connected' ? 'green' : (status === 'connecting' ? 'yellow' : 'red') }}>({status})</text>
                 </box>
-                <text style={{ fg: "gray" }}>↑↓ scroll | Esc Esc disconnect</text>
+                <text style={{ fg: "gray" }}>Esc Esc: disconnect</text>
             </box>
 
             {/* Content */}
             <box style={{ flexGrow: 1, flexDirection: "column", padding: 1 }}>
-                {isSetup ? (
+                {status === 'connecting' ? (
+                    // Show loading screen when connecting
+                    <box style={{ flexGrow: 1, justifyContent: "center", alignItems: "center", flexDirection: "column" }}>
+                        <text style={{ fg: "yellow", bold: true, marginBottom: 1 }}>Starting agent...</text>
+                        <text style={{ fg: "gray" }}>Please wait while the AI agent initializes</text>
+                        <text style={{ fg: "gray", marginTop: 1 }}>Press Esc Esc to cancel</text>
+                    </box>
+                ) : isSetup ? (
                     <box style={{ flexDirection: "column" }}>
                         {isModelSelectMode ? (
                             <>
@@ -288,35 +287,33 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
                 ) : (
                     <box style={{ flexDirection: "column", flexGrow: 1, justifyContent: "space-between" }}>
                         {/* Chat History */}
-                        <box style={{ flexDirection: "column" }}>
-                            {messages
-                                .filter(msg => {
-                                    // Filter out verbose system messages
-                                    if (msg.role === 'system') {
-                                        if (msg.content.startsWith('Error:') ||
-                                            msg.content.startsWith('Connected to agent:') ||
-                                            msg.content.startsWith('Disconnected')) {
-                                            return true;
+                        <scrollbox style={{ flexGrow: 1 }}>
+                            <text style={{ fg: "white" as any }}>
+                                {messages
+                                    .filter(msg => {
+                                        // Filter out ALL system messages except errors
+                                        if (msg.role === 'system') {
+                                            return msg.content.startsWith('Error:');
                                         }
-                                        return false;
-                                    }
-                                    return true;
-                                })
-                                .slice(-(10 + scrollOffset), scrollOffset > 0 ? -scrollOffset : undefined)
-                                .map((msg, i) => (
-                                    <box key={i} style={{ marginBottom: 0 }}>
-                                        <text style={{ fg: msg.role === 'user' ? 'cyan' : (msg.role === 'system' ? 'yellow' : 'white') }}>
-                                            {msg.role === 'user' ? '> ' : ''}{msg.content}
-                                        </text>
-                                    </box>
-                                ))}
-                        </box>
+                                        return true;
+                                    })
+                                    .slice(-20) // Show last 20 messages
+                                    .map(msg => {
+                                        const prefix = msg.role === 'user' ? '> ' : '';
+                                        const content = `${prefix}${msg.content}`;
+                                        return content;
+                                    })
+                                    .join('\n\n') // Separate messages with blank line
+                                }
+                            </text>
+                            <box ref={scrollEndRef} style={{ height: 0 }} />
+                        </scrollbox>
 
                         {/* Input Area - at bottom */}
                         <box style={{ height: 1, flexDirection: "row" }}>
-                            <text style={{ fg: "gray" }}>{'> '}</text>
-                            <text style={{ fg: "cyan" }}>{inputValue}</text>
-                            <text style={{ fg: "gray" }}>█</text>
+                            <text style={{ fg: "gray" as any }}>{'> '}</text>
+                            <text style={{ fg: "cyan" as any }}>{inputValue}</text>
+                            <text style={{ fg: "gray" as any }}>█</text>
                         </box>
                     </box>
                 )}
