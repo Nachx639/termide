@@ -762,39 +762,37 @@ export function App({ rootPath }: AppProps) {
       });
     }
 
-    // Split view: Ctrl+\ to toggle vertical split
+    // Split view: Ctrl+\ to cycle through split modes (none -> vertical -> horizontal -> none)
     if (event.ctrl && event.name === "\\") {
-      if (splitMode === "vertical") {
+      if (splitMode === "none" && selectedFile) {
+        // Open vertical split
+        setSplitMode("vertical");
+        const otherTab = openTabs.find((t) => t.filePath !== selectedFile);
+        setSplitFile(otherTab?.filePath || selectedFile);
+        setActiveSplit("left");
+        success("Split: Vertical", 1000);
+      } else if (splitMode === "vertical") {
+        // Switch to horizontal split
+        setSplitMode("horizontal");
+        setActiveSplit("left"); // "left" = "top" in horizontal mode
+        success("Split: Horizontal", 1000);
+      } else {
         // Close split
         setSplitMode("none");
         setSplitFile(null);
         success("Split: Closed", 1000);
-      } else if (selectedFile && openTabs.length > 1) {
-        // Open vertical split with another open file
-        setSplitMode("vertical");
-        // Find a different file to show in the split
-        const otherTab = openTabs.find((t) => t.filePath !== selectedFile);
-        if (otherTab) {
-          setSplitFile(otherTab.filePath);
-          success("Split: Vertical", 1000);
-        }
-      } else if (selectedFile) {
-        // Just split with the same file
-        setSplitMode("vertical");
-        setSplitFile(selectedFile);
-        success("Split: Vertical (same file)", 1000);
       }
       return;
     }
 
-    // Alt+Left/Right to switch between splits
+    // Alt+Arrow to switch between splits (left/right for vertical, up/down for horizontal)
     if (splitMode !== "none" && event.alt) {
-      if (event.name === "left" || event.name === "h") {
-        setActiveSplit("left");
+      if (event.name === "left" || event.name === "h" || event.name === "up" || event.name === "k") {
+        setActiveSplit("left"); // "left" = "top" in horizontal mode
         return;
       }
-      if (event.name === "right" || event.name === "l") {
-        setActiveSplit("right");
+      if (event.name === "right" || event.name === "l" || event.name === "down" || event.name === "j") {
+        setActiveSplit("right"); // "right" = "bottom" in horizontal mode
         return;
       }
     }
@@ -1102,6 +1100,44 @@ export function App({ rootPath }: AppProps) {
                       />
                     </box>
                   </box>
+                ) : splitMode === "horizontal" && splitFile ? (
+                  <box style={{ flexDirection: "column", height: "100%" }}>
+                    {/* Top split */}
+                    <box
+                      style={{ height: "50%", width: "100%" }}
+                      onMouseDown={() => setActiveSplit("left")}
+                    >
+                      <FileViewer
+                        filePath={selectedFile}
+                        focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "left"}
+                        rootPath={rootPath}
+                        height={Math.floor(currentViewerHeight / 2)}
+                        onCursorChange={activeSplit === "left" ? (line, column) => setCursorPos({ line, column }) : undefined}
+                        onJumpToFile={(targetPath, line) => {
+                          handleFileSelect(targetPath, line);
+                        }}
+                        initialLine={activeSplit === "left" ? targetLine : undefined}
+                      />
+                    </box>
+                    {/* Bottom split */}
+                    <box
+                      style={{ height: "50%", width: "100%" }}
+                      onMouseDown={() => setActiveSplit("right")}
+                    >
+                      <FileViewer
+                        filePath={splitFile}
+                        focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "right"}
+                        rootPath={rootPath}
+                        height={Math.floor(currentViewerHeight / 2)}
+                        onCursorChange={activeSplit === "right" ? (line, column) => setCursorPos({ line, column }) : undefined}
+                        onJumpToFile={(targetPath, line) => {
+                          setSplitFile(targetPath);
+                          setTargetLine(line);
+                        }}
+                        initialLine={activeSplit === "right" ? targetLine : undefined}
+                      />
+                    </box>
+                  </box>
                 ) : (
                   <FileViewer
                     filePath={selectedFile}
@@ -1209,7 +1245,7 @@ export function App({ rootPath }: AppProps) {
           {/* Split view indicator */}
           {splitMode !== "none" && (
             <text style={{ fg: "cyan" }}>
-              SPLIT {activeSplit.toUpperCase()}
+              {splitMode === "vertical" ? "VSPLIT" : "HSPLIT"} {splitMode === "horizontal" ? (activeSplit === "left" ? "TOP" : "BTM") : activeSplit.toUpperCase()}
             </text>
           )}
           {/* Screen size indicator */}
