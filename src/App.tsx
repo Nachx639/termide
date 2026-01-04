@@ -14,11 +14,15 @@ import { SourceControl } from "./components/SourceControl";
 import { GitGraph } from "./components/GitGraph";
 import { AgentPanel } from "./components/AgentPanel";
 import { Notifications, useNotifications } from "./components/Notifications";
+import { MiniMode } from "./components/MiniMode";
+import { CompactHeader } from "./components/CompactHeader";
 import * as path from "path";
 import { getGitStatus, formatGitBranch, formatGitStatus, invalidateGitCache } from "./lib/GitIntegration";
 import type { GitStatus } from "./lib/GitIntegration";
 import { DARK_THEME, THEMES } from "./lib/ThemeSystem";
 import type { Theme } from "./lib/ThemeSystem";
+import { getLayoutConfig, getScreenSizeLabel } from "./lib/ResponsiveLayout";
+import type { LayoutConfig, ScreenSize } from "./lib/ResponsiveLayout";
 
 type Panel = "tree" | "viewer" | "terminal" | "source" | "graph" | "agent";
 
@@ -88,6 +92,11 @@ export function App({ rootPath }: AppProps) {
   const [showAgent, setShowAgent] = useState(false);
   const { notifications, notify, dismiss, success, error } = useNotifications();
   const isAnyModalOpen = showFuzzyFinder || showCommandPalette || showGlobalSearch || showHelpPanel || showThemePicker;
+
+  // Responsive layout configuration
+  const layoutConfig = getLayoutConfig(dimensions.width || 80, dimensions.height || 24);
+  const isMiniMode = layoutConfig.isMiniMode;
+  const isCompactMode = layoutConfig.screenSize === "compact";
 
   // Update clock every second
   useEffect(() => {
@@ -569,13 +578,52 @@ export function App({ rootPath }: AppProps) {
 
   // Focus mode calculations
   const isSidebarFocused = focusedPanel === "tree" || focusedPanel === "source" || focusedPanel === "graph";
-  const currentTreeWidth = isMaximized && isSidebarFocused ? dimensions.width || 80 : (isMaximized ? 0 : treeWidth);
-  const currentViewerHeight = isMaximized ? (focusedPanel === "viewer" ? availableContentHeight : 0) : Math.floor(availableContentHeight * 0.35);
-  const currentTerminalHeight = isMaximized ? (focusedPanel === "terminal" ? availableContentHeight : 0) : (availableContentHeight - currentViewerHeight);
+  const responsiveTreeWidth = isCompactMode ? layoutConfig.sidebarWidth : treeWidth;
+  const currentTreeWidth = isMaximized && isSidebarFocused ? dimensions.width || 80 : (isMaximized ? 0 : responsiveTreeWidth);
+  const responsiveHeaderHeight = isCompactMode ? 2 : 5;
+  const responsiveTotalHeight = (dimensions.height || 40) - responsiveHeaderHeight - 1; // -header -status bar
+  const responsiveViewerRatio = isCompactMode ? 0.4 : 0.35;
+  const currentViewerHeight = isMaximized ? (focusedPanel === "viewer" ? responsiveTotalHeight : 0) : Math.floor(responsiveTotalHeight * responsiveViewerRatio);
+  const currentTerminalHeight = isMaximized ? (focusedPanel === "terminal" ? responsiveTotalHeight : 0) : (responsiveTotalHeight - currentViewerHeight - (tabsVisible ? 1 : 0));
+
+  // Mini mode render
+  if (isMiniMode) {
+    return (
+      <>
+        <MiniMode
+          rootPath={rootPath}
+          selectedFile={selectedFile}
+          onFileSelect={handleFileSelect}
+          showAgent={showAgent}
+          onToggleAgent={() => setShowAgent(v => !v)}
+        />
+        {/* Overlays still work in mini mode */}
+        {showFuzzyFinder && (
+          <FuzzyFinder
+            rootPath={rootPath}
+            isOpen={showFuzzyFinder}
+            onClose={() => setShowFuzzyFinder(false)}
+            onSelect={handleFileSelect}
+            recentFiles={recentFiles}
+          />
+        )}
+        {showHelpPanel && (
+          <HelpPanel
+            isOpen={showHelpPanel}
+            onClose={() => setShowHelpPanel(false)}
+          />
+        )}
+        <Notifications notifications={notifications} onDismiss={dismiss} />
+      </>
+    );
+  }
 
   return (
     <box style={{ flexDirection: "column", width: "100%", height: "100%", bg: "#050505" }}>
-      {/* Top Header */}
+      {/* Top Header - Compact or Full */}
+      {isCompactMode ? (
+        <CompactHeader rootPath={rootPath} width={dimensions.width || 80} />
+      ) : (
       <box style={{ height: 5, borderBottom: true, borderColor: "cyan", flexDirection: "column", bg: "#0b0b0b" }}>
         {(() => {
           const logoWidth = 30;
@@ -629,6 +677,7 @@ export function App({ rootPath }: AppProps) {
           );
         })()}
       </box>
+      )}
 
       {/* Main content */}
       <box style={{ flexGrow: 1, flexDirection: "row" }}>
@@ -656,7 +705,8 @@ export function App({ rootPath }: AppProps) {
               }
             }}
           >
-            <box style={{ flexGrow: 4 }}>
+            {/* FileTree - Always visible, takes full height in compact mode */}
+            <box style={{ flexGrow: isCompactMode ? 1 : 4 }}>
               <FileTree
                 rootPath={rootPath}
                 onFileSelect={handleFileSelect}
@@ -664,20 +714,26 @@ export function App({ rootPath }: AppProps) {
                 onFocus={() => setFocusedPanel("tree")}
               />
             </box>
-            <box style={{ flexGrow: 3 }}>
-              <SourceControl
-                rootPath={rootPath}
-                focused={!isAnyModalOpen && focusedPanel === "source"}
-                onFocus={() => setFocusedPanel("source")}
-              />
-            </box>
-            <box style={{ flexGrow: 3 }}>
-              <GitGraph
-                rootPath={rootPath}
-                focused={!isAnyModalOpen && focusedPanel === "graph"}
-                onFocus={() => setFocusedPanel("graph")}
-              />
-            </box>
+            {/* Source Control - Hidden in compact mode */}
+            {!isCompactMode && layoutConfig.panelsVisible.sourceControl && (
+              <box style={{ flexGrow: 3 }}>
+                <SourceControl
+                  rootPath={rootPath}
+                  focused={!isAnyModalOpen && focusedPanel === "source"}
+                  onFocus={() => setFocusedPanel("source")}
+                />
+              </box>
+            )}
+            {/* Git Graph - Hidden in compact mode */}
+            {!isCompactMode && layoutConfig.panelsVisible.gitGraph && (
+              <box style={{ flexGrow: 3 }}>
+                <GitGraph
+                  rootPath={rootPath}
+                  focused={!isAnyModalOpen && focusedPanel === "graph"}
+                  onFocus={() => setFocusedPanel("graph")}
+                />
+              </box>
+            )}
           </box>
         )}
 
@@ -768,21 +824,28 @@ export function App({ rootPath }: AppProps) {
         <box style={{ flexGrow: 1 }} />
 
         <box style={{ flexDirection: "row", gap: 2, flexShrink: 0 }}>
-          {/* Clock */}
-          <text style={{ fg: "gray", dim: true }}>
-            {currentTime.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" })}
+          {/* Screen size indicator */}
+          <text style={{ fg: isCompactMode ? "yellow" : "gray", dim: !isCompactMode }}>
+            {getScreenSizeLabel(layoutConfig.screenSize)}
           </text>
-          {/* Panel indicator - Now at the very end */}
+          {/* Clock - hidden in compact */}
+          {!isCompactMode && (
+            <text style={{ fg: "gray", dim: true }}>
+              {currentTime.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" })}
+            </text>
+          )}
+          {/* Panel indicator */}
           <box style={{ flexDirection: "row" }}>
             <text style={{ fg: "gray" }}>[</text>
             <text style={{ fg: "cyan", bold: true }}>
               {(() => {
                 switch (focusedPanel) {
-                  case "tree": return "EXPLORER";
-                  case "viewer": return "VIEWER";
-                  case "terminal": return "TERMINAL";
-                  case "source": return "SOURCE";
-                  case "graph": return "GRAPH";
+                  case "tree": return isCompactMode ? "EXP" : "EXPLORER";
+                  case "viewer": return isCompactMode ? "VIEW" : "VIEWER";
+                  case "terminal": return isCompactMode ? "TERM" : "TERMINAL";
+                  case "source": return isCompactMode ? "SRC" : "SOURCE";
+                  case "graph": return isCompactMode ? "GIT" : "GRAPH";
+                  case "agent": return isCompactMode ? "AI" : "AGENT";
                   default: return (focusedPanel as string).toUpperCase();
                 }
               })()}
