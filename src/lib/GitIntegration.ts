@@ -285,6 +285,110 @@ export async function getGitChanges(cwd: string): Promise<{ path: string; status
   return changes;
 }
 
+// Line diff status for inline gutter
+export type LineDiffStatus = "added" | "modified" | "deleted" | null;
+
+export interface LineDiffInfo {
+  lineNumber: number;
+  status: LineDiffStatus;
+}
+
+// Cache for line diffs
+const lineDiffCache: Map<string, { diffs: LineDiffInfo[]; timestamp: number }> = new Map();
+const LINE_DIFF_CACHE_TTL = 3000; // 3 seconds
+
+export async function getFileLineDiffs(filePath: string, cwd: string): Promise<LineDiffInfo[]> {
+  const now = Date.now();
+  const cacheKey = filePath;
+
+  // Return cached if fresh
+  const cached = lineDiffCache.get(cacheKey);
+  if (cached && now - cached.timestamp < LINE_DIFF_CACHE_TTL) {
+    return cached.diffs;
+  }
+
+  const diffs: LineDiffInfo[] = [];
+
+  try {
+    // Get the relative path from cwd
+    const relativePath = filePath.startsWith(cwd)
+      ? filePath.slice(cwd.length + 1)
+      : filePath;
+
+    // First check if file is tracked
+    const lsFiles = await runGitCommand(["ls-files", relativePath], cwd);
+    const isTracked = lsFiles && lsFiles.trim().length > 0;
+
+    if (!isTracked) {
+      // Untracked file - all lines are "added"
+      try {
+        const content = await Bun.file(filePath).text();
+        const lineCount = content.split("\n").length;
+        for (let i = 1; i <= lineCount; i++) {
+          diffs.push({ lineNumber: i, status: "added" });
+        }
+      } catch {
+        // File doesn't exist or can't be read
+      }
+    } else {
+      // Get diff output with line numbers
+      // --unified=0 gives us just the changed lines without context
+      const diffOutput = await runGitCommand(
+        ["diff", "--unified=0", "--no-color", "HEAD", "--", relativePath],
+        cwd
+      );
+
+      if (diffOutput) {
+        // Parse diff output
+        // Format: @@ -start,count +start,count @@ ...
+        const hunkRegex = /@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/g;
+        let match;
+
+        while ((match = hunkRegex.exec(diffOutput)) !== null) {
+          const oldStart = parseInt(match[1] || "0");
+          const oldCount = parseInt(match[2] || "1");
+          const newStart = parseInt(match[3] || "0");
+          const newCount = parseInt(match[4] || "1");
+
+          if (oldCount === 0 && newCount > 0) {
+            // Pure addition
+            for (let i = 0; i < newCount; i++) {
+              diffs.push({ lineNumber: newStart + i, status: "added" });
+            }
+          } else if (oldCount > 0 && newCount === 0) {
+            // Pure deletion - mark the line before as having a deletion
+            diffs.push({ lineNumber: newStart, status: "deleted" });
+          } else {
+            // Modification
+            for (let i = 0; i < newCount; i++) {
+              diffs.push({ lineNumber: newStart + i, status: "modified" });
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    // Failed to get diff
+  }
+
+  lineDiffCache.set(cacheKey, { diffs, timestamp: now });
+  return diffs;
+}
+
+// Get gutter indicator for a line
+export function getLineDiffIndicator(status: LineDiffStatus): { char: string; color: string } {
+  switch (status) {
+    case "added":
+      return { char: "┃", color: "#4ec9b0" }; // Green
+    case "modified":
+      return { char: "┃", color: "#569cd6" }; // Blue
+    case "deleted":
+      return { char: "▼", color: "#f14c4c" }; // Red triangle pointing down
+    default:
+      return { char: " ", color: "gray" };
+  }
+}
+
 export async function getGitLog(cwd: string, count: number = 20): Promise<string[]> {
   const logOutput = await runGitCommand([
     "log",
