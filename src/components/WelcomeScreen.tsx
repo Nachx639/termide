@@ -98,8 +98,8 @@ export function WelcomeScreen({
         </box>
 
         <box style={{ flexDirection: "row" }}>
-          <text style={{ fg: "cyan", bold: true }}>Ctrl+`</text>
-          <text style={{ fg: "gray" }}> - Focus terminal</text>
+          <text style={{ fg: "cyan", bold: true }}>Ctrl+Q</text>
+          <text style={{ fg: "gray" }}> - Zen mode (full screen)</text>
         </box>
 
         <box style={{ flexDirection: "row" }}>
@@ -108,7 +108,7 @@ export function WelcomeScreen({
         </box>
 
         <box style={{ flexDirection: "row" }}>
-          <text style={{ fg: "cyan", bold: true }}>F12</text>
+          <text style={{ fg: "cyan", bold: true }}>Ctrl+Shift+G</text>
           <text style={{ fg: "gray" }}> - Go to definition</text>
         </box>
 
@@ -118,8 +118,8 @@ export function WelcomeScreen({
         </box>
 
         <box style={{ flexDirection: "row" }}>
-          <text style={{ fg: "cyan", bold: true }}>z/Z/Alt+Z</text>
-          <text style={{ fg: "gray" }}> - Toggle/Fold all/Unfold</text>
+          <text style={{ fg: "cyan", bold: true }}>Tab/Shift+Tab</text>
+          <text style={{ fg: "gray" }}> - Navigate panels</text>
         </box>
       </box>
 
