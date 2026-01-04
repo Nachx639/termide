@@ -415,6 +415,61 @@ export function App({ rootPath }: AppProps) {
         }
       },
     },
+    // File Operations
+    {
+      id: "new-file",
+      label: "New File",
+      description: "Create a new file in current folder",
+      shortcut: "n",
+      category: "Files",
+      action: () => {
+        const targetDir = selectedFile ? path.dirname(selectedFile) : rootPath;
+        setFileOpsOperation("create-file");
+        setFileOpsTarget(targetDir);
+        setShowFileOps(true);
+      },
+    },
+    {
+      id: "new-folder",
+      label: "New Folder",
+      description: "Create a new folder",
+      shortcut: "N",
+      category: "Files",
+      action: () => {
+        const targetDir = selectedFile ? path.dirname(selectedFile) : rootPath;
+        setFileOpsOperation("create-folder");
+        setFileOpsTarget(targetDir);
+        setShowFileOps(true);
+      },
+    },
+    {
+      id: "rename-file",
+      label: "Rename File/Folder",
+      description: "Rename current file or folder",
+      shortcut: "r",
+      category: "Files",
+      action: () => {
+        if (selectedFile) {
+          setFileOpsOperation("rename");
+          setFileOpsTarget(selectedFile);
+          setShowFileOps(true);
+        }
+      },
+    },
+    {
+      id: "delete-file",
+      label: "Delete File/Folder",
+      description: "Delete current file or folder",
+      shortcut: "d",
+      category: "Files",
+      action: () => {
+        if (selectedFile) {
+          setFileOpsOperation("delete");
+          setFileOpsTarget(selectedFile);
+          setShowFileOps(true);
+        }
+      },
+    },
     // Git
     {
       id: "git-refresh",
@@ -457,13 +512,66 @@ export function App({ rootPath }: AppProps) {
       category: "View",
       action: () => setShowThemePicker(true),
     },
+    // View Toggle Commands
+    {
+      id: "toggle-split-view",
+      label: "Toggle Split View",
+      description: "Split editor into two panes",
+      shortcut: "Ctrl+\\",
+      category: "View",
+      action: () => {
+        if (splitMode === "none" && selectedFile) {
+          setSplitMode("vertical");
+          setSplitFile(selectedFile);
+        } else {
+          setSplitMode("none");
+          setSplitFile(null);
+        }
+      },
+    },
+    {
+      id: "quick-settings",
+      label: "Quick Settings",
+      description: "Open quick settings panel",
+      shortcut: "Ctrl+,",
+      category: "View",
+      action: () => setShowQuickSettings(true),
+    },
+    {
+      id: "keyboard-shortcuts",
+      label: "All Keyboard Shortcuts",
+      description: "Show keyboard shortcuts overlay",
+      shortcut: "Ctrl+Shift+/",
+      category: "View",
+      action: () => setShowShortcuts(true),
+    },
+    {
+      id: "toggle-maximize",
+      label: "Toggle Focus Mode",
+      description: "Maximize current panel",
+      shortcut: "Ctrl+F",
+      category: "View",
+      action: () => setIsMaximized(v => !v),
+    },
     // Application
     {
       id: "show-help",
-      label: "Show Keyboard Shortcuts",
+      label: "Show Help Panel",
       shortcut: "Ctrl+B / ?",
       category: "Application",
       action: () => setShowHelpPanel(true),
+    },
+    {
+      id: "clear-session",
+      label: "Clear Session",
+      description: "Close all tabs and reset state",
+      category: "Application",
+      action: () => {
+        setOpenTabs([]);
+        setActiveTabIndex(0);
+        setShowAgent(false);
+        setFocusedPanel("tree");
+      },
     },
     {
       id: "quit",
