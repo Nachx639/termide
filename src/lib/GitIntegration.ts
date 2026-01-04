@@ -250,6 +250,57 @@ export function invalidateGitCache(): void {
   cacheTimestamp = 0;
 }
 
+// Stage a file
+export async function stageFile(filePath: string, cwd: string): Promise<boolean> {
+  const result = await runGitCommand(["add", filePath], cwd);
+  invalidateGitCache();
+  return result !== null;
+}
+
+// Unstage a file
+export async function unstageFile(filePath: string, cwd: string): Promise<boolean> {
+  const result = await runGitCommand(["reset", "HEAD", filePath], cwd);
+  invalidateGitCache();
+  return result !== null;
+}
+
+// Stage all files
+export async function stageAllFiles(cwd: string): Promise<boolean> {
+  const result = await runGitCommand(["add", "-A"], cwd);
+  invalidateGitCache();
+  return result !== null;
+}
+
+// Unstage all files
+export async function unstageAllFiles(cwd: string): Promise<boolean> {
+  const result = await runGitCommand(["reset", "HEAD"], cwd);
+  invalidateGitCache();
+  return result !== null;
+}
+
+// Create a commit
+export async function createCommit(message: string, cwd: string): Promise<boolean> {
+  const result = await runGitCommand(["commit", "-m", message], cwd);
+  invalidateGitCache();
+  return result !== null;
+}
+
+// Get diff for a file
+export async function getFileDiff(filePath: string, cwd: string, staged: boolean = false): Promise<string> {
+  const args = staged
+    ? ["diff", "--cached", "--color=never", "--", filePath]
+    : ["diff", "--color=never", "--", filePath];
+  const result = await runGitCommand(args, cwd);
+  return result || "";
+}
+
+// Discard changes to a file (checkout HEAD version)
+export async function discardFileChanges(filePath: string, cwd: string): Promise<boolean> {
+  const result = await runGitCommand(["checkout", "HEAD", "--", filePath], cwd);
+  invalidateGitCache();
+  return result !== null;
+}
+
 export async function getGitChanges(cwd: string): Promise<{ path: string; status: FileGitStatus }[]> {
   const statusOutput = await runGitCommand(["status", "--porcelain=v1", "-uall"], cwd);
   if (!statusOutput) return [];
