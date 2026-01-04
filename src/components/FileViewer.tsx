@@ -182,6 +182,11 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
   const [searchMode, setSearchMode] = useState<"search" | "goto">("search");
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [wordWrap, setWordWrap] = useState(false);
+
+  // Line selection state
+  const [selectionStart, setSelectionStart] = useState<number | null>(null);
+  const [selectionEnd, setSelectionEnd] = useState<number | null>(null);
+  const [clipboard, setClipboard] = useState<string[]>([]);
   const [showIndentGuides, setShowIndentGuides] = useState(true);
   const [showMinimap, setShowMinimap] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
@@ -237,6 +242,134 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
       console.error("Error saving file:", e);
     }
   }, [filePath]);
+
+  // Get selected lines range
+  const getSelectedRange = useCallback(() => {
+    if (selectionStart === null) return null;
+    const start = Math.min(selectionStart, selectionEnd ?? cursorLine);
+    const end = Math.max(selectionStart, selectionEnd ?? cursorLine);
+    return { start, end };
+  }, [selectionStart, selectionEnd, cursorLine]);
+
+  // Copy selected lines to clipboard
+  const copySelectedLines = useCallback(() => {
+    const range = getSelectedRange();
+    if (!range) {
+      // Copy current line if no selection
+      const line = content[cursorLine];
+      if (line !== undefined) {
+        setClipboard([line]);
+        // Also copy to system clipboard using OSC52
+        const base64 = Buffer.from(line).toString("base64");
+        process.stdout.write(`\x1b]52;c;${base64}\x07`);
+      }
+      return;
+    }
+    const lines = content.slice(range.start, range.end + 1);
+    setClipboard(lines);
+    // Copy to system clipboard
+    const text = lines.join("\n");
+    const base64 = Buffer.from(text).toString("base64");
+    process.stdout.write(`\x1b]52;c;${base64}\x07`);
+  }, [content, cursorLine, getSelectedRange]);
+
+  // Cut selected lines
+  const cutSelectedLines = useCallback(() => {
+    if (!filePath) return;
+    const range = getSelectedRange();
+    const startLine = range ? range.start : cursorLine;
+    const endLine = range ? range.end : cursorLine;
+
+    const linesToCut = content.slice(startLine, endLine + 1);
+    setClipboard(linesToCut);
+
+    // Copy to system clipboard
+    const text = linesToCut.join("\n");
+    const base64 = Buffer.from(text).toString("base64");
+    process.stdout.write(`\x1b]52;c;${base64}\x07`);
+
+    // Remove lines from content
+    const newContent = [...content.slice(0, startLine), ...content.slice(endLine + 1)];
+    if (newContent.length === 0) newContent.push("");
+
+    try {
+      fs.writeFileSync(filePath, newContent.join("\n"), "utf-8");
+      setContent(newContent);
+      setCursorLine(Math.min(startLine, newContent.length - 1));
+      setSelectionStart(null);
+      setSelectionEnd(null);
+    } catch (e) {
+      console.error("Error cutting lines:", e);
+    }
+  }, [filePath, content, cursorLine, getSelectedRange]);
+
+  // Paste clipboard lines
+  const pasteLines = useCallback(() => {
+    if (!filePath || clipboard.length === 0) return;
+
+    const insertAt = cursorLine + 1;
+    const newContent = [
+      ...content.slice(0, insertAt),
+      ...clipboard,
+      ...content.slice(insertAt),
+    ];
+
+    try {
+      fs.writeFileSync(filePath, newContent.join("\n"), "utf-8");
+      setContent(newContent);
+      setCursorLine(insertAt + clipboard.length - 1);
+      setSelectionStart(null);
+      setSelectionEnd(null);
+    } catch (e) {
+      console.error("Error pasting lines:", e);
+    }
+  }, [filePath, content, cursorLine, clipboard]);
+
+  // Duplicate current line or selection
+  const duplicateLines = useCallback(() => {
+    if (!filePath) return;
+    const range = getSelectedRange();
+    const startLine = range ? range.start : cursorLine;
+    const endLine = range ? range.end : cursorLine;
+
+    const linesToDupe = content.slice(startLine, endLine + 1);
+    const newContent = [
+      ...content.slice(0, endLine + 1),
+      ...linesToDupe,
+      ...content.slice(endLine + 1),
+    ];
+
+    try {
+      fs.writeFileSync(filePath, newContent.join("\n"), "utf-8");
+      setContent(newContent);
+      setCursorLine(endLine + linesToDupe.length);
+      setSelectionStart(null);
+      setSelectionEnd(null);
+    } catch (e) {
+      console.error("Error duplicating lines:", e);
+    }
+  }, [filePath, content, cursorLine, getSelectedRange]);
+
+  // Delete current line or selection
+  const deleteLines = useCallback(() => {
+    if (!filePath) return;
+    const range = getSelectedRange();
+    const startLine = range ? range.start : cursorLine;
+    const endLine = range ? range.end : cursorLine;
+
+    const newContent = [...content.slice(0, startLine), ...content.slice(endLine + 1)];
+    if (newContent.length === 0) newContent.push("");
+
+    try {
+      fs.writeFileSync(filePath, newContent.join("\n"), "utf-8");
+      setContent(newContent);
+      setCursorLine(Math.min(startLine, newContent.length - 1));
+      setSelectionStart(null);
+      setSelectionEnd(null);
+    } catch (e) {
+      console.error("Error deleting lines:", e);
+    }
+  }, [filePath, content, cursorLine, getSelectedRange]);
 
   useEffect(() => {
     if (!filePath || !fs.existsSync(filePath)) {
@@ -314,6 +447,78 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
       if (isMarkdown) {
         setShowPreview((v) => !v);
       }
+      return;
+    }
+
+    // Line editing operations
+    // V = Start visual selection (vim-style)
+    if (event.name === "v" || event.name === "V") {
+      if (selectionStart === null) {
+        setSelectionStart(cursorLine);
+        setSelectionEnd(cursorLine);
+      } else {
+        // Clear selection
+        setSelectionStart(null);
+        setSelectionEnd(null);
+      }
+      return;
+    }
+
+    // Shift+Up/Down = Extend selection
+    if (event.shift && (event.name === "up" || event.name === "k")) {
+      if (selectionStart === null) {
+        setSelectionStart(cursorLine);
+      }
+      const newLine = Math.max(0, cursorLine - 1);
+      setSelectionEnd(newLine);
+      setCursorLine(newLine);
+      return;
+    }
+
+    if (event.shift && (event.name === "down" || event.name === "j")) {
+      if (selectionStart === null) {
+        setSelectionStart(cursorLine);
+      }
+      const newLine = Math.min(content.length - 1, cursorLine + 1);
+      setSelectionEnd(newLine);
+      setCursorLine(newLine);
+      return;
+    }
+
+    // Ctrl+C or y = Copy line(s)
+    if ((event.ctrl && event.name === "c") || event.name === "y") {
+      copySelectedLines();
+      return;
+    }
+
+    // Ctrl+X or d+d = Cut/delete line(s)
+    if (event.ctrl && event.name === "x") {
+      cutSelectedLines();
+      return;
+    }
+
+    // Ctrl+V or p = Paste line(s)
+    if ((event.ctrl && event.name === "v") || event.name === "p") {
+      pasteLines();
+      return;
+    }
+
+    // Ctrl+D = Duplicate line(s)
+    if (event.ctrl && event.name === "d") {
+      duplicateLines();
+      return;
+    }
+
+    // Ctrl+Shift+K or dd = Delete line(s)
+    if (event.ctrl && event.shift && event.name === "k") {
+      deleteLines();
+      return;
+    }
+
+    // Escape = Clear selection
+    if (event.name === "escape" && selectionStart !== null) {
+      setSelectionStart(null);
+      setSelectionEnd(null);
       return;
     }
 
@@ -432,10 +637,19 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
             {filePath ? (
               visibleLines.map((line, index) => {
                 const lineNum = scrollOffset + index + 1;
-                const isCurrentLine = scrollOffset + index === cursorLine;
-                const lineNumFg = isCurrentLine ? "yellow" : "gray";
-                const lineBg = isCurrentLine && focused ? "#1a1a1a" : undefined;
                 const actualLineNum = scrollOffset + index;
+                const isCurrentLine = actualLineNum === cursorLine;
+
+                // Check if this line is in the selection range
+                let isSelected = false;
+                if (selectionStart !== null) {
+                  const selStart = Math.min(selectionStart, selectionEnd ?? cursorLine);
+                  const selEnd = Math.max(selectionStart, selectionEnd ?? cursorLine);
+                  isSelected = actualLineNum >= selStart && actualLineNum <= selEnd;
+                }
+
+                const lineNumFg = isCurrentLine ? "yellow" : isSelected ? "cyan" : "gray";
+                const lineBg = isSelected ? "#2a2a4a" : (isCurrentLine && focused ? "#1a1a1a" : undefined);
 
                 // Determine bracket highlight for this line
                 let bracketHighlightCol: number | undefined;
