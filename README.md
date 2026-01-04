@@ -2,26 +2,49 @@
   <img src="assets/termide-banner-v2.png" width="100%" />
 </p>
 
+<h3 align="center">🐜 Terminal-First IDE for AI Coding Agents</h3>
+
 <p align="center">
-  <strong>Minimalist & Elegant Terminal-First IDE</strong>
+  <strong>Fast. Elegant. Keyboard-driven.</strong>
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/termide"><img src="https://img.shields.io/npm/v/termide?color=blue&label=npm" alt="npm version"></a>
+  <a href="https://github.com/Nachx639/termide/stargazers"><img src="https://img.shields.io/github/stars/Nachx639/termide?style=social" alt="GitHub stars"></a>
+  <a href="https://github.com/Nachx639/termide/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Nachx639/termide" alt="License"></a>
+  <img src="https://img.shields.io/badge/built%20with-Bun-orange" alt="Built with Bun">
+  <img src="https://img.shields.io/badge/UI-OpenTUI-cyan" alt="OpenTUI">
 </p>
 
 ---
 
 <p align="center">
-  <img src="assets/termide-screenshot-v2.png" width="600" alt="termide screenshot" />
+  <img src="assets/termide-screenshot-v2.png" width="700" alt="termide screenshot" />
 </p>
 
 ---
 
+## ✨ Why termide?
 
-**termide** is a minimalist and elegant Terminal-first IDE designed for the modern developer. 
+**termide** is a minimalist, terminal-native IDE built for developers who:
+- 🤖 Work with **AI coding assistants** (Claude Code, Aider, etc.)
+- ⌨️ Prefer **keyboard-driven** workflows over mouse clicks
+- ⚡ Want **instant startup** and minimal resource usage
+- 🎨 Love a **clean, distraction-free** interface
 
-The name is a playful fusion of **Terminal** and **IDE**, with a nod to the industrious **termite**—building complex structures from the ground up, bit by bit.
+The name is a playful fusion of **Terminal** + **IDE**, with a nod to the industrious **termite**—building complex structures from the ground up, bit by bit.
+
+### Built With Modern Tech
+
+- **[Bun](https://bun.sh)** — Lightning-fast JavaScript runtime
+- **[React 19](https://react.dev)** — Declarative UI components
+- **[OpenTUI](https://github.com/nickmccurdy/opentui)** — Terminal UI framework with Yoga layout
+
+---
 
 ## 🚀 Quick Start
 
-Run it directly using **Bun**:
+Run it directly using **Bun** (no install needed):
 
 ```bash
 # Open current directory
@@ -31,51 +54,87 @@ bunx termide
 bunx termide ./my-project
 ```
 
-## 🛠 Installation
+## 📦 Installation
 
-### Global Installation
-To use the `termide` command anywhere:
+### Global Install (Recommended)
 
 ```bash
 bun install -g termide
 ```
 
-### For Developers (Local Link)
-If you are working on the code and want to use your local version globally:
+Then use it anywhere:
 
 ```bash
-# Inside the termide folder
-bun link
-
-# Now you can use 'termide' anywhere!
 termide .
+termide ~/Projects/my-app
 ```
 
-## ⌨️ Keyboard Shortcuts (Cheat Sheet)
+### For Contributors
 
-Navigate like a pro in the terminal:
-
-| Key | Action |
-| :--- | :--- |
-| `Tab` | Switch between panels (Tree, Editor, Terminal) |
-| `Ctrl + F` | **Focus Mode** (Maximize current panel) |
-| `Alt + F` | Search in current file |
-| `Ctrl + P` | Quick open file (Fuzzy finder) |
-| `Ctrl + K` | Opening Command Palette |
-| `Ctrl + B` | Show Help Panel |
-| `Ctrl + Q` | Quit termide |
-
-## 🛠 Local Development
-
-If you want to contribute or modify the code:
-
-1. Clone the repo.
-2. Install dependencies: `bun install`
-3. Run in dev mode: `bun run dev`
+```bash
+git clone https://github.com/Nachx639/termide.git
+cd termide
+bun install
+bun run dev
+```
 
 ---
 
-*Built with ❤️ for terminal lovers.*
+## ⌨️ Keyboard Shortcuts
 
-> **Tip**: If `termide` is not found after global install, ensure your Bun bin directory is in your PATH: `export PATH="$HOME/.bun/bin:$PATH"`
+Navigate like a pro:
 
+| Key | Action |
+| :--- | :--- |
+| `Tab` / `Shift+Tab` | Cycle between panels |
+| `Ctrl + F` | **Focus Mode** — maximize current panel |
+| `Ctrl + P` | Quick open file (fuzzy finder) |
+| `Ctrl + K` | Command Palette |
+| `Ctrl + Shift + F` | Global search in files |
+| `Ctrl + B` | Help panel |
+| `Ctrl + G` | Toggle mascot 🐜 |
+| `Ctrl + Q` | Quit |
+
+---
+
+## 🎯 Features
+
+- **📁 File Explorer** — Git-aware file tree with icons
+- **📝 Code Viewer** — Syntax highlighting, line numbers
+- **💻 Embedded Terminal** — Full PTY with scrollback
+- **🔍 Fuzzy Finder** — Quick file navigation (Ctrl+P)
+- **🎨 Command Palette** — VS Code-style commands (Ctrl+K)
+- **🔎 Global Search** — Ripgrep-powered search
+- **🌿 Git Integration** — Branch, status, commit graph
+- **🐜 Mascot** — Because why not?
+
+---
+
+## 🛠 Roadmap
+
+- [ ] Multi-tab editing
+- [ ] Inline code editing (not just viewing)
+- [ ] Plugin system
+- [ ] Themes
+- [ ] LSP support
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome! Feel free to open issues or PRs.
+
+---
+
+## 📄 License
+
+MIT © [Nachx639](https://github.com/Nachx639)
+
+---
+
+<p align="center">
+  <em>Built with ❤️ for terminal lovers</em>
+</p>
+
+> **Tip**: If `termide` is not found after global install, ensure your Bun bin directory is in your PATH:  
+> `export PATH="$HOME/.bun/bin:$PATH"`
