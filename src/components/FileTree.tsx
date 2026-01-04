@@ -202,7 +202,44 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus }: FileTreeP
             const iconColor = isSelected ? "cyan" : fileIcon.color;
 
             return (
-              <box key={node.path} style={{ flexDirection: "row", bg: bg as any, paddingX: 1 }}>
+              <box
+                key={node.path}
+                style={{ flexDirection: "row", bg: bg as any, paddingX: 1 }}
+                onMouseDown={(event: any) => {
+                  // Select this item
+                  setSelectedIndex(actualIndex);
+
+                  // Single click focuses the panel
+                  if (onFocus) onFocus();
+
+                  // Double-click opens files / toggles folders
+                  if (event.detail === 2) { // detail === 2 means double-click
+                    if (node.isDirectory) {
+                      // Toggle expand/collapse
+                      const toggleExpand = (nodes: FileNode[]): FileNode[] => {
+                        return nodes.map((n) => {
+                          if (n.path === node.path) {
+                            const expanded = !n.expanded;
+                            return {
+                              ...n,
+                              expanded,
+                              children: expanded ? buildTree(n.path, n.level + 1) : [],
+                            };
+                          }
+                          if (n.children) {
+                            return { ...n, children: toggleExpand(n.children) };
+                          }
+                          return n;
+                        });
+                      };
+                      setTree(toggleExpand(tree));
+                    } else {
+                      // Open file
+                      onFileSelect(node.path);
+                    }
+                  }
+                }}
+              >
                 <text style={{ fg: isSelected ? "cyan" : "gray" }}>{prefix}</text>
                 <text style={{ fg: isSelected ? "cyan" : iconColor as any }}>{fileIcon.icon} </text>
                 <text style={{ fg: isSelected ? "cyan" : (gitStatus ? getFileStatusColor(gitStatus) : "gray") as any }}>
