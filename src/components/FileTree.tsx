@@ -237,38 +237,36 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
               <box
                 key={node.path}
                 style={{ flexDirection: "row", bg: bg as any, paddingX: 1 }}
-                onMouseDown={(event: any) => {
+                onMouseDown={() => {
                   // Select this item
                   setSelectedIndex(actualIndex);
 
                   // Single click focuses the panel
                   if (onFocus) onFocus();
 
-                  // Double-click opens files / toggles folders
-                  if (event.detail === 2) { // detail === 2 means double-click
-                    if (node.isDirectory) {
-                      // Toggle expand/collapse
-                      const toggleExpand = (nodes: FileNode[]): FileNode[] => {
-                        return nodes.map((n) => {
-                          if (n.path === node.path) {
-                            const expanded = !n.expanded;
-                            return {
-                              ...n,
-                              expanded,
-                              children: expanded ? buildTree(n.path, n.level + 1) : [],
-                            };
-                          }
-                          if (n.children) {
-                            return { ...n, children: toggleExpand(n.children) };
-                          }
-                          return n;
-                        });
-                      };
-                      setTree(toggleExpand(tree));
-                    } else {
-                      // Open file
-                      onFileSelect(node.path);
-                    }
+                  // Single click opens files / toggles folders (more intuitive)
+                  if (node.isDirectory) {
+                    // Toggle expand/collapse
+                    const toggleExpand = (nodes: FileNode[]): FileNode[] => {
+                      return nodes.map((n) => {
+                        if (n.path === node.path) {
+                          const expanded = !n.expanded;
+                          return {
+                            ...n,
+                            expanded,
+                            children: expanded ? buildTree(n.path, n.level + 1) : [],
+                          };
+                        }
+                        if (n.children) {
+                          return { ...n, children: toggleExpand(n.children) };
+                        }
+                        return n;
+                      });
+                    };
+                    setTree(toggleExpand(tree));
+                  } else {
+                    // Open file
+                    onFileSelect(node.path);
                   }
                 }}
               >
