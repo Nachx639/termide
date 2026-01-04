@@ -1,6 +1,6 @@
 /**
  * VirtualTerminal - A terminal emulator that parses ANSI sequences
- * and maintains a virtual screen buffer that can be rendered by OpenTUI
+ * SIMPLIFIED VERSION: Ignores complex colors to prevent magenta issues
  */
 
 export interface CellStyle {
@@ -25,7 +25,7 @@ export interface CursorPosition {
 }
 
 const DEFAULT_STYLE: CellStyle = {
-  fg: "white",
+  fg: "#f0f0f0",
   bg: "transparent",
   bold: false,
   dim: false,
@@ -34,17 +34,20 @@ const DEFAULT_STYLE: CellStyle = {
   inverse: false,
 };
 
-// ANSI color codes - magenta remapped to cyan for visual harmony
+// ANSI color codes - Simplified palette
+// Use off-white #f0f0f0 to avoid magenta issues
 const COLORS_16 = [
-  "black", "red", "green", "yellow", "blue", "cyan", "cyan", "white",
-  "gray", "brightRed", "brightGreen", "brightYellow", "brightBlue", "brightCyan", "brightCyan", "brightWhite"
+  "black", "red", "green", "yellow", "blue", "#f0f0f0", "cyan", "#f0f0f0",
+  "gray", "red", "green", "yellow", "blue", "#f0f0f0", "cyan", "#f0f0f0"
 ];
 
 export class VirtualTerminal {
-  private rows: number;
-  private cols: number;
-  private buffer: Cell[][];
-  private cursor: CursorPosition;
+    private rows: number;
+    private cols: number;
+    private buffer: Cell[][];
+    private history: Cell[][] = [];
+    private maxHistory: number = 10000;
+    private cursor: CursorPosition;
   private savedCursor: CursorPosition | null = null;
   private currentStyle: CellStyle;
   private scrollTop: number = 0;
@@ -85,7 +88,7 @@ export class VirtualTerminal {
     this.rows = rows;
     this.cols = cols;
     this.scrollBottom = rows - 1;
-    this.buffer = newBuffer as Cell[][];
+    this.buffer = newBuffer as Cell[][] ;
     this.cursor.row = Math.min(this.cursor.row, rows - 1);
     this.cursor.col = Math.min(this.cursor.col, cols - 1);
   }
@@ -105,7 +108,6 @@ export class VirtualTerminal {
       if (char === "\x1b") {
         // ESC sequence
         if (i + 1 >= data.length) {
-          // Need more data
           this.parseBuffer = data.slice(i);
           return;
         }
@@ -114,10 +116,9 @@ export class VirtualTerminal {
 
         if (next === "[") {
           // CSI sequence
-          const match = data.slice(i).match(/^\x1b\[([0-9;?]*)([A-Za-z@`])/);
+          const match = data.slice(i).match(/^\x1b\[([0-9;?:]*)([A-Za-z@`])/);
           if (!match) {
             if (data.length - i < 20) {
-              // Might be incomplete
               this.parseBuffer = data.slice(i);
               return;
             }
@@ -128,7 +129,7 @@ export class VirtualTerminal {
           this.handleCSI(params, command);
           i += full.length;
         } else if (next === "]") {
-          // OSC sequence (Operating System Command)
+          // OSC sequence - Skip
           const end = data.indexOf("\x07", i);
           const stEnd = data.indexOf("\x1b\\", i);
           if (end === -1 && stEnd === -1) {
@@ -136,43 +137,11 @@ export class VirtualTerminal {
             return;
           }
           const endPos = end !== -1 && (stEnd === -1 || end < stEnd) ? end + 1 : (stEnd !== -1 ? stEnd + 2 : i + 2);
-          // Just skip OSC sequences for now
           i = endPos;
-        } else if (next === "(") {
-          // Character set designation, skip
-          i += 3;
-        } else if (next === ")") {
-          i += 3;
-        } else if (next === "=") {
-          // Application keypad mode
-          i += 2;
-        } else if (next === ">") {
-          // Normal keypad mode
-          i += 2;
-        } else if (next === "7") {
-          // Save cursor
-          this.savedCursor = { ...this.cursor };
-          i += 2;
-        } else if (next === "8") {
-          // Restore cursor
-          if (this.savedCursor) {
-            this.cursor = { ...this.savedCursor };
-          }
-          i += 2;
-        } else if (next === "M") {
-          // Reverse index
-          this.reverseIndex();
-          i += 2;
-        } else if (next === "D") {
-          // Index (move down)
-          this.index();
-          i += 2;
-        } else if (next === "c") {
-          // Full reset
-          this.reset();
-          i += 2;
         } else {
-          i++;
+            // Other ESC sequences - Skip simple ones
+            if (next === "(" || next === ")" || next === "*" || next === "+") i += 3;
+            else i += 2;
         }
       } else if (char === "\r") {
         this.cursor.col = 0;
@@ -187,13 +156,10 @@ export class VirtualTerminal {
         if (this.cursor.col > 0) this.cursor.col--;
         i++;
       } else if (char === "\x07") {
-        // Bell, ignore
         i++;
       } else if (char.charCodeAt(0) < 32) {
-        // Other control characters, skip
         i++;
       } else {
-        // Regular character
         this.putChar(char);
         i++;
       }
@@ -203,130 +169,61 @@ export class VirtualTerminal {
   }
 
   private handleCSI(params: string, command: string) {
-    const args = params ? params.split(";").map((p) => parseInt(p, 10) || 0) : [];
+    const normalizedParams = params.replace(/:/g, ";");
+    const args = normalizedParams ? normalizedParams.split(";").map((p) => parseInt(p, 10) || 0) : [];
 
     switch (command) {
-      case "A": // Cursor up
-        this.cursor.row = Math.max(0, this.cursor.row - (args[0] || 1));
-        break;
-      case "B": // Cursor down
-        this.cursor.row = Math.min(this.rows - 1, this.cursor.row + (args[0] || 1));
-        break;
-      case "C": // Cursor forward
-        this.cursor.col = Math.min(this.cols - 1, this.cursor.col + (args[0] || 1));
-        break;
-      case "D": // Cursor back
-        this.cursor.col = Math.max(0, this.cursor.col - (args[0] || 1));
-        break;
-      case "E": // Cursor next line
-        this.cursor.col = 0;
-        this.cursor.row = Math.min(this.rows - 1, this.cursor.row + (args[0] || 1));
-        break;
-      case "F": // Cursor previous line
-        this.cursor.col = 0;
-        this.cursor.row = Math.max(0, this.cursor.row - (args[0] || 1));
-        break;
-      case "G": // Cursor horizontal absolute
-        this.cursor.col = Math.min(this.cols - 1, Math.max(0, (args[0] || 1) - 1));
-        break;
-      case "H": // Cursor position
+      case "A": this.cursor.row = Math.max(0, this.cursor.row - (args[0] || 1)); break;
+      case "B": this.cursor.row = Math.min(this.rows - 1, this.cursor.row + (args[0] || 1)); break;
+      case "C": this.cursor.col = Math.min(this.cols - 1, this.cursor.col + (args[0] || 1)); break;
+      case "D": this.cursor.col = Math.max(0, this.cursor.col - (args[0] || 1)); break;
+      case "E": this.cursor.col = 0; this.cursor.row = Math.min(this.rows - 1, this.cursor.row + (args[0] || 1)); break;
+      case "F": this.cursor.col = 0; this.cursor.row = Math.max(0, this.cursor.row - (args[0] || 1)); break;
+      case "G": this.cursor.col = Math.min(this.cols - 1, Math.max(0, (args[0] || 1) - 1)); break;
+      case "H": 
       case "f":
         this.cursor.row = Math.min(this.rows - 1, Math.max(0, (args[0] || 1) - 1));
         this.cursor.col = Math.min(this.cols - 1, Math.max(0, (args[1] || 1) - 1));
         break;
-      case "J": // Erase in display
-        this.eraseInDisplay(args[0] || 0);
-        break;
-      case "K": // Erase in line
-        this.eraseInLine(args[0] || 0);
-        break;
-      case "L": // Insert lines
-        this.insertLines(args[0] || 1);
-        break;
-      case "M": // Delete lines
-        this.deleteLines(args[0] || 1);
-        break;
-      case "P": // Delete characters
-        this.deleteChars(args[0] || 1);
-        break;
-      case "@": // Insert characters
-        this.insertChars(args[0] || 1);
-        break;
-      case "S": // Scroll up
-        this.scrollUp(args[0] || 1);
-        break;
-      case "T": // Scroll down
-        this.scrollDown(args[0] || 1);
-        break;
-      case "X": // Erase characters
-        this.eraseChars(args[0] || 1);
-        break;
-      case "d": // Vertical position absolute
-        this.cursor.row = Math.min(this.rows - 1, Math.max(0, (args[0] || 1) - 1));
-        break;
-      case "m": // SGR - Select Graphic Rendition
-        this.handleSGR(args.length ? args : [0]);
-        break;
-      case "r": // Set scrolling region
+      case "J": this.eraseInDisplay(args[0] || 0); break;
+      case "K": this.eraseInLine(args[0] || 0); break;
+      case "L": this.insertLines(args[0] || 1); break;
+      case "M": this.deleteLines(args[0] || 1); break;
+      case "P": this.deleteChars(args[0] || 1); break;
+      case "@": this.insertChars(args[0] || 1); break;
+      case "S": this.scrollUp(args[0] || 1); break;
+      case "T": this.scrollDown(args[0] || 1); break;
+      case "X": this.eraseChars(args[0] || 1); break;
+      case "d": this.cursor.row = Math.min(this.rows - 1, Math.max(0, (args[0] || 1) - 1)); break;
+      case "m": this.handleSGR(args.length ? args : [0]); break;
+      case "r": 
         this.scrollTop = (args[0] || 1) - 1;
         this.scrollBottom = (args[1] || this.rows) - 1;
         break;
-      case "s": // Save cursor
-        this.savedCursor = { ...this.cursor };
-        break;
-      case "u": // Restore cursor
-        if (this.savedCursor) {
-          this.cursor = { ...this.savedCursor };
-        }
-        break;
-      case "h": // Set mode
-        if (params.startsWith("?")) {
-          this.handlePrivateMode(params.slice(1), true);
-        }
-        break;
-      case "l": // Reset mode
-        if (params.startsWith("?")) {
-          this.handlePrivateMode(params.slice(1), false);
-        }
-        break;
-      case "n": // Device status report
-        // Ignored in virtual terminal
-        break;
-      case "c": // Device attributes
-        // Ignored
-        break;
+      case "s": this.savedCursor = { ...this.cursor }; break;
+      case "u": if (this.savedCursor) this.cursor = { ...this.savedCursor }; break;
+      case "h": if (params.startsWith("?")) this.handlePrivateMode(params.slice(1), true); break;
+      case "l": if (params.startsWith("?")) this.handlePrivateMode(params.slice(1), false); break;
     }
   }
 
   private handlePrivateMode(params: string, enable: boolean) {
     const modes = params.split(";").map((p) => parseInt(p, 10));
     for (const mode of modes) {
-      switch (mode) {
-        case 1049: // Alternate screen buffer
-          if (enable) {
-            this.alternateBuffer = this.buffer;
-            this.buffer = this.createEmptyBuffer();
-            this.useAlternateBuffer = true;
-          } else {
-            if (this.alternateBuffer) {
-              this.buffer = this.alternateBuffer;
-              this.alternateBuffer = null;
-            }
-            this.useAlternateBuffer = false;
+      if (mode === 1049) {
+        if (enable) {
+          this.alternateBuffer = this.buffer;
+          this.buffer = this.createEmptyBuffer();
+          this.useAlternateBuffer = true;
+        } else {
+          if (this.alternateBuffer) {
+            this.buffer = this.alternateBuffer;
+            this.alternateBuffer = null;
           }
-          break;
-        case 25: // Show/hide cursor
-          this.cursorVisible = enable;
-          break;
-        case 1: // Application cursor keys
-        case 7: // Auto-wrap mode
-        case 1000: // Mouse tracking
-        case 1002:
-        case 1003:
-        case 1006:
-        case 2004: // Bracketed paste
-          // Ignored for now
-          break;
+          this.useAlternateBuffer = false;
+        }
+      } else if (mode === 25) {
+        this.cursorVisible = enable;
       }
     }
   }
@@ -357,69 +254,50 @@ export class VirtualTerminal {
       } else if (code === 27) {
         this.currentStyle.inverse = false;
       } else if (code >= 30 && code <= 37) {
+        // ANSI Colors - Mapped to simplified palette
         this.currentStyle.fg = COLORS_16[code - 30] || "white";
       } else if (code === 38) {
-        // Extended foreground color
+        // Extended color (256/RGB)
+        // Only allow Grayscale for suggestions/comments, map others to white
         if (args[i + 1] === 5 && args[i + 2] !== undefined) {
           // 256 color
-          this.currentStyle.fg = this.color256ToName(args[i + 2]!);
+          const c256 = args[i + 2]!;
+          if (c256 >= 232 || c256 === 8 || c256 === 7 || c256 === 240) { // Known grays
+             this.currentStyle.fg = "gray";
+          } else {
+             this.currentStyle.fg = "#f0f0f0";
+          }
           i += 2;
         } else if (args[i + 1] === 2 && args[i + 4] !== undefined) {
           // RGB color
-          this.currentStyle.fg = this.rgbToCyan(args[i + 2]!, args[i + 3]!, args[i + 4]!);
+          const r = args[i + 2]!;
+          const g = args[i + 3]!;
+          const b = args[i + 4]!;
+          // Check if it's grayscale (all components roughly equal)
+          if (Math.abs(r - g) < 10 && Math.abs(g - b) < 10 && Math.abs(r - b) < 10) {
+              // If it's very dark or very light, adjust if needed, but 'gray' usually works well
+              this.currentStyle.fg = "gray";
+          } else {
+              this.currentStyle.fg = "#f0f0f0";
+          }
           i += 4;
         }
       } else if (code === 39) {
         this.currentStyle.fg = "white";
       } else if (code >= 40 && code <= 47) {
-        this.currentStyle.bg = COLORS_16[code - 40] || "transparent";
+        this.currentStyle.bg = "transparent"; // Ignore backgrounds
       } else if (code === 48) {
-        // Extended background color
-        if (args[i + 1] === 5 && args[i + 2] !== undefined) {
-          this.currentStyle.bg = this.color256ToName(args[i + 2]!);
-          i += 2;
-        } else if (args[i + 1] === 2 && args[i + 4] !== undefined) {
-          this.currentStyle.bg = this.rgbToCyan(args[i + 2]!, args[i + 3]!, args[i + 4]!);
-          i += 4;
-        }
+        // Extended background - IGNORE
+        if (args[i + 1] === 5) i += 2;
+        else if (args[i + 1] === 2) i += 4;
       } else if (code === 49) {
         this.currentStyle.bg = "transparent";
       } else if (code >= 90 && code <= 97) {
-        this.currentStyle.fg = COLORS_16[code - 90 + 8] || "white";
+         this.currentStyle.fg = COLORS_16[code - 90 + 8] || "white";
       } else if (code >= 100 && code <= 107) {
-        this.currentStyle.bg = COLORS_16[code - 100 + 8] || "transparent";
+        this.currentStyle.bg = "transparent";
       }
     }
-  }
-
-  private isMagenta(r: number, g: number, b: number): boolean {
-    // Catch more magenta/pink variants with lower threshold
-    return r > 80 && b > 80 && g < r && g < b;
-  }
-
-  private color256ToName(code: number): string {
-    if (code < 16) {
-      return COLORS_16[code] || "white";
-    } else if (code < 232) {
-      // 216 color cube
-      const idx = code - 16;
-      const ri = Math.floor(idx / 36);
-      const gi = Math.floor((idx % 36) / 6);
-      const bi = idx % 6;
-      const toVal = (v: number) => (v === 0 ? 0 : v * 40 + 55);
-      const r = toVal(ri), g = toVal(gi), b = toVal(bi);
-      if (this.isMagenta(r, g, b)) return "cyan";
-      return `rgb(${r},${g},${b})`;
-    } else {
-      // Grayscale
-      const gray = (code - 232) * 10 + 8;
-      return `rgb(${gray},${gray},${gray})`;
-    }
-  }
-
-  private rgbToCyan(r: number, g: number, b: number): string {
-    if (this.isMagenta(r, g, b)) return "cyan";
-    return `rgb(${r},${g},${b})`;
   }
 
   private putChar(char: string) {
@@ -445,25 +323,17 @@ export class VirtualTerminal {
     }
   }
 
-  private reverseIndex() {
-    if (this.cursor.row <= this.scrollTop) {
-      this.scrollDown(1);
-    } else {
-      this.cursor.row--;
-    }
-  }
-
-  private index() {
-    if (this.cursor.row >= this.scrollBottom) {
-      this.scrollUp(1);
-    } else {
-      this.cursor.row++;
-    }
-  }
-
   private scrollUp(lines: number) {
     for (let i = 0; i < lines; i++) {
-      this.buffer.splice(this.scrollTop, 1);
+      const removedRow = this.buffer.splice(this.scrollTop, 1)[0];
+      // Save to history if we are not using alternate buffer
+      if (!this.useAlternateBuffer && removedRow) {
+        this.history.push(removedRow);
+        if (this.history.length > this.maxHistory) {
+          this.history.shift();
+        }
+      }
+
       const newRow = Array.from({ length: this.cols }, () => ({
         char: " ",
         style: { ...DEFAULT_STYLE },
@@ -485,41 +355,24 @@ export class VirtualTerminal {
 
   private eraseInDisplay(mode: number) {
     if (mode === 0) {
-      // Erase from cursor to end
       this.eraseInLine(0);
-      for (let r = this.cursor.row + 1; r < this.rows; r++) {
-        this.clearRow(r);
-      }
+      for (let r = this.cursor.row + 1; r < this.rows; r++) this.clearRow(r);
     } else if (mode === 1) {
-      // Erase from start to cursor
-      for (let r = 0; r < this.cursor.row; r++) {
-        this.clearRow(r);
-      }
+      for (let r = 0; r < this.cursor.row; r++) this.clearRow(r);
       this.eraseInLine(1);
     } else if (mode === 2 || mode === 3) {
-      // Erase entire display
-      for (let r = 0; r < this.rows; r++) {
-        this.clearRow(r);
-      }
+      for (let r = 0; r < this.rows; r++) this.clearRow(r);
     }
   }
 
   private eraseInLine(mode: number) {
     const row = this.buffer[this.cursor.row];
     if (!row) return;
-
     if (mode === 0) {
-      // Erase from cursor to end
-      for (let c = this.cursor.col; c < this.cols; c++) {
-        row[c] = { char: " ", style: { ...DEFAULT_STYLE } };
-      }
+      for (let c = this.cursor.col; c < this.cols; c++) row[c] = { char: " ", style: { ...DEFAULT_STYLE } };
     } else if (mode === 1) {
-      // Erase from start to cursor
-      for (let c = 0; c <= this.cursor.col; c++) {
-        row[c] = { char: " ", style: { ...DEFAULT_STYLE } };
-      }
+      for (let c = 0; c <= this.cursor.col; c++) row[c] = { char: " ", style: { ...DEFAULT_STYLE } };
     } else if (mode === 2) {
-      // Erase entire line
       this.clearRow(this.cursor.row);
     }
   }
@@ -580,28 +433,44 @@ export class VirtualTerminal {
     }
   }
 
-  private reset() {
-    this.buffer = this.createEmptyBuffer();
-    this.cursor = { row: 0, col: 0 };
-    this.currentStyle = { ...DEFAULT_STYLE };
-    this.scrollTop = 0;
-    this.scrollBottom = this.rows - 1;
+  getBuffer(): Cell[][] { return this.buffer; }
+  
+  // Get a specific view of the terminal including history
+  // offset 0 = current screen
+  // offset > 0 = scrolling up into history
+  getView(offset: number, height: number): Cell[][] {
+    if (offset === 0) return this.buffer;
+    
+    // We need to combine history (end) + buffer (start)
+    const totalHistory = this.history.length;
+    const effectiveOffset = Math.min(offset, totalHistory);
+    
+    const output: Cell[][] = [];
+    
+    // How many lines from history?
+    // We start reading history from (totalHistory - effectiveOffset)
+    const historyStartIndex = totalHistory - effectiveOffset;
+    
+    // Fill with history lines
+    for (let i = 0; i < height; i++) {
+      const historyIndex = historyStartIndex + i;
+      if (historyIndex < totalHistory) {
+        output.push(this.history[historyIndex]);
+      } else {
+        // We ran out of history, continue with buffer
+        const bufferIndex = historyIndex - totalHistory;
+        if (this.buffer[bufferIndex]) {
+          output.push(this.buffer[bufferIndex]);
+        }
+      }
+    }
+    
+    return output;
   }
+  
+  getHistorySize(): number { return this.history.length; }
 
-  // Public getters for rendering
-  getBuffer(): Cell[][] {
-    return this.buffer;
-  }
-
-  getCursor(): CursorPosition {
-    return this.cursor;
-  }
-
-  getRows(): number {
-    return this.rows;
-  }
-
-  getCols(): number {
-    return this.cols;
-  }
+  getCursor(): CursorPosition { return this.cursor; }
+  getRows(): number { return this.rows; }
+  getCols(): number { return this.cols; }
 }
