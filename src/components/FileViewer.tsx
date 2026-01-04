@@ -790,6 +790,7 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
       ) : (
         <box
           style={{ flexDirection: "row", flexGrow: 1, position: "relative" }}
+          onMouse={handleMouseScroll}
         >
           <box style={{ flexDirection: "column", paddingLeft: 1, paddingRight: 1, flexGrow: 1, height: viewHeight, overflow: "hidden" }}>
             {filePath ? (
