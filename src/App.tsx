@@ -27,6 +27,7 @@ import type { Theme } from "./lib/ThemeSystem";
 import { getLayoutConfig, getScreenSizeLabel } from "./lib/ResponsiveLayout";
 import type { LayoutConfig, ScreenSize } from "./lib/ResponsiveLayout";
 import { loadSession, saveSession, addRecentFile } from "./lib/SessionManager";
+import { detectFileInfo, formatEncoding, formatLineEnding, formatIndent, type FileInfo } from "./lib/FileEncoding";
 
 type Panel = "tree" | "viewer" | "terminal" | "source" | "graph" | "agent";
 
@@ -100,6 +101,7 @@ export function App({ rootPath }: AppProps) {
   const [recentFiles, setRecentFiles] = useState<string[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [fileStats, setFileStats] = useState<{ size: number; lineCount: number } | null>(null);
+  const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
   const [antFrame, setAntFrame] = useState(0);
   const [antStatus, setAntStatus] = useState<"walking" | "dying" | "dead">("walking");
   const [deathProgress, setDeathProgress] = useState(0);
@@ -258,10 +260,11 @@ export function App({ rootPath }: AppProps) {
   // Get currently selected file from active tab
   const selectedFile = openTabs[activeTabIndex]?.filePath || null;
 
-  // Update file stats when file changes
+  // Update file stats and encoding when file changes
   useEffect(() => {
     if (!selectedFile) {
       setFileStats(null);
+      setFileInfo(null);
       return;
     }
 
@@ -272,8 +275,13 @@ export function App({ rootPath }: AppProps) {
         const content = await file.text();
         const lineCount = content.split("\n").length;
         setFileStats({ size, lineCount });
+
+        // Detect file encoding info
+        const info = detectFileInfo(selectedFile);
+        setFileInfo(info);
       } catch {
         setFileStats(null);
+        setFileInfo(null);
       }
     };
 
@@ -936,6 +944,27 @@ export function App({ rootPath }: AppProps) {
               <text style={{ fg: "gray", dim: true }}>
                 {fileStats.lineCount} lines, {formatFileSize(fileStats.size)}
               </text>
+            </box>
+          )}
+          {/* File encoding info */}
+          {fileInfo && !isCompactMode && (
+            <box style={{ flexDirection: "row", flexShrink: 0 }}>
+              <text style={{ fg: "gray" }}> │ </text>
+              <text style={{ fg: "gray", dim: true }}>
+                {formatEncoding(fileInfo)}
+              </text>
+              <text style={{ fg: "gray" }}> </text>
+              <text style={{ fg: "gray", dim: true }}>
+                {formatLineEnding(fileInfo.lineEnding)}
+              </text>
+              {formatIndent(fileInfo) && (
+                <>
+                  <text style={{ fg: "gray" }}> </text>
+                  <text style={{ fg: "gray", dim: true }}>
+                    {formatIndent(fileInfo)}
+                  </text>
+                </>
+              )}
             </box>
           )}
         </box>
