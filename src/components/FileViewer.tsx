@@ -304,7 +304,6 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
   // Sticky Scroll state
   const [showStickyScroll, setShowStickyScroll] = useState(true);
 
-  // Calculate dynamic heights (MOVED HERE - before stickyScrollContext useMemo)
   const isMarkdown = filePath?.toLowerCase().endsWith(".md") || filePath?.toLowerCase().endsWith(".markdown");
   const headerHeight = 1;
   const headerSeparatorHeight = 1; // The line from borderBottom
@@ -412,22 +411,6 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
       onCursorChange(cursorLine + 1, cursorColumn + 1); // 1-indexed for display
     }
   }, [cursorLine, cursorColumn, onCursorChange, filePath]);
-
-  // Calculate dynamic heights
-  const isMarkdown = filePath?.toLowerCase().endsWith(".md") || filePath?.toLowerCase().endsWith(".markdown");
-  const headerHeight = 1;
-  const headerSeparatorHeight = 1; // The line from borderBottom
-  const chromeHeight = 2; // Outer Border top/bottom
-  const searchHeight = showSearch ? 1 : 0;
-  const viewHeight = Math.max(1, height - headerHeight - headerSeparatorHeight - chromeHeight - searchHeight - 1);
-
-  const wrapWidth = 80;
-  const tabSize = 2;
-  const minimapHeight = Math.max(5, viewHeight);
-
-  const language = useMemo(() => {
-    return filePath ? detectLanguage(filePath) : null;
-  }, [filePath]);
 
   // Find matching bracket for the current cursor line
   // Check first bracket on line or last bracket before cursor position
