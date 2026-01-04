@@ -45,7 +45,8 @@ export function SourceControl({ rootPath, focused, onFocus }: SourceControlProps
                 {focused && <text style={{ fg: "black", bg: "cyan", bold: true }}> FOCUS </text>}
                 <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a" }}>Source Control</text>
             </box>
-            <scrollbox style={{ flexDirection: "column", flexGrow: 1, paddingX: 1, bg: "#0b0b0b" }}>
+            <box style={{ flexDirection: "column", flexGrow: 1, bg: "#0b0b0b" }}>
+                <scrollbox style={{ flexGrow: 1, paddingX: 1, bg: "#0b0b0b" }}>
                 {changes.length === 0 ? (
                     <text style={{ fg: "gray", dim: true, padding: 1 }}>No changes detected</text>
                 ) : (
@@ -84,7 +85,8 @@ export function SourceControl({ rootPath, focused, onFocus }: SourceControlProps
                         )}
                     </>
                 )}
-            </scrollbox>
+                </scrollbox>
+            </box>
         </box>
     );
 }
