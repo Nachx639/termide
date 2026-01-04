@@ -73,6 +73,7 @@ export function TabBar({ tabs, activeTabIndex, onSelectTab, onCloseTab, focused 
               borderRight: true,
               borderColor: "#333333",
             }}
+            onMouseDown={() => onSelectTab(index)}
           >
             {/* File icon */}
             <text style={{ fg: isActive ? "cyan" : (icon.color as any) }}>
@@ -91,8 +92,14 @@ export function TabBar({ tabs, activeTabIndex, onSelectTab, onCloseTab, focused 
             {tab.isDirty && (
               <text style={{ fg: isActive ? "cyan" : "yellow" }}> ●</text>
             )}
-            {/* Close button hint */}
-            <text style={{ fg: isActive ? "cyan" : "#444444", dim: !isActive }}>
+            {/* Close button - clickable */}
+            <text
+              style={{ fg: isActive ? "cyan" : "#444444", dim: !isActive }}
+              onMouseDown={(e: any) => {
+                e.stopPropagation?.();
+                onCloseTab(index);
+              }}
+            >
               {" "}×
             </text>
           </box>
@@ -101,7 +108,7 @@ export function TabBar({ tabs, activeTabIndex, onSelectTab, onCloseTab, focused 
       {/* Tab hint */}
       <box style={{ flexGrow: 1, justifyContent: "flex-end", bg: "#111111" }}>
         <text style={{ fg: "gray", dim: true, paddingX: 1 }}>
-          Ctrl+W close | Alt+N switch
+          Click to switch | Ctrl+W close
         </text>
       </box>
     </box>
