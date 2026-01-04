@@ -872,8 +872,11 @@ export function App({ rootPath }: AppProps) {
   const responsiveHeaderHeight = isCompactMode ? 2 : 5;
   const responsiveTotalHeight = (dimensions.height || 40) - responsiveHeaderHeight - 1; // -header -status bar
   const responsiveViewerRatio = isCompactMode ? 0.4 : 0.35;
-  const currentViewerHeight = isMaximized ? (focusedPanel === "viewer" ? responsiveTotalHeight : 0) : Math.floor(responsiveTotalHeight * responsiveViewerRatio);
-  const currentTerminalHeight = isMaximized ? (focusedPanel === "terminal" ? responsiveTotalHeight : 0) : (responsiveTotalHeight - currentViewerHeight - (tabsVisible ? 1 : 0));
+
+  // Zen Mode: FileViewer takes the entire terminal height (no header, no status bar, no terminal)
+  const zenModeHeight = (dimensions.height || 40);
+  const currentViewerHeight = zenMode ? zenModeHeight : (isMaximized ? (focusedPanel === "viewer" ? responsiveTotalHeight : 0) : Math.floor(responsiveTotalHeight * responsiveViewerRatio));
+  const currentTerminalHeight = zenMode ? 0 : (isMaximized ? (focusedPanel === "terminal" ? responsiveTotalHeight : 0) : (responsiveTotalHeight - currentViewerHeight - (tabsVisible ? 1 : 0)));
 
   // Mini mode render
   if (isMiniMode) {
@@ -1237,7 +1240,7 @@ export function App({ rootPath }: AppProps) {
       {/* Zen Mode indicator */}
       {zenMode && (
         <box style={{ position: "absolute", top: 0, right: 2, height: 1 }}>
-          <text style={{ fg: "cyan", dim: true }}>ZEN (Ctrl+\ to exit)</text>
+          <text style={{ fg: "cyan", dim: true }}>ZEN (Ctrl+Q to exit)</text>
         </box>
       )}
 
