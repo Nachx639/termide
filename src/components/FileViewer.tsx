@@ -8,12 +8,14 @@ import { Minimap } from "./Minimap";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { FindReplace } from "./FindReplace";
 import { findMatchingBracket, isBracket, type BracketMatch } from "../lib/BracketMatcher";
+import { findDefinition, getWordAtPosition, type SymbolLocation } from "../lib/SymbolFinder";
 
 interface FileViewerProps {
   filePath: string | null;
   focused: boolean;
   rootPath?: string;
   height: number;
+  onJumpToFile?: (filePath: string, line?: number) => void;
 }
 
 // Breadcrumbs component
@@ -174,14 +176,16 @@ function HighlightedLine({ line, lang, showGuides = false, tabSize = 2, bracketH
   );
 }
 
-export function FileViewer({ filePath, focused, rootPath, height }: FileViewerProps) {
+export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile }: FileViewerProps) {
   const [content, setContent] = useState<string[]>([]);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [cursorLine, setCursorLine] = useState(0);
+  const [cursorColumn, setCursorColumn] = useState(0);
   const [showSearch, setShowSearch] = useState(false);
   const [searchMode, setSearchMode] = useState<"search" | "goto">("search");
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [wordWrap, setWordWrap] = useState(false);
+  const [definitionHighlight, setDefinitionHighlight] = useState<SymbolLocation | null>(null);
 
   // Line selection state
   const [selectionStart, setSelectionStart] = useState<number | null>(null);
@@ -371,6 +375,35 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
     }
   }, [filePath, content, cursorLine, getSelectedRange]);
 
+  // Go to definition of symbol at cursor
+  const goToDefinition = useCallback(() => {
+    if (!filePath || content.length === 0) return;
+
+    const line = content[cursorLine];
+    if (!line) return;
+
+    // Get word at cursor position
+    const wordInfo = getWordAtPosition(line, cursorColumn);
+    if (!wordInfo) return;
+
+    const currentContent = content.join("\n");
+    const definition = findDefinition(currentContent, filePath, wordInfo.word);
+
+    if (definition) {
+      if (definition.filePath === filePath) {
+        // Jump within same file
+        handleJumpToLine(definition.line);
+        setCursorColumn(definition.column);
+        // Briefly highlight the definition
+        setDefinitionHighlight(definition);
+        setTimeout(() => setDefinitionHighlight(null), 1500);
+      } else if (onJumpToFile) {
+        // Jump to different file
+        onJumpToFile(definition.filePath, definition.line);
+      }
+    }
+  }, [filePath, content, cursorLine, cursorColumn, handleJumpToLine, onJumpToFile]);
+
   useEffect(() => {
     if (!filePath || !fs.existsSync(filePath)) {
       setContent([]);
@@ -425,6 +458,12 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
     // Find & Replace (Ctrl+H)
     if (event.ctrl && event.name === "h") {
       setShowFindReplace(true);
+      return;
+    }
+
+    // Go to definition (F12)
+    if (event.name === "f12") {
+      goToDefinition();
       return;
     }
 
@@ -560,6 +599,37 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
       const lastOffset = Math.max(0, content.length - viewHeight);
       setScrollOffset(lastOffset);
       setCursorLine(content.length - 1);
+    } else if (event.name === "left" || event.name === "h") {
+      // Move cursor left
+      const line = content[cursorLine] || "";
+      setCursorColumn(Math.max(0, cursorColumn - 1));
+    } else if (event.name === "right" || event.name === "l") {
+      // Move cursor right
+      const line = content[cursorLine] || "";
+      setCursorColumn(Math.min(line.length, cursorColumn + 1));
+    } else if (event.name === "home" || event.name === "0") {
+      // Go to start of line
+      setCursorColumn(0);
+    } else if (event.name === "end" || event.name === "$") {
+      // Go to end of line
+      const line = content[cursorLine] || "";
+      setCursorColumn(line.length);
+    } else if (event.name === "w") {
+      // Jump to next word
+      const line = content[cursorLine] || "";
+      const rest = line.slice(cursorColumn);
+      const match = rest.match(/^\s*\w+\s*/);
+      if (match) {
+        setCursorColumn(Math.min(line.length, cursorColumn + match[0].length));
+      }
+    } else if (event.name === "b") {
+      // Jump to previous word
+      const line = content[cursorLine] || "";
+      const before = line.slice(0, cursorColumn);
+      const match = before.match(/\s*\w+\s*$/);
+      if (match) {
+        setCursorColumn(Math.max(0, cursorColumn - match[0].length));
+      }
     }
   });
 
@@ -595,7 +665,7 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
           </box>
         </box>
         <text style={{ fg: "gray", flexShrink: 0 }}>
-          Ln {cursorLine + 1}/{content.length}
+          Ln {cursorLine + 1}:{cursorColumn + 1}/{content.length}
         </text>
       </box>
 

@@ -886,6 +886,11 @@ export function App({ rootPath }: AppProps) {
                     focused={!isAnyModalOpen && focusedPanel === "viewer"}
                     rootPath={rootPath}
                     height={currentViewerHeight}
+                    onJumpToFile={(targetPath, line) => {
+                      // Open the file and optionally jump to line
+                      handleFileSelect(targetPath);
+                      // TODO: Pass line number to FileViewer for initial scroll
+                    }}
                   />
                 )}
               </box>
