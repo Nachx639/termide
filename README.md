@@ -19,7 +19,7 @@
 ---
 
 <p align="center">
-  <img src="assets/termide-screenshot-v2.png" width="700" alt="termide screenshot" />
+  <img src="assets/demo.gif" width="800" alt="termide demo" />
 </p>
 
 ---
