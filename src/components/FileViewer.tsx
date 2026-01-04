@@ -7,6 +7,7 @@ import { SearchBar } from "./SearchBar";
 import { Minimap } from "./Minimap";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { FindReplace } from "./FindReplace";
+import { findMatchingBracket, isBracket, type BracketMatch } from "../lib/BracketMatcher";
 
 interface FileViewerProps {
   filePath: string | null;
@@ -84,14 +85,74 @@ function wrapLine(line: string, width: number): string[] {
   return wrapped;
 }
 
+// Props for bracket highlighting
+interface HighlightedLineProps {
+  line: string;
+  lang: string | null;
+  showGuides?: boolean;
+  tabSize?: number;
+  bracketHighlight?: number; // Column to highlight as matching bracket
+}
+
 // Component to render a line with syntax highlighting
-function HighlightedLine({ line, lang, showGuides = false, tabSize = 2 }: { line: string; lang: string | null; showGuides?: boolean; tabSize?: number }) {
+function HighlightedLine({ line, lang, showGuides = false, tabSize = 2, bracketHighlight }: HighlightedLineProps) {
   const tokens = useMemo(() => tokenizeLine(line, lang), [line, lang]);
 
   // Calculate indent and strip leading whitespace for guides
   const indentLevel = getIndentLevel(line, tabSize);
   const leadingSpaces = line.match(/^[\s]*/)?.[0].length || 0;
   const trimmedLine = line.slice(leadingSpaces);
+
+  // Helper to render tokens with bracket highlighting
+  const renderTokens = (tokensToRender: Token[], offset: number = 0) => {
+    const result: React.ReactNode[] = [];
+    let currentCol = offset;
+
+    for (let idx = 0; idx < tokensToRender.length; idx++) {
+      const token = tokensToRender[idx]!;
+      const tokenStart = currentCol;
+      const tokenEnd = currentCol + token.text.length;
+
+      // Check if bracket highlight falls within this token
+      if (bracketHighlight !== undefined && bracketHighlight >= tokenStart && bracketHighlight < tokenEnd) {
+        const relativePos = bracketHighlight - tokenStart;
+        // Split token into before, highlighted char, and after
+        const before = token.text.slice(0, relativePos);
+        const highlighted = token.text[relativePos];
+        const after = token.text.slice(relativePos + 1);
+
+        if (before) {
+          result.push(
+            <text key={`${idx}-before`} style={{ fg: getTokenColor(token.type) as any }}>
+              {before}
+            </text>
+          );
+        }
+        result.push(
+          <text key={`${idx}-hl`} style={{ fg: "black", bg: "yellow", bold: true }}>
+            {highlighted}
+          </text>
+        );
+        if (after) {
+          result.push(
+            <text key={`${idx}-after`} style={{ fg: getTokenColor(token.type) as any }}>
+              {after}
+            </text>
+          );
+        }
+      } else {
+        result.push(
+          <text key={idx} style={{ fg: getTokenColor(token.type) as any }}>
+            {token.text}
+          </text>
+        );
+      }
+
+      currentCol = tokenEnd;
+    }
+
+    return result;
+  };
 
   return (
     <>
@@ -104,18 +165,10 @@ function HighlightedLine({ line, lang, showGuides = false, tabSize = 2 }: { line
             </text>
           ))}
           {/* Render the rest of the line after guides */}
-          {tokenizeLine(trimmedLine, lang).map((token, idx) => (
-            <text key={idx} style={{ fg: getTokenColor(token.type) as any }}>
-              {token.text}
-            </text>
-          ))}
+          {renderTokens(tokenizeLine(trimmedLine, lang), leadingSpaces)}
         </>
       ) : (
-        tokens.map((token, idx) => (
-          <text key={idx} style={{ fg: getTokenColor(token.type) as any }}>
-            {token.text}
-          </text>
-        ))
+        renderTokens(tokens, 0)
       )}
     </>
   );
@@ -148,6 +201,23 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
   const language = useMemo(() => {
     return filePath ? detectLanguage(filePath) : null;
   }, [filePath]);
+
+  // Find matching bracket for the current cursor line
+  // Check first bracket on line or last bracket before cursor position
+  const bracketMatch = useMemo((): BracketMatch | null => {
+    if (content.length === 0) return null;
+    const line = content[cursorLine];
+    if (!line) return null;
+
+    // Find the first bracket on the line
+    for (let col = 0; col < line.length; col++) {
+      if (isBracket(line[col]!)) {
+        const match = findMatchingBracket(content, cursorLine, col);
+        if (match) return match;
+      }
+    }
+    return null;
+  }, [content, cursorLine]);
 
   // Handle jumping to a line (from search or goto)
   const handleJumpToLine = (lineIndex: number) => {
@@ -365,6 +435,17 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
                 const isCurrentLine = scrollOffset + index === cursorLine;
                 const lineNumFg = isCurrentLine ? "yellow" : "gray";
                 const lineBg = isCurrentLine && focused ? "#1a1a1a" : undefined;
+                const actualLineNum = scrollOffset + index;
+
+                // Determine bracket highlight for this line
+                let bracketHighlightCol: number | undefined;
+                if (bracketMatch) {
+                  if (actualLineNum === bracketMatch.openLine) {
+                    bracketHighlightCol = bracketMatch.openColumn;
+                  } else if (actualLineNum === bracketMatch.closeLine) {
+                    bracketHighlightCol = bracketMatch.closeColumn;
+                  }
+                }
 
                 // Handle word wrap
                 if (wordWrap && line.length > wrapWidth) {
@@ -379,7 +460,7 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
                               : `${" ".repeat(lineNumWidth)}   ↪ `}
                           </text>
                           <box style={{ flexGrow: 1, flexShrink: 1, width: 0, flexDirection: "row", overflow: "hidden" }}>
-                            <HighlightedLine line={wrappedLine} lang={language} showGuides={showIndentGuides} tabSize={tabSize} />
+                            <HighlightedLine line={wrappedLine} lang={language} showGuides={showIndentGuides} tabSize={tabSize} bracketHighlight={bracketHighlightCol} />
                           </box>
                         </box>
                       ))}
@@ -393,7 +474,7 @@ export function FileViewer({ filePath, focused, rootPath, height }: FileViewerPr
                       {String(lineNum).padStart(lineNumWidth, " ")}{isCurrentLine ? " ▸ " : "   "}
                     </text>
                     <box style={{ flexGrow: 1, flexShrink: 1, width: 0, flexDirection: "row", overflow: "hidden", paddingRight: 1 }}>
-                      <HighlightedLine line={line} lang={language} showGuides={showIndentGuides} tabSize={tabSize} />
+                      <HighlightedLine line={line} lang={language} showGuides={showIndentGuides} tabSize={tabSize} bracketHighlight={bracketHighlightCol} />
                     </box>
                   </box>
                 );
