@@ -18,6 +18,7 @@ import { MiniMode } from "./components/MiniMode";
 import { CompactHeader } from "./components/CompactHeader";
 import { FileOperationsModal, type FileOperation } from "./components/FileOperationsModal";
 import { WelcomeScreen } from "./components/WelcomeScreen";
+import { QuickSettings, type QuickSettingsState } from "./components/QuickSettings";
 import * as path from "path";
 import { getGitStatus, formatGitBranch, formatGitStatus, invalidateGitCache } from "./lib/GitIntegration";
 import type { GitStatus } from "./lib/GitIntegration";
@@ -82,7 +83,18 @@ export function App({ rootPath }: AppProps) {
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [showHelpPanel, setShowHelpPanel] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [showQuickSettings, setShowQuickSettings] = useState(false);
   const [theme, setTheme] = useState<Theme>(DARK_THEME);
+  const [quickSettings, setQuickSettings] = useState<QuickSettingsState>({
+    wordWrap: false,
+    indentGuides: true,
+    minimap: true,
+    lineNumbers: true,
+    fontSize: "normal",
+    tabSize: 2,
+    autoSave: false,
+    theme: DARK_THEME,
+  });
   const dimensions = useTerminalDimensions();
   const [treeWidth, setTreeWidth] = useState(30);
   const [recentFiles, setRecentFiles] = useState<string[]>([]);
@@ -101,7 +113,7 @@ export function App({ rootPath }: AppProps) {
   const [fileOpsTarget, setFileOpsTarget] = useState("");
   const [treeRefreshKey, setTreeRefreshKey] = useState(0);
 
-  const isAnyModalOpen = showFuzzyFinder || showCommandPalette || showGlobalSearch || showHelpPanel || showThemePicker || showFileOps;
+  const isAnyModalOpen = showFuzzyFinder || showCommandPalette || showGlobalSearch || showHelpPanel || showThemePicker || showFileOps || showQuickSettings;
 
   // Responsive layout configuration
   const layoutConfig = getLayoutConfig(dimensions.width || 80, dimensions.height || 24);
@@ -462,7 +474,7 @@ export function App({ rootPath }: AppProps) {
 
   useKeyboard(async (event) => {
     // Don't handle keyboard if overlays are open (except help panel)
-    if (showFuzzyFinder || showCommandPalette || showGlobalSearch || showThemePicker) return;
+    if (showFuzzyFinder || showCommandPalette || showGlobalSearch || showThemePicker || showQuickSettings) return;
 
     // Help - Simple universal shortcuts (Ctrl+B, ?, or F1)
     if (
@@ -477,6 +489,12 @@ export function App({ rootPath }: AppProps) {
 
     // Don't handle other keys if help is open
     if (showHelpPanel) return;
+
+    // Ctrl+, - Quick settings
+    if (event.ctrl && event.name === ",") {
+      setShowQuickSettings(true);
+      return;
+    }
 
     // Ctrl+Shift+F - Global search
     if (event.ctrl && event.shift && (event.name === "f" || event.name === "F")) {
@@ -1015,6 +1033,20 @@ export function App({ rootPath }: AppProps) {
           onClose={() => setShowFileOps(false)}
           onSuccess={handleFileOpsSuccess}
           onError={(msg) => { error(msg, 3000); setShowFileOps(false); }}
+        />
+      )}
+
+      {showQuickSettings && (
+        <QuickSettings
+          isOpen={showQuickSettings}
+          onClose={() => setShowQuickSettings(false)}
+          settings={quickSettings}
+          onSettingsChange={(changes) => {
+            setQuickSettings(prev => ({ ...prev, ...changes }));
+            if (changes.theme) {
+              setTheme(changes.theme);
+            }
+          }}
         />
       )}
 
