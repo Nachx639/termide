@@ -576,7 +576,7 @@ export function App({ rootPath }: AppProps) {
   return (
     <box style={{ flexDirection: "column", width: "100%", height: "100%", bg: "#050505" }}>
       {/* Top Header */}
-      <box style={{ height: 5, borderBottom: true, borderColor: "gray", flexDirection: "column", bg: "#0b0b0b" }}>
+      <box style={{ height: 5, borderBottom: true, borderColor: "cyan", flexDirection: "column", bg: "#0b0b0b" }}>
         {(() => {
           const logoWidth = 30;
           const terminalWidth = dimensions.width || 80;
@@ -623,7 +623,7 @@ export function App({ rootPath }: AppProps) {
                 <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
                   <text style={{ fg: "cyan" }}>{antLines[2]}</text>
                 </box>
-                <text style={{ fg: "#d4a800", bg: "#1a1a1a" }}>Ctrl+B: help | Ctrl+G: ant  | Alt+F: file find</text>
+                <text style={{ fg: "#d4a800", bg: "#1a1a1a" }}>Ctrl+Space: agent | Ctrl+B: help | Ctrl+G: ant</text>
               </box>
             </>
           );

@@ -533,16 +533,23 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
   return (
     <box style={{ flexDirection: "column", border: true, borderColor, height: "100%" }}>
       <box style={{ flexDirection: "column", flexGrow: 1, overflow: "hidden", paddingX: 1 }}>
-        {renderRows.map((rowSegments, rowIdx) => {
-          // Concatenate all segments into a single string per row
-          // This avoids Yoga "measure functions cannot have children" errors
-          const rowText = rowSegments.map(seg => seg.text || "").join("");
-          return (
-            <text key={rowIdx} style={{ fg: "white" as any }}>
-              {rowText || " "}
-            </text>
-          );
-        })}
+        {renderRows.map((rowSegments, rowIdx) => (
+          <box key={rowIdx} style={{ flexDirection: "row" }}>
+            {rowSegments.map((seg, segIdx) => (
+              <text
+                key={segIdx}
+                style={{
+                  fg: seg.fg as any,
+                  bg: seg.bg === "transparent" ? undefined : (seg.bg as any),
+                  dim: seg.dim,
+                  bold: seg.bold
+                }}
+              >
+                {seg.text}
+              </text>
+            ))}
+          </box>
+        ))}
       </box>
     </box>
   );
