@@ -78,6 +78,7 @@ export function App({ rootPath }: AppProps) {
   const [focusedPanel, setFocusedPanel] = useState<Panel>("tree");
   const [openTabs, setOpenTabs] = useState<OpenTab[]>([]);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
+  const [targetLine, setTargetLine] = useState<number | undefined>(undefined);
   const [clipboardContent, setClipboardContent] = useState<string>("");
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
   const [showFuzzyFinder, setShowFuzzyFinder] = useState(false);
@@ -801,7 +802,7 @@ export function App({ rootPath }: AppProps) {
   });
 
   // Open file in a new tab or switch to existing tab
-  const handleFileSelect = (filePath: string) => {
+  const handleFileSelect = (filePath: string, line?: number) => {
     // Check if file is already open
     const existingIndex = openTabs.findIndex((tab) => tab.filePath === filePath);
 
@@ -813,6 +814,9 @@ export function App({ rootPath }: AppProps) {
       setOpenTabs((tabs) => [...tabs, { filePath, isDirty: false }]);
       setActiveTabIndex(openTabs.length);
     }
+
+    // Set target line if specified (for jump-to-definition)
+    setTargetLine(line);
 
     setFocusedPanel("viewer");
     addToRecentFiles(filePath);
@@ -1074,8 +1078,9 @@ export function App({ rootPath }: AppProps) {
                         height={currentViewerHeight}
                         onCursorChange={activeSplit === "left" ? (line, column) => setCursorPos({ line, column }) : undefined}
                         onJumpToFile={(targetPath, line) => {
-                          handleFileSelect(targetPath);
+                          handleFileSelect(targetPath, line);
                         }}
+                        initialLine={activeSplit === "left" ? targetLine : undefined}
                       />
                     </box>
                     {/* Right split */}
@@ -1091,7 +1096,9 @@ export function App({ rootPath }: AppProps) {
                         onCursorChange={activeSplit === "right" ? (line, column) => setCursorPos({ line, column }) : undefined}
                         onJumpToFile={(targetPath, line) => {
                           setSplitFile(targetPath);
+                          setTargetLine(line);
                         }}
+                        initialLine={activeSplit === "right" ? targetLine : undefined}
                       />
                     </box>
                   </box>
@@ -1103,10 +1110,9 @@ export function App({ rootPath }: AppProps) {
                     height={currentViewerHeight}
                     onCursorChange={(line, column) => setCursorPos({ line, column })}
                     onJumpToFile={(targetPath, line) => {
-                      // Open the file and optionally jump to line
-                      handleFileSelect(targetPath);
-                      // TODO: Pass line number to FileViewer for initial scroll
+                      handleFileSelect(targetPath, line);
                     }}
+                    initialLine={targetLine}
                   />
                 )}
               </box>

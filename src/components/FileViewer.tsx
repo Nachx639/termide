@@ -21,6 +21,7 @@ interface FileViewerProps {
   height: number;
   onJumpToFile?: (filePath: string, line?: number) => void;
   onCursorChange?: (line: number, column: number) => void;
+  initialLine?: number; // Line to jump to when file is opened
 }
 
 // Breadcrumbs component
@@ -257,12 +258,13 @@ function HighlightedLine({ line, lang, showGuides = false, tabSize = 2, bracketH
   );
 }
 
-export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, onCursorChange }: FileViewerProps) {
+export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, onCursorChange, initialLine }: FileViewerProps) {
   const [content, setContent] = useState<string[]>([]);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [cursorLine, setCursorLine] = useState(0);
   const [cursorColumn, setCursorColumn] = useState(0);
   const [showSearch, setShowSearch] = useState(false);
+  const [initialLineHandled, setInitialLineHandled] = useState<number | null>(null);
   const [searchMode, setSearchMode] = useState<"search" | "goto">("search");
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [wordWrap, setWordWrap] = useState(false);
@@ -661,6 +663,20 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
       console.error("Watcher error:", e);
     }
   }, [filePath]);
+
+  // Jump to initial line when specified and content is loaded
+  useEffect(() => {
+    if (initialLine !== undefined && initialLine !== initialLineHandled && content.length > 0) {
+      // Use the handleJumpToLine function to scroll to the line
+      const targetLine = Math.max(0, Math.min(initialLine, content.length - 1));
+      setCursorLine(targetLine);
+      setCursorColumn(0);
+      // Center the line in the view
+      const centerOffset = Math.max(0, targetLine - Math.floor(viewHeight / 2));
+      setScrollOffset(Math.min(centerOffset, Math.max(0, content.length - viewHeight)));
+      setInitialLineHandled(initialLine);
+    }
+  }, [initialLine, initialLineHandled, content.length, viewHeight]);
 
   // Load git blame data when enabled
   useEffect(() => {
