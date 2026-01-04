@@ -835,8 +835,8 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
       return;
     }
 
-    // Ctrl+Y - Toggle sticky scroll (Y for stickY)
-    if (event.ctrl && !event.shift && event.name === "y") {
+    // Ctrl+T - Toggle sticky scroll (T for Top context)
+    if (event.ctrl && !event.shift && event.name === "t") {
       setShowStickyScroll((v) => !v);
       return;
     }

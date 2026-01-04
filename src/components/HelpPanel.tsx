@@ -44,7 +44,7 @@ const SHORTCUTS: ShortcutCategory[] = [
       { keys: "Ctrl+E", description: "Toggle minimap" },
       { keys: "Ctrl+N", description: "Toggle line numbers" },
       { keys: "Ctrl+R", description: "Toggle relative numbers" },
-      { keys: "Ctrl+Y", description: "Toggle sticky scroll" },
+      { keys: "Ctrl+T", description: "Toggle sticky scroll" },
       { keys: "Ctrl+I", description: "Toggle git gutter" },
     ],
   },
