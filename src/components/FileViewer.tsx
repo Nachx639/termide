@@ -806,8 +806,8 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
       return;
     }
 
-    // Ctrl+Alt+W - Toggle word wrap
-    if (event.ctrl && event.alt && event.name === "w") {
+    // Ctrl+W - Toggle word wrap
+    if (event.ctrl && !event.shift && event.name === "w") {
       setWordWrap((w) => !w);
       return;
     }
@@ -817,33 +817,33 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
       return;
     }
 
-    // Ctrl+Alt+M - Toggle minimap
-    if (event.ctrl && event.alt && event.name === "m") {
+    // Ctrl+E - Toggle minimap (E for Eye view)
+    if (event.ctrl && !event.shift && event.name === "e") {
       setShowMinimap((v) => !v);
       return;
     }
 
-    // Alt+L - Toggle relative line numbers
-    if (event.alt && !event.ctrl && event.name === "l") {
-      setRelativeLineNumbers((v) => !v);
-      return;
-    }
-
-    // Ctrl+Alt+L - Toggle line numbers visibility
-    if (event.ctrl && event.alt && event.name === "l") {
+    // Ctrl+N - Toggle line numbers visibility (N for Numbers)
+    if (event.ctrl && !event.shift && event.name === "n") {
       setShowLineNumbers((v) => !v);
       return;
     }
 
-    // Alt+G - Toggle git gutter
-    if (event.alt && event.name === "g") {
-      setShowGitGutter((v) => !v);
+    // Ctrl+R - Toggle relative line numbers
+    if (event.ctrl && !event.shift && event.name === "r") {
+      setRelativeLineNumbers((v) => !v);
       return;
     }
 
-    // Ctrl+Alt+S - Toggle sticky scroll
-    if (event.ctrl && event.alt && event.name === "s") {
+    // Ctrl+Y - Toggle sticky scroll (Y for stickY)
+    if (event.ctrl && !event.shift && event.name === "y") {
       setShowStickyScroll((v) => !v);
+      return;
+    }
+
+    // Ctrl+I - Toggle git gutter (I for Inline diff)
+    if (event.ctrl && !event.shift && event.name === "i") {
+      setShowGitGutter((v) => !v);
       return;
     }
 
