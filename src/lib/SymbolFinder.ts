@@ -234,6 +234,108 @@ export function findDefinition(
 }
 
 /**
+ * Get all symbols (functions, classes, interfaces, etc.) in a file
+ */
+export function getAllSymbols(content: string, filePath: string): SymbolLocation[] {
+  const lines = content.split("\n");
+  const symbols: SymbolLocation[] = [];
+
+  // Patterns for different symbol types
+  const patterns = [
+    // Function declarations
+    { regex: /(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*[(<]/, kind: "function" as const },
+    // Arrow functions assigned to const/let/var
+    { regex: /(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[a-zA-Z_$][a-zA-Z0-9_$]*)\s*=>/, kind: "function" as const },
+    // Class declarations
+    { regex: /class\s+([a-zA-Z_$][a-zA-Z0-9_$]*)(?:\s+extends|\s+implements|\s*\{|<)/, kind: "class" as const },
+    // Interface declarations
+    { regex: /interface\s+([a-zA-Z_$][a-zA-Z0-9_$]*)(?:\s+extends|\s*\{|<)/, kind: "interface" as const },
+    // Type declarations
+    { regex: /type\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*[=<]/, kind: "type" as const },
+    // Exported const/let/var (top-level)
+    { regex: /^export\s+(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/, kind: "variable" as const },
+    // Method definitions in class (with common modifiers)
+    { regex: /^\s+(?:async\s+)?(?:static\s+)?(?:private\s+|protected\s+|public\s+)?(?:readonly\s+)?([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\([^)]*\)\s*[:{]/, kind: "function" as const },
+    // React components (const Component = ...)
+    { regex: /(?:const|let|var)\s+([A-Z][a-zA-Z0-9_$]*)\s*[=:]/, kind: "function" as const },
+    // Export default function/class
+    { regex: /export\s+default\s+(?:async\s+)?(?:function|class)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/, kind: "export" as const },
+  ];
+
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const line = lines[lineIndex]!;
+
+    // Skip comments
+    const trimmed = line.trim();
+    if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) {
+      continue;
+    }
+
+    for (const { regex, kind } of patterns) {
+      const match = regex.exec(line);
+      if (match && match[1]) {
+        const symbolName = match[1];
+        // Skip common non-symbol matches
+        if (["if", "else", "for", "while", "switch", "return", "new", "typeof", "instanceof"].includes(symbolName)) {
+          continue;
+        }
+
+        const column = line.indexOf(symbolName);
+
+        // Check if we already have this symbol (avoid duplicates)
+        const exists = symbols.some(s => s.symbolName === symbolName && s.line === lineIndex);
+        if (!exists) {
+          symbols.push({
+            filePath,
+            line: lineIndex,
+            column: column >= 0 ? column : 0,
+            symbolName,
+            kind,
+          });
+        }
+      }
+    }
+  }
+
+  // Sort by line number
+  return symbols.sort((a, b) => a.line - b.line);
+}
+
+/**
+ * Get icon for symbol kind
+ */
+export function getSymbolIcon(kind: SymbolLocation["kind"]): string {
+  switch (kind) {
+    case "function": return "ƒ";
+    case "class": return "C";
+    case "interface": return "I";
+    case "type": return "T";
+    case "variable": return "V";
+    case "property": return "P";
+    case "import": return "→";
+    case "export": return "←";
+    default: return "•";
+  }
+}
+
+/**
+ * Get color for symbol kind
+ */
+export function getSymbolColor(kind: SymbolLocation["kind"]): string {
+  switch (kind) {
+    case "function": return "#dcdcaa"; // Yellow
+    case "class": return "#4ec9b0"; // Green
+    case "interface": return "#4ec9b0"; // Green
+    case "type": return "#4ec9b0"; // Green
+    case "variable": return "#9cdcfe"; // Light blue
+    case "property": return "#9cdcfe"; // Light blue
+    case "import": return "#c586c0"; // Purple
+    case "export": return "#c586c0"; // Purple
+    default: return "white";
+  }
+}
+
+/**
  * Find all references to a symbol in a file
  */
 export function findReferencesInFile(content: string, symbolName: string, filePath: string): SymbolLocation[] {
