@@ -16,6 +16,7 @@ import { AgentPanel } from "./components/AgentPanel";
 import { Notifications, useNotifications } from "./components/Notifications";
 import { MiniMode } from "./components/MiniMode";
 import { CompactHeader } from "./components/CompactHeader";
+import { FileOperationsModal, type FileOperation } from "./components/FileOperationsModal";
 import * as path from "path";
 import { getGitStatus, formatGitBranch, formatGitStatus, invalidateGitCache } from "./lib/GitIntegration";
 import type { GitStatus } from "./lib/GitIntegration";
@@ -91,7 +92,14 @@ export function App({ rootPath }: AppProps) {
   const [isMaximized, setIsMaximized] = useState(false);
   const [showAgent, setShowAgent] = useState(false);
   const { notifications, notify, dismiss, success, error } = useNotifications();
-  const isAnyModalOpen = showFuzzyFinder || showCommandPalette || showGlobalSearch || showHelpPanel || showThemePicker;
+
+  // File operations state
+  const [showFileOps, setShowFileOps] = useState(false);
+  const [fileOpsOperation, setFileOpsOperation] = useState<FileOperation>("create-file");
+  const [fileOpsTarget, setFileOpsTarget] = useState("");
+  const [treeRefreshKey, setTreeRefreshKey] = useState(0);
+
+  const isAnyModalOpen = showFuzzyFinder || showCommandPalette || showGlobalSearch || showHelpPanel || showThemePicker || showFileOps;
 
   // Responsive layout configuration
   const layoutConfig = getLayoutConfig(dimensions.width || 80, dimensions.height || 24);
@@ -571,6 +579,34 @@ export function App({ rootPath }: AppProps) {
     });
   };
 
+  // Handle file operations from FileTree
+  const handleFileOperation = (operation: FileOperation, targetPath: string) => {
+    setFileOpsOperation(operation);
+    setFileOpsTarget(targetPath);
+    setShowFileOps(true);
+  };
+
+  // Refresh file tree after successful operation
+  const handleFileOpsSuccess = (newPath?: string) => {
+    setShowFileOps(false);
+    setTreeRefreshKey(k => k + 1); // Force FileTree refresh
+    invalidateGitCache(); // Refresh git status
+
+    // Show success notification
+    const opName = {
+      "create-file": "File created",
+      "create-folder": "Folder created",
+      "rename": "Renamed",
+      "delete": "Deleted"
+    }[fileOpsOperation];
+    success(opName, 2000);
+
+    // Open newly created file
+    if (newPath && fileOpsOperation === "create-file") {
+      handleFileSelect(newPath);
+    }
+  };
+
   const mainWidth = (dimensions.width || 80) - treeWidth - 4;
   const totalHeight = (dimensions.height || 40) - 6; // -6 for header(5) and status bar(1)
   const tabsVisible = openTabs.length > 0;
@@ -708,10 +744,12 @@ export function App({ rootPath }: AppProps) {
             {/* FileTree - Always visible, takes full height in compact mode */}
             <box style={{ flexGrow: isCompactMode ? 1 : 4 }}>
               <FileTree
+                key={treeRefreshKey}
                 rootPath={rootPath}
                 onFileSelect={handleFileSelect}
                 focused={!isAnyModalOpen && focusedPanel === "tree"}
                 onFocus={() => setFocusedPanel("tree")}
+                onFileOperation={handleFileOperation}
               />
             </box>
             {/* Source Control - Hidden in compact mode */}
@@ -902,6 +940,17 @@ export function App({ rootPath }: AppProps) {
         <HelpPanel
           isOpen={showHelpPanel}
           onClose={() => setShowHelpPanel(false)}
+        />
+      )}
+
+      {showFileOps && (
+        <FileOperationsModal
+          isOpen={showFileOps}
+          operation={fileOpsOperation}
+          targetPath={fileOpsTarget}
+          onClose={() => setShowFileOps(false)}
+          onSuccess={handleFileOpsSuccess}
+          onError={(msg) => { error(msg, 3000); setShowFileOps(false); }}
         />
       )}
 
