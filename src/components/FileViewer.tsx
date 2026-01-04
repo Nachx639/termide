@@ -11,6 +11,7 @@ import { findMatchingBracket, isBracket, type BracketMatch } from "../lib/Bracke
 import { findDefinition, getWordAtPosition, type SymbolLocation } from "../lib/SymbolFinder";
 import { detectFoldableRegions, getFoldMarker, toggleFold, foldAll, unfoldAll, type FoldableRegion } from "../lib/CodeFolding";
 import { getGitBlame, getBlameAnnotation, getBlameColor, type BlameLine } from "../lib/GitBlame";
+import { getFileLineDiffs, getLineDiffIndicator, type LineDiffInfo } from "../lib/GitIntegration";
 
 interface FileViewerProps {
   filePath: string | null;
@@ -207,6 +208,32 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
 
   // Relative line numbers state
   const [relativeLineNumbers, setRelativeLineNumbers] = useState(false);
+
+  // Git gutter state (inline diff indicators)
+  const [showGitGutter, setShowGitGutter] = useState(true);
+  const [lineDiffs, setLineDiffs] = useState<Map<number, LineDiffInfo>>(new Map());
+
+  // Fetch git line diffs when file changes
+  useEffect(() => {
+    if (!filePath || !rootPath || !showGitGutter) {
+      setLineDiffs(new Map());
+      return;
+    }
+
+    const fetchLineDiffs = async () => {
+      const diffs = await getFileLineDiffs(filePath, rootPath);
+      const diffMap = new Map<number, LineDiffInfo>();
+      for (const diff of diffs) {
+        diffMap.set(diff.lineNumber, diff);
+      }
+      setLineDiffs(diffMap);
+    };
+
+    fetchLineDiffs();
+    // Refresh periodically
+    const interval = setInterval(fetchLineDiffs, 5000);
+    return () => clearInterval(interval);
+  }, [filePath, rootPath, showGitGutter, content]);
 
   // Notify parent of cursor position changes
   useEffect(() => {
@@ -565,6 +592,12 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
       return;
     }
 
+    // Alt+G - Toggle git gutter
+    if (event.alt && event.name === "g") {
+      setShowGitGutter((v) => !v);
+      return;
+    }
+
     if (event.meta && event.name === "p") {
       if (isMarkdown) {
         setShowPreview((v) => !v);
@@ -785,6 +818,7 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
             {relativeLineNumbers && <text style={{ fg: "yellow", dim: true }}> [rel]</text>}
             {foldedRegions.size > 0 && <text style={{ fg: "cyan", dim: true }}> [{foldedRegions.size} folded]</text>}
             {showBlame && <text style={{ fg: "magenta", dim: true }}> [blame]</text>}
+            {showGitGutter && lineDiffs.size > 0 && <text style={{ fg: "#4ec9b0", dim: true }}> [git]</text>}
             {isMarkdown && (
               <text style={{ fg: showPreview ? "#d4a800" : "gray", dim: !showPreview }}>
                 {showPreview ? " [preview]" : " [Alt+P preview]"}
@@ -892,8 +926,18 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
                   ? Math.abs(actualLineNum - cursorLine)
                   : lineNum;
 
+                // Get git gutter indicator for this line (1-indexed)
+                const lineDiff = lineDiffs.get(lineNum);
+                const gutterIndicator = lineDiff ? getLineDiffIndicator(lineDiff.status) : null;
+
                 return (
                   <box key={index} style={{ flexDirection: "row", bg: lineBg as any, overflow: "hidden" }}>
+                    {/* Git gutter indicator */}
+                    {showGitGutter && (
+                      <text style={{ fg: gutterIndicator?.color as any || "transparent", flexShrink: 0 }}>
+                        {gutterIndicator?.char || " "}
+                      </text>
+                    )}
                     <text style={{ fg: foldColor as any, flexShrink: 0 }}>{foldIndicator}</text>
                     {showBlame && (
                       <text style={{ fg: blameColor as any, dim: true, flexShrink: 0 }}>
