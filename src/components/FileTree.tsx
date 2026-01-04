@@ -195,7 +195,7 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
         <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a" }}>Explorer</text>
       </box>
       <box
-        style={{ flexDirection: "row", flexGrow: 1, bg: "#0b0b0b", position: "relative" }}
+        style={{ flexDirection: "column", flexGrow: 1, bg: "#0b0b0b" }}
         onMouse={(event: any) => {
           if (!focused) return;
           if (event.action === "wheel") {
@@ -216,7 +216,7 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
           }
         }}
       >
-        <box style={{ flexDirection: "column", paddingX: 1, flexGrow: 1, bg: "#0b0b0b", overflow: "hidden" }}>
+        <scrollbox style={{ flexGrow: 1, paddingX: 1, bg: "#0b0b0b" }}>
           {flatList.slice(scrollTop, scrollTop + 20).map((node, index) => {
             const actualIndex = index + scrollTop;
             const isSelected = actualIndex === selectedIndex && focused;
@@ -287,28 +287,7 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
               </box>
             );
           })}
-        </box>
-
-        {/* Scrollbar */}
-        {flatList.length > 20 && (
-          <box style={{ width: 1, height: "100%", flexDirection: "column", bg: "#050505", borderLeft: true, borderColor: "gray", dim: true }}>
-            {(() => {
-              const visibleCount = 20;
-              const scrollPercentage = scrollTop / (flatList.length - visibleCount);
-              const thumbHeight = Math.max(1, Math.floor((visibleCount / flatList.length) * visibleCount));
-              const thumbPos = Math.floor(scrollPercentage * (visibleCount - thumbHeight));
-
-              return Array.from({ length: visibleCount }).map((_, i) => {
-                const isThumb = i >= thumbPos && i < thumbPos + thumbHeight;
-                return (
-                  <text key={i} style={{ fg: isThumb ? "cyan" : "gray", dim: !isThumb }}>
-                    {isThumb ? "█" : "│"}
-                  </text>
-                );
-              });
-            })()}
-          </box>
-        )}
+        </scrollbox>
       </box>
     </box>
 
