@@ -1,44 +1,57 @@
-import { spawn } from "bun";
+import { spawn, type Subprocess } from "bun";
 
-export interface JsonRpcRequest {
+// JSON-RPC 2.0 Types with generics for better type safety
+export interface JsonRpcRequest<TParams = unknown> {
   jsonrpc: "2.0";
   id: number | string;
   method: string;
-  params?: any;
+  params?: TParams;
 }
 
-export interface JsonRpcResponse {
+export interface JsonRpcError {
+  code: number;
+  message: string;
+  data?: unknown;
+}
+
+export interface JsonRpcResponse<TResult = unknown> {
   jsonrpc: "2.0";
   id: number | string;
-  result?: any;
-  error?: {
-    code: number;
-    message: string;
-    data?: any;
-  };
+  result?: TResult;
+  error?: JsonRpcError;
 }
 
-export interface JsonRpcNotification {
+export interface JsonRpcNotification<TParams = unknown> {
   jsonrpc: "2.0";
   method: string;
-  params?: any;
+  params?: TParams;
 }
 
 export type JsonRpcMessage = JsonRpcRequest | JsonRpcResponse | JsonRpcNotification;
+
+// Callback types for better inference
+export type NotificationHandler = (method: string, params: unknown) => void;
+export type RequestHandler = (method: string, params: unknown) => Promise<unknown>;
 
 export interface ACPOptions {
   command: string;
   args?: string[];
   cwd?: string;
   env?: Record<string, string>;
-  onNotification?: (method: string, params: any) => void;
-  onRequest?: (method: string, params: any) => Promise<any>;
+  onNotification?: NotificationHandler;
+  onRequest?: RequestHandler;
+}
+
+// Pending request handler type
+interface PendingRequest {
+  resolve: (value: unknown) => void;
+  reject: (error: JsonRpcError | Error) => void;
 }
 
 export class ACPClient {
-  private proc: any;
+  private proc: Subprocess<"pipe", "pipe", "ignore"> | null = null;
   private requestId = 0;
-  private pendingRequests = new Map<number | string, { resolve: (val: any) => void, reject: (err: any) => void }>();
+  private pendingRequests = new Map<number | string, PendingRequest>();
   private buffer = "";
   private isConnected = false;
 
@@ -69,7 +82,8 @@ export class ACPClient {
     }
   }
 
-  private async readLoop() {
+  private async readLoop(): Promise<void> {
+    if (!this.proc) return;
     const reader = this.proc.stdout.getReader();
     try {
       while (true) {
@@ -121,8 +135,9 @@ export class ACPClient {
         try {
           const result = await this.options.onRequest(request.method, request.params);
           this.sendResponse(request.id, result);
-        } catch (err: any) {
-          this.sendError(request.id, -32603, err.message || "Internal error");
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Internal error";
+          this.sendError(request.id, -32603, message);
         }
       } else {
         // Method not found/handled
@@ -139,23 +154,31 @@ export class ACPClient {
     }
   }
 
-  async sendRequest(method: string, params?: any): Promise<any> {
-    if (!this.isConnected) throw new Error("ACP Client not connected");
+  async sendRequest<TResult = unknown, TParams = unknown>(
+    method: string,
+    params?: TParams
+  ): Promise<TResult> {
+    if (!this.isConnected || !this.proc) {
+      throw new Error("ACP Client not connected");
+    }
 
     const id = this.requestId++;
-    const req: JsonRpcRequest = {
+    const req: JsonRpcRequest<TParams> = {
       jsonrpc: "2.0",
       id,
       method,
       params
     };
 
-    return new Promise((resolve, reject) => {
-      this.pendingRequests.set(id, { resolve, reject });
+    return new Promise<TResult>((resolve, reject) => {
+      this.pendingRequests.set(id, {
+        resolve: resolve as (value: unknown) => void,
+        reject
+      });
       const str = JSON.stringify(req) + "\n";
       try {
-        this.proc.stdin.write(new TextEncoder().encode(str));
-        this.proc.stdin.flush();
+        this.proc!.stdin.write(new TextEncoder().encode(str));
+        this.proc!.stdin.flush();
       } catch (e) {
         this.pendingRequests.delete(id);
         reject(e);
@@ -163,9 +186,9 @@ export class ACPClient {
     });
   }
 
-  async sendNotification(method: string, params?: any) {
-    if (!this.isConnected) return;
-    const notif: JsonRpcNotification = {
+  async sendNotification<TParams = unknown>(method: string, params?: TParams): Promise<void> {
+    if (!this.isConnected || !this.proc) return;
+    const notif: JsonRpcNotification<TParams> = {
       jsonrpc: "2.0",
       method,
       params
@@ -175,8 +198,8 @@ export class ACPClient {
     this.proc.stdin.flush();
   }
 
-  private sendResponse(id: number | string, result: any) {
-    if (!this.isConnected) return;
+  private sendResponse(id: number | string, result: unknown): void {
+    if (!this.isConnected || !this.proc) return;
     const resp: JsonRpcResponse = {
       jsonrpc: "2.0",
       id,
@@ -187,8 +210,8 @@ export class ACPClient {
     this.proc.stdin.flush();
   }
 
-  private sendError(id: number | string, code: number, message: string) {
-    if (!this.isConnected) return;
+  private sendError(id: number | string, code: number, message: string): void {
+    if (!this.isConnected || !this.proc) return;
     const resp: JsonRpcResponse = {
       jsonrpc: "2.0",
       id,
