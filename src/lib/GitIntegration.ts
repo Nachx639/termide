@@ -1,4 +1,5 @@
 import * as path from "path";
+import { TIMING } from "./config";
 
 export interface GitStatus {
   isRepo: boolean;
@@ -22,7 +23,7 @@ export interface FileGitStatus {
 let gitStatusCache: { status: GitStatus; timestamp: number } | null = null;
 let fileStatusCache: Map<string, FileGitStatus> = new Map();
 let cacheTimestamp = 0;
-const CACHE_TTL = 2000; // 2 seconds cache
+const CACHE_TTL = TIMING.GIT_CACHE_TTL;
 
 async function runGitCommand(args: string[], cwd: string): Promise<string | null> {
   try {
@@ -346,7 +347,7 @@ export interface LineDiffInfo {
 
 // Cache for line diffs
 const lineDiffCache: Map<string, { diffs: LineDiffInfo[]; timestamp: number }> = new Map();
-const LINE_DIFF_CACHE_TTL = 3000; // 3 seconds
+const LINE_DIFF_CACHE_TTL = TIMING.GIT_LINE_DIFF_CACHE_TTL;
 
 export async function getFileLineDiffs(filePath: string, cwd: string): Promise<LineDiffInfo[]> {
   const now = Date.now();
