@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import { FileTree } from "./components/FileTree";
 import { FileViewer } from "./components/FileViewer";
@@ -143,6 +143,11 @@ export function App({ rootPath }: AppProps) {
 
   // Select mode - disables mouse tracking so user can select text with mouse
   const [selectMode, setSelectMode] = useState(false);
+
+  // Stable handler for cursor position updates to prevent infinite loops
+  const handleCursorChange = useCallback((line: number, column: number) => {
+    setCursorPos({ line, column });
+  }, []);
 
   // Ref to track focused panel for SIGINT handler
   const focusedPanelRef = useRef<Panel>(focusedPanel);
@@ -1285,7 +1290,7 @@ export function App({ rootPath }: AppProps) {
                         focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "left"}
                         rootPath={rootPath}
                         height={currentViewerHeight}
-                        onCursorChange={activeSplit === "left" ? (line, column) => setCursorPos({ line, column }) : undefined}
+                        onCursorChange={activeSplit === "left" ? handleCursorChange : undefined}
                         onJumpToFile={(targetPath, line) => {
                           handleFileSelect(targetPath, line);
                         }}
@@ -1302,7 +1307,7 @@ export function App({ rootPath }: AppProps) {
                         focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "right"}
                         rootPath={rootPath}
                         height={currentViewerHeight}
-                        onCursorChange={activeSplit === "right" ? (line, column) => setCursorPos({ line, column }) : undefined}
+                        onCursorChange={activeSplit === "right" ? handleCursorChange : undefined}
                         onJumpToFile={(targetPath, line) => {
                           setSplitFile(targetPath);
                           setTargetLine(line);
@@ -1323,7 +1328,7 @@ export function App({ rootPath }: AppProps) {
                         focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "left"}
                         rootPath={rootPath}
                         height={Math.floor(currentViewerHeight / 2)}
-                        onCursorChange={activeSplit === "left" ? (line, column) => setCursorPos({ line, column }) : undefined}
+                        onCursorChange={activeSplit === "left" ? handleCursorChange : undefined}
                         onJumpToFile={(targetPath, line) => {
                           handleFileSelect(targetPath, line);
                         }}
@@ -1340,7 +1345,7 @@ export function App({ rootPath }: AppProps) {
                         focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "right"}
                         rootPath={rootPath}
                         height={Math.floor(currentViewerHeight / 2)}
-                        onCursorChange={activeSplit === "right" ? (line, column) => setCursorPos({ line, column }) : undefined}
+                        onCursorChange={activeSplit === "right" ? handleCursorChange : undefined}
                         onJumpToFile={(targetPath, line) => {
                           setSplitFile(targetPath);
                           setTargetLine(line);
@@ -1355,7 +1360,7 @@ export function App({ rootPath }: AppProps) {
                     focused={!isAnyModalOpen && focusedPanel === "viewer"}
                     rootPath={rootPath}
                     height={currentViewerHeight}
-                    onCursorChange={(line, column) => setCursorPos({ line, column })}
+                    onCursorChange={handleCursorChange}
                     onJumpToFile={(targetPath, line) => {
                       handleFileSelect(targetPath, line);
                     }}
