@@ -202,15 +202,19 @@ export function App({ rootPath }: AppProps) {
   // Select mode - toggle mouse tracking for native terminal selection
   useEffect(() => {
     if (selectMode) {
-      // Disable mouse tracking - allows native terminal selection
-      process.stdout.write("\x1b[?1000l"); // Disable mouse click tracking
-      process.stdout.write("\x1b[?1002l"); // Disable mouse drag tracking
-      process.stdout.write("\x1b[?1003l"); // Disable all mouse tracking
+      // Disable ALL mouse tracking modes - allows native terminal selection
+      process.stdout.write("\x1b[?1000l"); // Disable X10 mouse reporting
+      process.stdout.write("\x1b[?1001l"); // Disable highlight mouse tracking
+      process.stdout.write("\x1b[?1002l"); // Disable button-event tracking
+      process.stdout.write("\x1b[?1003l"); // Disable any-event tracking
+      process.stdout.write("\x1b[?1004l"); // Disable focus events
+      process.stdout.write("\x1b[?1005l"); // Disable UTF-8 mouse mode
       process.stdout.write("\x1b[?1006l"); // Disable SGR mouse mode
+      process.stdout.write("\x1b[?1015l"); // Disable urxvt mouse mode
     } else {
       // Re-enable mouse tracking for TUI
       process.stdout.write("\x1b[?1000h"); // Enable mouse click tracking
-      process.stdout.write("\x1b[?1002h"); // Enable mouse drag tracking
+      process.stdout.write("\x1b[?1002h"); // Enable button-event tracking
       process.stdout.write("\x1b[?1006h"); // Enable SGR mouse mode
     }
   }, [selectMode]);
@@ -1517,6 +1521,25 @@ export function App({ rootPath }: AppProps) {
             success(`Copied ${lineCount} line${lineCount > 1 ? "s" : ""} to clipboard!`, 2000);
           }}
         />
+      )}
+
+      {/* Select Mode Indicator - very visible */}
+      {selectMode && (
+        <box
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: dimensions.width,
+            height: 1,
+            bg: "yellow",
+            justifyContent: "center",
+          }}
+        >
+          <text style={{ fg: "black", bg: "yellow", bold: true }}>
+            ⚡ SELECT MODE - Selecciona con ratón, Cmd+C para copiar, Ctrl+X S para salir ⚡
+          </text>
+        </box>
       )}
 
       {/* Notifications */}
