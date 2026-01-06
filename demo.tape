@@ -1,5 +1,3 @@
-Set Height 700
-Set Theme "Catppuccin Mocha"
 Set TypingSpeed 50ms
 Set Padding 20
 

@@ -288,12 +288,11 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
                                 if (absolute && panelWidth >= 36) {
                                     timeText = `${timeText} - ${absolute}`;
                                 }
-                                let line = `Time: ${timeText}`;
-                                if (focused && entries[selectedIndex].refs) {
-                                    line = `${line} - ${entries[selectedIndex].refs}`;
-                                }
-                                return truncateDetail(line);
+                                return truncateDetail(`Time: ${timeText}`);
                             })()}
+                        </text>
+                        <text style={{ fg: "#4ec9b0", dim: true }}>
+                            {focused && entries[selectedIndex].refs ? truncateDetail(`Refs: ${entries[selectedIndex].refs}`) : ""}
                         </text>
                     </box>
                 )}
