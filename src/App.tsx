@@ -131,6 +131,10 @@ export function App({ rootPath }: AppProps) {
   const [fileOpsTarget, setFileOpsTarget] = useState("");
   const [treeRefreshKey, setTreeRefreshKey] = useState(0);
 
+  // Leader key mode (Ctrl+X prefix like vim/OpenCode)
+  const [leaderMode, setLeaderMode] = useState(false);
+  const leaderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const isAnyModalOpen = showFuzzyFinder || showCommandPalette || showGlobalSearch || showHelpPanel || showShortcuts || showThemePicker || showFileOps || showQuickSettings;
 
   // Responsive layout configuration
@@ -607,6 +611,65 @@ export function App({ rootPath }: AppProps) {
   useKeyboard(async (event) => {
     // Don't handle keyboard if overlays are open (except help panel)
     if (showFuzzyFinder || showCommandPalette || showGlobalSearch || showThemePicker || showQuickSettings) return;
+
+    // === LEADER KEY MODE (Ctrl+X prefix like vim/OpenCode) ===
+    // This allows us to use multi-key shortcuts that bypass terminal interception
+
+    // Enter leader mode with Ctrl+X
+    if (event.ctrl && (event.name === "x" || event.name === "X") && !event.shift && !leaderMode) {
+      setLeaderMode(true);
+      // Clear any existing timeout
+      if (leaderTimeoutRef.current) clearTimeout(leaderTimeoutRef.current);
+      // Exit leader mode after 2 seconds if no key pressed
+      leaderTimeoutRef.current = setTimeout(() => {
+        setLeaderMode(false);
+        notify("Leader mode cancelled", "info", 1000);
+      }, 2000);
+      notify("Ctrl+X pressed - waiting for command...", "info", 2000);
+      return;
+    }
+
+    // Handle keys in leader mode
+    if (leaderMode) {
+      // Clear timeout since user pressed a key
+      if (leaderTimeoutRef.current) clearTimeout(leaderTimeoutRef.current);
+      setLeaderMode(false);
+
+      // Y or C = Copy (like vim yank or standard copy)
+      if (event.name === "y" || event.name === "Y" || event.name === "c" || event.name === "C") {
+        try {
+          if (focusedPanel === "viewer" && selectedFile) {
+            const content = await Bun.file(selectedFile).text();
+            await copyToClipboard(content);
+            success("Copied file content to clipboard!", 2000);
+          } else if (focusedPanel === "terminal" && terminalCopyRef.current) {
+            const content = terminalCopyRef.current();
+            await copyToClipboard(content);
+            success("Copied terminal content to clipboard!", 2000);
+          } else {
+            notify("Nothing to copy - focus on file viewer or terminal", "warning", 2000);
+          }
+        } catch {
+          error("Failed to copy", 2000);
+        }
+        return;
+      }
+
+      // Q = Quit
+      if (event.name === "q" || event.name === "Q") {
+        process.exit(0);
+      }
+
+      // H = Help
+      if (event.name === "h" || event.name === "H") {
+        setShowHelpPanel(true);
+        return;
+      }
+
+      // Any other key - just cancel leader mode (already done above)
+      notify("Unknown command", "warning", 1000);
+      return;
+    }
 
     // Help - Simple universal shortcuts (Ctrl+B, ?, or F1)
     if (
