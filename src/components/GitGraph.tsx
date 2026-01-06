@@ -142,13 +142,13 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
                                     <box style={{ flexDirection: "row" }}>
                                         <text style={{ fg: "cyan" }}>{entry.graph}</text>
                                         {entry.hash && <text style={{ fg: "#d4a800", bold: true }}>{entry.hash}</text>}
-                                        {entry.refs && <text style={{ fg: "#4ec9b0", dim: true }}> {entry.refs}</text>}
                                         {entry.time && <text style={{ fg: "gray", dim: true }}> · {entry.time}</text>}
                                     </box>
-                                    {entry.subject && (
+                                    {(entry.refs || entry.subject) && (
                                         <box style={{ flexDirection: "row" }}>
                                             <text style={{ fg: "cyan" }}>{indent}</text>
-                                            <text style={{ fg: "white" }}>  {entry.subject}</text>
+                                            {entry.refs && <text style={{ fg: "#4ec9b0", dim: true }}> {entry.refs}</text>}
+                                            {entry.subject && <text style={{ fg: "white" }}>  {entry.subject}</text>}
                                         </box>
                                     )}
                                 </box>
