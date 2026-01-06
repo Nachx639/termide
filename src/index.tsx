@@ -3,11 +3,34 @@ import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
 import { App } from "./App";
 import * as path from "path";
+import * as fs from "fs";
+
+// Debug log
+const debugLog = (msg: string) => {
+  fs.appendFileSync("/tmp/termide-debug.log", `[${new Date().toISOString()}] ${msg}\n`);
+};
+
+// 🔥 CRITICAL: Register SIGINT handler IMMEDIATELY before anything else
+debugLog("📍 index.tsx: Registering SIGINT handler FIRST");
+let lastSigint = 0;
+process.on("SIGINT", () => {
+  debugLog("⚡ SIGINT received in index.tsx!");
+  const now = Date.now();
+  if (now - lastSigint < 500) {
+    debugLog("  → Double-tap, exiting...");
+    process.stdout.write("\x1b[?1000l\x1b[?1006l\x1b[?25h\x1b[?1049l");
+    process.exit(0);
+  }
+  lastSigint = now;
+  debugLog("  → Single tap, should copy...");
+});
 
 // Get the root path from command line or use current directory
 const rootPath = path.resolve(process.argv[2] || process.cwd());
 
-const renderer = await createCliRenderer();
+// 🎯 Disable mouse handling at source so native Cmd+C copy works!
+const renderer = await createCliRenderer({ useMouse: false });
+debugLog("🖱️ Renderer created with useMouse: false");
 
 const root = createRoot(renderer);
 root.render(<App rootPath={rootPath} />);
