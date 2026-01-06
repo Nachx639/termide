@@ -22,13 +22,14 @@ export function CopyPanel({ isOpen, onClose, content, title, onCopy }: CopyPanel
   const [selectionStart, setSelectionStart] = useState<number | null>(null);
   const [selectionEnd, setSelectionEnd] = useState<number | null>(null);
 
-  // Reset state when opened
+  // Reset state when opened - start with selection active on first line
   useEffect(() => {
     if (isOpen) {
       setScrollOffset(0);
       setCursorLine(0);
-      setSelectionStart(null);
-      setSelectionEnd(null);
+      // Start with selection active so user can immediately navigate and copy
+      setSelectionStart(0);
+      setSelectionEnd(0);
     }
   }, [isOpen]);
 
@@ -234,16 +235,16 @@ export function CopyPanel({ isOpen, onClose, content, title, onCopy }: CopyPanel
         <box style={{ height: 1, paddingX: 1, borderTop: true, borderColor: "gray" }}>
           <box style={{ flexDirection: "row", gap: 2 }}>
             <box style={{ flexDirection: "row" }}>
-              <text style={{ fg: "cyan" }}>v</text>
+              <text style={{ fg: "cyan" }}>j/k</text>
               <text style={{ fg: "gray" }}> select</text>
             </box>
             <box style={{ flexDirection: "row" }}>
-              <text style={{ fg: "cyan" }}>j/k</text>
-              <text style={{ fg: "gray" }}> move</text>
+              <text style={{ fg: "yellow", bold: true }}>y</text>
+              <text style={{ fg: "gray" }}> COPY</text>
             </box>
             <box style={{ flexDirection: "row" }}>
-              <text style={{ fg: "cyan" }}>y</text>
-              <text style={{ fg: "gray" }}> copy</text>
+              <text style={{ fg: "cyan" }}>g/G</text>
+              <text style={{ fg: "gray" }}> start/end</text>
             </box>
             <box style={{ flexDirection: "row" }}>
               <text style={{ fg: "cyan" }}>Ctrl+A</text>
