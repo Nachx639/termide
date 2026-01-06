@@ -29,6 +29,7 @@ import { getLayoutConfig, getScreenSizeLabel } from "./lib/ResponsiveLayout";
 import type { LayoutConfig, ScreenSize } from "./lib/ResponsiveLayout";
 import { loadSession, saveSession, addRecentFile } from "./lib/SessionManager";
 import { detectFileInfo, formatEncoding, formatLineEnding, formatIndent, type FileInfo } from "./lib/FileEncoding";
+import { logger } from "./lib/logger";
 
 type Panel = "tree" | "viewer" | "terminal" | "source" | "graph" | "agent";
 
@@ -60,7 +61,10 @@ async function copyToClipboard(text: string): Promise<void> {
     proc.stdin.write(text);
     proc.stdin.end();
     await proc.exited;
-  } catch { }
+  } catch (err) {
+    // pbcopy not available (non-macOS) - OSC52 already handled it
+    logger.debug("clipboard", "pbcopy fallback failed (expected on non-macOS)", err);
+  }
 }
 
 async function pasteFromClipboard(): Promise<string> {
