@@ -62,8 +62,9 @@ const SHORTCUTS: ShortcutCategory[] = [
   {
     title: "Clipboard",
     shortcuts: [
-      { keys: "Ctrl+Shift+C", description: "Copy (file content or terminal)" },
+      { keys: "Option+C", description: "Copy (recommended on Mac)" },
       { keys: "Ctrl+Y", description: "Copy (vim-style yank)" },
+      { keys: "Ctrl+Shift+C", description: "Copy (Linux terminal style)" },
       { keys: "Ctrl+Shift+V", description: "Paste to terminal" },
     ],
   },
