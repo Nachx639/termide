@@ -21,6 +21,7 @@ interface FileViewerProps {
   height: number;
   onJumpToFile?: (filePath: string, line?: number) => void;
   onCursorChange?: (line: number, column: number) => void;
+  onSelectionChange?: (selectedText: string) => void; // Report selection for Cmd+C copy
   initialLine?: number; // Line to jump to when file is opened
 }
 
@@ -258,7 +259,7 @@ function HighlightedLine({ line, lang, showGuides = false, tabSize = 2, bracketH
   );
 }
 
-export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, onCursorChange, initialLine }: FileViewerProps) {
+export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, onCursorChange, onSelectionChange, initialLine }: FileViewerProps) {
   const [content, setContent] = useState<string[]>([]);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [cursorLine, setCursorLine] = useState(0);
@@ -481,6 +482,34 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
     const end = Math.max(selectionStart, selectionEnd ?? cursorLine);
     return { start, end };
   }, [selectionStart, selectionEnd, cursorLine]);
+
+  // 🎯 Report selection changes to parent for Cmd+C (SIGINT) copy
+  // Use refs to avoid infinite loops - callback ref prevents deps from triggering
+  const lastReportedSelectionRef = React.useRef<string>("");
+  const onSelectionChangeRef = React.useRef(onSelectionChange);
+  onSelectionChangeRef.current = onSelectionChange;
+
+  useEffect(() => {
+    const callback = onSelectionChangeRef.current;
+    if (!callback) return;
+
+    let selectedText = "";
+    if (selectionStart !== null) {
+      // Report selected lines
+      const start = Math.min(selectionStart, selectionEnd ?? cursorLine);
+      const end = Math.max(selectionStart, selectionEnd ?? cursorLine);
+      selectedText = content.slice(start, end + 1).join("\n");
+    } else {
+      // No selection - report current line as potential copy target
+      selectedText = content[cursorLine] ?? "";
+    }
+
+    // Only call if selection actually changed (prevents infinite loops)
+    if (selectedText !== lastReportedSelectionRef.current) {
+      lastReportedSelectionRef.current = selectedText;
+      callback(selectedText);
+    }
+  }, [selectionStart, selectionEnd, cursorLine, content]);
 
   // Copy to system clipboard with multiple fallbacks
   const copyToSystemClipboard = useCallback(async (text: string): Promise<boolean> => {

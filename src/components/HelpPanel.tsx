@@ -82,6 +82,7 @@ const SHORTCUTS: ShortcutCategory[] = [
   {
     title: "Quick Copy (Global)",
     shortcuts: [
+      { keys: "⌘+C", description: "Copy selection! ✨ (2x to exit)" },
       { keys: "⌥+drag", description: "Native select (iTerm2)" },
       { keys: "Ctrl+X → V", description: "Open Copy Panel" },
       { keys: "Ctrl+X → Y", description: "Copy all content" },
