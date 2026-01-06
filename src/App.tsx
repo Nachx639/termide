@@ -754,12 +754,12 @@ export function App({ rootPath }: AppProps) {
       return;
     }
 
-    // Ctrl+M - Select Mode (disable mouse tracking for native terminal selection)
-    if (event.ctrl && !event.shift && event.name === "m") {
+    // Ctrl+Shift+S - Select Mode (disable mouse tracking for native terminal selection)
+    if (event.ctrl && event.shift && (event.name === "s" || event.name === "S")) {
       setSelectMode(s => {
         const newMode = !s;
         if (newMode) {
-          notify("SELECT MODE ON - Select with mouse, Cmd+C to copy, Ctrl+M to exit", "info", 5000);
+          notify("SELECT MODE ON - Arrastra para seleccionar, Cmd+C para copiar, Ctrl+Shift+S para salir", "info", 5000);
         } else {
           notify("Select mode OFF", "info", 1500);
         }
