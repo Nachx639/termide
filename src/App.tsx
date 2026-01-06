@@ -691,6 +691,20 @@ export function App({ rootPath }: AppProps) {
         return;
       }
 
+      // S = Select mode (disable mouse tracking for native terminal selection)
+      if (event.name === "s" || event.name === "S") {
+        setSelectMode(s => {
+          const newMode = !s;
+          if (newMode) {
+            notify("SELECT MODE ON - Arrastra para seleccionar, Cmd+C para copiar, Ctrl+X S para salir", "info", 5000);
+          } else {
+            notify("Select mode OFF", "info", 1500);
+          }
+          return newMode;
+        });
+        return;
+      }
+
       // V = Visual copy mode (open copy panel for selection)
       if (event.name === "v" || event.name === "V") {
         try {
@@ -751,20 +765,6 @@ export function App({ rootPath }: AppProps) {
     // Ctrl+Q - Zen Mode (Q for Quiet/distraction-free)
     if (event.ctrl && !event.shift && event.name === "q") {
       setZenMode(z => !z);
-      return;
-    }
-
-    // Ctrl+Shift+S - Select Mode (disable mouse tracking for native terminal selection)
-    if (event.ctrl && event.shift && (event.name === "s" || event.name === "S")) {
-      setSelectMode(s => {
-        const newMode = !s;
-        if (newMode) {
-          notify("SELECT MODE ON - Arrastra para seleccionar, Cmd+C para copiar, Ctrl+Shift+S para salir", "info", 5000);
-        } else {
-          notify("Select mode OFF", "info", 1500);
-        }
-        return newMode;
-      });
       return;
     }
 
