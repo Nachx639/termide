@@ -60,6 +60,14 @@ const SHORTCUTS: ShortcutCategory[] = [
     ],
   },
   {
+    title: "Clipboard",
+    shortcuts: [
+      { keys: "Ctrl+Shift+C", description: "Copy (file content or terminal)" },
+      { keys: "Ctrl+Y", description: "Copy (vim-style yank)" },
+      { keys: "Ctrl+Shift+V", description: "Paste to terminal" },
+    ],
+  },
+  {
     title: "Terminal",
     shortcuts: [
       { keys: "Any key", description: "Type in terminal" },
