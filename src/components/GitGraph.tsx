@@ -171,16 +171,25 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
         return Math.max(...entries.map((entry) => entry.graph.length));
     }, [entries]);
 
-    const maxSubjectWidth = useMemo(() => {
+    const panelWidth = useMemo(() => {
         const totalWidth = dimensions.width || 80;
-        const panelWidth = Math.max(24, Math.floor(totalWidth * 0.3));
+        return Math.max(24, Math.floor(totalWidth * 0.3));
+    }, [dimensions.width]);
+
+    const maxSubjectWidth = useMemo(() => {
         const reserved = maxGraphWidth + 10;
         return Math.max(18, panelWidth - reserved);
-    }, [dimensions.width, maxGraphWidth]);
+    }, [panelWidth, maxGraphWidth]);
 
     const truncateSubject = (subject: string, forceExpand: boolean) => {
         if (forceExpand || subject.length <= maxSubjectWidth) return subject;
         return `${subject.slice(0, Math.max(0, maxSubjectWidth - 3))}...`;
+    };
+
+    const truncateDetail = (text: string) => {
+        const maxWidth = Math.max(12, panelWidth - 2);
+        if (text.length <= maxWidth) return text;
+        return `${text.slice(0, Math.max(0, maxWidth - 3))}...`;
     };
 
     const formatAbsoluteTime = (unixSecondsText: string) => {
@@ -256,33 +265,36 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
                     )}
                 </scrollbox>
                 {entries[selectedIndex] && (
-                    <box style={{ flexDirection: "column", height: 4, paddingX: 1, bg: "#111111" }}>
+                    <box style={{ height: 1, paddingX: 1, bg: "#0b0b0b", flexShrink: 0 }}>
+                        <text style={{ fg: "#2a2a2a" }}>
+                            {"─".repeat(Math.max(1, panelWidth - 2))}
+                        </text>
+                    </box>
+                )}
+                {entries[selectedIndex] && (
+                    <box style={{ flexDirection: "column", height: 4, paddingX: 1, bg: "#111111", flexShrink: 0 }}>
                         <text style={{ fg: focused ? "#d4a800" : "gray", bold: true }}>
-                            {entries[selectedIndex].hash} {entries[selectedIndex].author && `- ${entries[selectedIndex].author}`}
+                            {truncateDetail(
+                                `${entries[selectedIndex].hash}${entries[selectedIndex].author ? ` - ${entries[selectedIndex].author}` : ""}`
+                            )}
+                        </text>
+                        <text style={{ fg: focused ? "white" : "gray" }}>
+                            {truncateDetail(entries[selectedIndex].subject || "No commit message")}
                         </text>
                         <text style={{ fg: "gray", dim: true }}>
                             {(() => {
                                 const absolute = formatAbsoluteTime(entries[selectedIndex].timeRaw);
-                                if (entries[selectedIndex].timeRelative && absolute) {
-                                    return `When: ${entries[selectedIndex].timeRelative} (${absolute})`;
+                                let timeText = entries[selectedIndex].timeRelative || "unknown";
+                                if (absolute && panelWidth >= 36) {
+                                    timeText = `${timeText} - ${absolute}`;
                                 }
-                                if (entries[selectedIndex].timeRelative) {
-                                    return `When: ${entries[selectedIndex].timeRelative}`;
+                                let line = `Time: ${timeText}`;
+                                if (focused && entries[selectedIndex].refs) {
+                                    line = `${line} - ${entries[selectedIndex].refs}`;
                                 }
-                                if (absolute) {
-                                    return `When: ${absolute}`;
-                                }
-                                return "When: unknown";
+                                return truncateDetail(line);
                             })()}
                         </text>
-                        <text style={{ fg: focused ? "white" : "gray" }}>
-                            {entries[selectedIndex].subject || "No commit message"}
-                        </text>
-                        {focused && entries[selectedIndex].refs && (
-                            <text style={{ fg: "#4ec9b0", dim: true }}>
-                                Refs: {entries[selectedIndex].refs}
-                            </text>
-                        )}
                     </box>
                 )}
             </box>
