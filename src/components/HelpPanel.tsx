@@ -60,11 +60,19 @@ const SHORTCUTS: ShortcutCategory[] = [
     ],
   },
   {
-    title: "Clipboard (Leader: Ctrl+X)",
+    title: "Selection & Copy (File Viewer)",
     shortcuts: [
-      { keys: "Ctrl+X → Y", description: "Copy content (like OpenCode)" },
-      { keys: "Ctrl+X → C", description: "Copy content (alternative)" },
-      { keys: "Ctrl+Y", description: "Copy (vim-style yank)" },
+      { keys: "V", description: "Start/toggle visual line selection" },
+      { keys: "Shift+j/k", description: "Extend selection up/down" },
+      { keys: "y", description: "Copy selected lines (yank)" },
+      { keys: "Escape", description: "Clear selection" },
+    ],
+  },
+  {
+    title: "Copy Commands (Global)",
+    shortcuts: [
+      { keys: "Ctrl+X → Y", description: "Copy all content (leader mode)" },
+      { keys: "Ctrl+Y", description: "Copy all content (quick)" },
       { keys: "Ctrl+Shift+V", description: "Paste to terminal" },
     ],
   },

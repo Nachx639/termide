@@ -482,27 +482,55 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
     return { start, end };
   }, [selectionStart, selectionEnd, cursorLine]);
 
+  // Copy to system clipboard with multiple fallbacks
+  const copyToSystemClipboard = useCallback(async (text: string): Promise<boolean> => {
+    // Try OSC52 first (works in iTerm2, Kitty, etc.)
+    const base64 = Buffer.from(text).toString("base64");
+    process.stdout.write(`\x1b]52;c;${base64}\x07`);
+
+    // Also try pbcopy on macOS as fallback
+    try {
+      const proc = Bun.spawn(["pbcopy"], { stdin: "pipe" });
+      proc.stdin.write(text);
+      proc.stdin.end();
+      await proc.exited;
+      return true;
+    } catch {
+      // pbcopy failed, OSC52 might still work
+      return true;
+    }
+  }, []);
+
   // Copy selected lines to clipboard
-  const copySelectedLines = useCallback(() => {
+  const copySelectedLines = useCallback(async () => {
     const range = getSelectedRange();
+    let text: string;
+    let lineCount: number;
+
     if (!range) {
       // Copy current line if no selection
       const line = content[cursorLine];
       if (line !== undefined) {
         setClipboard([line]);
-        // Also copy to system clipboard using OSC52
-        const base64 = Buffer.from(line).toString("base64");
-        process.stdout.write(`\x1b]52;c;${base64}\x07`);
+        text = line;
+        lineCount = 1;
+      } else {
+        return;
       }
-      return;
+    } else {
+      const lines = content.slice(range.start, range.end + 1);
+      setClipboard(lines);
+      text = lines.join("\n");
+      lineCount = lines.length;
     }
-    const lines = content.slice(range.start, range.end + 1);
-    setClipboard(lines);
-    // Copy to system clipboard
-    const text = lines.join("\n");
-    const base64 = Buffer.from(text).toString("base64");
-    process.stdout.write(`\x1b]52;c;${base64}\x07`);
-  }, [content, cursorLine, getSelectedRange]);
+
+    await copyToSystemClipboard(text);
+
+    // Clear selection after copy and show feedback via console (notification would need prop)
+    setSelectionStart(null);
+    setSelectionEnd(null);
+    console.log(`✓ Copied ${lineCount} line${lineCount > 1 ? "s" : ""} to clipboard`);
+  }, [content, cursorLine, getSelectedRange, copyToSystemClipboard]);
 
   // Cut selected lines
   const cutSelectedLines = useCallback(() => {
