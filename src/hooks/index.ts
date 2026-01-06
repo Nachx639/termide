@@ -9,3 +9,8 @@ export {
   useGitStatus,
   useSimpleGitStatus,
 } from "./useGitStatus";
+export {
+  useClipboard,
+  copyToClipboard,
+  pasteFromClipboard,
+} from "./useClipboard";
