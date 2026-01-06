@@ -1,5 +1,3 @@
-# Termide Automation Instructions
-
 ## Screen Layout
 - **Left side**: Claude Code terminal (this session)
 - **Right side**: Termide application window
