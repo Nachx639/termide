@@ -71,7 +71,8 @@ const SHORTCUTS: ShortcutCategory[] = [
   {
     title: "Copy Commands (Global)",
     shortcuts: [
-      { keys: "Ctrl+X → Y", description: "Copy all content (leader mode)" },
+      { keys: "Ctrl+X → V", description: "Open Copy Panel (select lines)" },
+      { keys: "Ctrl+X → Y", description: "Copy all content" },
       { keys: "Ctrl+Y", description: "Copy all content (quick)" },
       { keys: "Ctrl+Shift+V", description: "Paste to terminal" },
     ],

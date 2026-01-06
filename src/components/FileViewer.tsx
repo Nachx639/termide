@@ -1112,6 +1112,7 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
       <box style={{ height: 1, paddingX: 1, flexDirection: "row", justifyContent: "space-between" }}>
         <box style={{ flexDirection: "row", gap: 1, flexShrink: 1 }}>
           {focused && <text style={{ fg: "black", bg: "cyan", bold: true }}> FOCUS </text>}
+          {selectionStart !== null && <text style={{ fg: "black", bg: "yellow", bold: true }}> VISUAL </text>}
           {filePath ? (
             <box style={{ flexShrink: 1 }}><Breadcrumbs filePath={filePath} rootPath={rootPath} /></box>
           ) : (
