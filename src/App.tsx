@@ -141,6 +141,9 @@ export function App({ rootPath }: AppProps) {
   const [copyPanelContent, setCopyPanelContent] = useState("");
   const [copyPanelTitle, setCopyPanelTitle] = useState("");
 
+  // Select mode - disables mouse tracking so user can select text with mouse
+  const [selectMode, setSelectMode] = useState(false);
+
   const isAnyModalOpen = showFuzzyFinder || showCommandPalette || showGlobalSearch || showHelpPanel || showShortcuts || showThemePicker || showFileOps || showQuickSettings || showCopyPanel;
 
   // Responsive layout configuration
@@ -195,6 +198,22 @@ export function App({ rootPath }: AppProps) {
       }
     };
   }, [rootPath, openTabs, activeTabIndex, focusedPanel, treeWidth, showAgent, recentFiles]);
+
+  // Select mode - toggle mouse tracking for native terminal selection
+  useEffect(() => {
+    if (selectMode) {
+      // Disable mouse tracking - allows native terminal selection
+      process.stdout.write("\x1b[?1000l"); // Disable mouse click tracking
+      process.stdout.write("\x1b[?1002l"); // Disable mouse drag tracking
+      process.stdout.write("\x1b[?1003l"); // Disable all mouse tracking
+      process.stdout.write("\x1b[?1006l"); // Disable SGR mouse mode
+    } else {
+      // Re-enable mouse tracking for TUI
+      process.stdout.write("\x1b[?1000h"); // Enable mouse click tracking
+      process.stdout.write("\x1b[?1002h"); // Enable mouse drag tracking
+      process.stdout.write("\x1b[?1006h"); // Enable SGR mouse mode
+    }
+  }, [selectMode]);
 
   // Update clock every second
   useEffect(() => {
@@ -732,6 +751,20 @@ export function App({ rootPath }: AppProps) {
     // Ctrl+Q - Zen Mode (Q for Quiet/distraction-free)
     if (event.ctrl && !event.shift && event.name === "q") {
       setZenMode(z => !z);
+      return;
+    }
+
+    // Ctrl+M - Select Mode (disable mouse tracking for native terminal selection)
+    if (event.ctrl && !event.shift && event.name === "m") {
+      setSelectMode(s => {
+        const newMode = !s;
+        if (newMode) {
+          notify("SELECT MODE ON - Select with mouse, Cmd+C to copy, Ctrl+M to exit", "info", 5000);
+        } else {
+          notify("Select mode OFF", "info", 1500);
+        }
+        return newMode;
+      });
       return;
     }
 
