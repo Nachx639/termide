@@ -446,10 +446,10 @@ export async function getGitLog(cwd: string, count: number = 20): Promise<string
     "log",
     `-${count}`,
     "--graph",
-    "--oneline",
     "--all",
     "--color=never",
-    "--pretty=format:%h %s (%cr)"
+    "--decorate=short",
+    "--pretty=format:%h%x1f%D%x1f%s%x1f%cr"
   ], cwd);
 
   if (!logOutput) return [];
