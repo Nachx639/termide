@@ -12,7 +12,8 @@ const renderer = await createCliRenderer();
 const root = createRoot(renderer);
 root.render(<App rootPath={rootPath} />);
 
-// Handle graceful shutdown on signals (SIGINT = Ctrl+C, SIGTERM = kill)
+// Handle graceful shutdown on SIGTERM (kill command)
+// Note: SIGINT (Cmd+C) is handled in App.tsx for copy functionality!
 const cleanExit = () => {
     // Reset terminal modes before exit
     process.stdout.write("\x1b[?1000l"); // Disable mouse tracking
@@ -24,5 +25,5 @@ const cleanExit = () => {
     process.exit(0);
 };
 
-process.on("SIGINT", cleanExit);
+// Only SIGTERM triggers exit - SIGINT is now Cmd+C copy in App.tsx!
 process.on("SIGTERM", cleanExit);
