@@ -56,11 +56,11 @@ export function CopyPanel({ isOpen, onClose, content, title, onCopy }: CopyPanel
 
     return () => {
       if (isOpen) {
-        // Disable mouse tracking when CopyPanel closes
-        // This restores native Cmd+C copy functionality
-        process.stdout.write("\x1b[?1000l");
-        process.stdout.write("\x1b[?1002l");
-        process.stdout.write("\x1b[?1006l");
+        // Disable full mouse tracking when CopyPanel closes
+        process.stdout.write("\x1b[?1002l"); // Disable button-event tracking
+        process.stdout.write("\x1b[?1006l"); // Disable SGR mouse mode
+        // Re-enable X10 mode for click detection (native Cmd+C still works)
+        process.stdout.write("\x1b[?1000h");
       }
     };
   }, [isOpen, lines]);
