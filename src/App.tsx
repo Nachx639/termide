@@ -20,6 +20,7 @@ import { CompactHeader } from "./components/CompactHeader";
 import { FileOperationsModal, type FileOperation } from "./components/FileOperationsModal";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { QuickSettings, type QuickSettingsState } from "./components/QuickSettings";
+import { CopyPanel } from "./components/CopyPanel";
 import * as path from "path";
 import { getGitStatus, formatGitBranch, formatGitStatus, invalidateGitCache } from "./lib/GitIntegration";
 import type { GitStatus } from "./lib/GitIntegration";
@@ -135,7 +136,12 @@ export function App({ rootPath }: AppProps) {
   const [leaderMode, setLeaderMode] = useState(false);
   const leaderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isAnyModalOpen = showFuzzyFinder || showCommandPalette || showGlobalSearch || showHelpPanel || showShortcuts || showThemePicker || showFileOps || showQuickSettings;
+  // Copy panel state
+  const [showCopyPanel, setShowCopyPanel] = useState(false);
+  const [copyPanelContent, setCopyPanelContent] = useState("");
+  const [copyPanelTitle, setCopyPanelTitle] = useState("");
+
+  const isAnyModalOpen = showFuzzyFinder || showCommandPalette || showGlobalSearch || showHelpPanel || showShortcuts || showThemePicker || showFileOps || showQuickSettings || showCopyPanel;
 
   // Responsive layout configuration
   const layoutConfig = getLayoutConfig(dimensions.width || 80, dimensions.height || 24);
@@ -663,6 +669,32 @@ export function App({ rootPath }: AppProps) {
       // H = Help
       if (event.name === "h" || event.name === "H") {
         setShowHelpPanel(true);
+        return;
+      }
+
+      // V = Visual copy mode (open copy panel for selection)
+      if (event.name === "v" || event.name === "V") {
+        try {
+          let content = "";
+          let title = "";
+
+          if (focusedPanel === "viewer" && selectedFile) {
+            content = await Bun.file(selectedFile).text();
+            title = path.basename(selectedFile);
+          } else if (focusedPanel === "terminal" && terminalCopyRef.current) {
+            content = terminalCopyRef.current();
+            title = "Terminal Output";
+          } else {
+            notify("Nothing to copy - focus on file viewer or terminal", "warning", 2000);
+            return;
+          }
+
+          setCopyPanelContent(content);
+          setCopyPanelTitle(title);
+          setShowCopyPanel(true);
+        } catch {
+          error("Failed to open copy panel", 2000);
+        }
         return;
       }
 
@@ -1437,6 +1469,20 @@ export function App({ rootPath }: AppProps) {
         <KeyboardShortcuts
           isOpen={showShortcuts}
           onClose={() => setShowShortcuts(false)}
+        />
+      )}
+
+      {showCopyPanel && (
+        <CopyPanel
+          isOpen={showCopyPanel}
+          onClose={() => setShowCopyPanel(false)}
+          content={copyPanelContent}
+          title={copyPanelTitle}
+          onCopy={async (text) => {
+            await copyToClipboard(text);
+            const lineCount = text.split("\n").length;
+            success(`Copied ${lineCount} line${lineCount > 1 ? "s" : ""} to clipboard!`, 2000);
+          }}
         />
       )}
 

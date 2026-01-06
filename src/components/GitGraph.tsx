@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import { getGitLog } from "../lib/GitIntegration";
 
 interface GitGraphProps {
@@ -9,6 +10,9 @@ interface GitGraphProps {
 
 export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
     const [logLines, setLogLines] = useState<string[]>([]);
+    const [selectedIndex, setSelectedIndex] = useState(0);
+    const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+    const dimensions = useTerminalDimensions();
     const fieldSeparator = "\x1f";
 
     const updateLog = useCallback(async () => {
@@ -24,57 +28,34 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
 
     const borderColor = focused ? "cyan" : "gray";
 
-    const compactRelativeTime = (time: string) => {
-        const match = time.match(/(\d+)\s+(second|minute|hour|day|week|month|year)/);
-        if (!match) return time;
+    const formatRelativeTime = (unixSecondsText: string) => {
+        const unixSeconds = parseInt(unixSecondsText, 10);
+        if (Number.isNaN(unixSeconds)) return unixSecondsText;
 
-        const value = parseInt(match[1], 10);
-        const unit = match[2];
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        let delta = Math.max(0, nowSeconds - unixSeconds);
 
-        if (unit === "second") {
-            if (value >= 60) {
-                const minutes = Math.floor(value / 60);
-                const seconds = value % 60;
-                return seconds ? `${minutes}m ${seconds}s` : `${minutes}m`;
-            }
-            return `${value}s`;
+        const units = [
+            { name: "y", seconds: 365 * 24 * 60 * 60 },
+            { name: "mo", seconds: 30 * 24 * 60 * 60 },
+            { name: "w", seconds: 7 * 24 * 60 * 60 },
+            { name: "d", seconds: 24 * 60 * 60 },
+            { name: "h", seconds: 60 * 60 },
+            { name: "m", seconds: 60 },
+            { name: "s", seconds: 1 },
+        ];
+
+        const parts: string[] = [];
+        for (const unit of units) {
+            if (delta < unit.seconds) continue;
+            const value = Math.floor(delta / unit.seconds);
+            delta -= value * unit.seconds;
+            parts.push(`${value}${unit.name}`);
+            if (parts.length === 2) break;
         }
 
-        if (unit === "minute") {
-            if (value >= 60) {
-                const hours = Math.floor(value / 60);
-                const minutes = value % 60;
-                return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
-            }
-            return `${value}m`;
-        }
-
-        if (unit === "hour") {
-            if (value >= 24) {
-                const days = Math.floor(value / 24);
-                const hours = value % 24;
-                return hours ? `${days}d ${hours}h` : `${days}d`;
-            }
-            return `${value}h`;
-        }
-
-        if (unit === "day") {
-            return `${value}d`;
-        }
-
-        if (unit === "week") {
-            return `${value}w`;
-        }
-
-        if (unit === "month") {
-            return `${value}mo`;
-        }
-
-        if (unit === "year") {
-            return `${value}y`;
-        }
-
-        return time;
+        if (parts.length === 0) return "0s";
+        return parts.join(" ");
     };
 
     const compactRefs = (refs: string) => {
@@ -96,7 +77,7 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
         }
 
         const tokens: string[] = [];
-        if (headTarget) tokens.push(`HEAD→${headTarget}`);
+        if (headTarget) tokens.push(`HEAD->${headTarget}`);
         tokens.push(...filtered);
 
         if (tokens.length === 0) return "";
@@ -119,7 +100,16 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
     const parseLegacyLine = (line: string) => {
         const firstHashIdx = line.search(/[0-9a-f]/);
         if (firstHashIdx === -1) {
-            return { graph: line, hash: "", refs: "", subject: "", time: "" };
+            return {
+                graph: line,
+                hash: "",
+                refs: "",
+                subject: "",
+                timeRaw: "",
+                timeRelative: "",
+                author: "",
+                hasHead: false,
+            };
         }
 
         const graph = line.slice(0, firstHashIdx);
@@ -127,7 +117,16 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
         const match = textPart.match(/^([0-9a-f]+)\s+(.*?)(?:\s+\((.+)\))?$/);
 
         if (!match) {
-            return { graph, hash: "", refs: "", subject: textPart, time: "" };
+            return {
+                graph,
+                hash: "",
+                refs: "",
+                subject: textPart,
+                timeRaw: "",
+                timeRelative: "",
+                author: "",
+                hasHead: false,
+            };
         }
 
         return {
@@ -135,7 +134,10 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
             hash: match[1] || "",
             refs: "",
             subject: match[2] || "",
-            time: match[3] || "",
+            timeRaw: "",
+            timeRelative: match[3] || "",
+            author: "",
+            hasHead: false,
         };
     };
 
@@ -144,52 +146,108 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
             return parseLegacyLine(line);
         }
 
-        const [prefix, refs = "", subject = "", time = ""] = line.split(fieldSeparator);
+        const [prefix, refs = "", subject = "", time = "", author = ""] = line.split(fieldSeparator);
         const { graph, hash } = splitGraphAndHash(prefix);
+        const rawRefs = refs.trim();
+        const timeRaw = time.trim();
 
         return {
             graph,
             hash,
-            refs: compactRefs(refs.trim()),
+            refs: compactRefs(rawRefs),
             subject: subject.trim(),
-            time: compactRelativeTime(time.trim()),
+            timeRaw,
+            timeRelative: formatRelativeTime(timeRaw),
+            author: author.trim(),
+            hasHead: rawRefs.includes("HEAD -> "),
         };
     };
 
     const graphIndent = (graph: string) => graph.replace(/[^ ]/g, " ");
+
+    const entries = useMemo(() => logLines.map(parseLogLine), [logLines]);
+    const maxGraphWidth = useMemo(() => {
+        if (entries.length === 0) return 0;
+        return Math.max(...entries.map((entry) => entry.graph.length));
+    }, [entries]);
+
+    const maxSubjectWidth = useMemo(() => {
+        const totalWidth = dimensions.width || 80;
+        const panelWidth = Math.max(24, Math.floor(totalWidth * 0.3));
+        const reserved = maxGraphWidth + 10;
+        return Math.max(18, panelWidth - reserved);
+    }, [dimensions.width, maxGraphWidth]);
+
+    const truncateSubject = (subject: string, forceExpand: boolean) => {
+        if (forceExpand || subject.length <= maxSubjectWidth) return subject;
+        return `${subject.slice(0, Math.max(0, maxSubjectWidth - 3))}...`;
+    };
+
+    const formatAbsoluteTime = (unixSecondsText: string) => {
+        const unixSeconds = parseInt(unixSecondsText, 10);
+        if (Number.isNaN(unixSeconds)) return "";
+        const date = new Date(unixSeconds * 1000);
+        return date.toISOString().replace("T", " ").slice(0, 16);
+    };
+
+    useEffect(() => {
+        setSelectedIndex((current) => Math.min(Math.max(current, 0), Math.max(0, entries.length - 1)));
+        if (expandedIndex !== null && expandedIndex >= entries.length) {
+            setExpandedIndex(null);
+        }
+    }, [entries.length, expandedIndex]);
+
+    useKeyboard((event) => {
+        if (!focused) return;
+        if (entries.length === 0) return;
+
+        if (event.name === "up" || event.name === "k") {
+            setSelectedIndex((current) => Math.max(0, current - 1));
+        } else if (event.name === "down" || event.name === "j") {
+            setSelectedIndex((current) => Math.min(entries.length - 1, current + 1));
+        } else if (event.name === "e") {
+            setExpandedIndex((current) => (current === selectedIndex ? null : selectedIndex));
+        }
+    });
 
     return (
         <box style={{ flexDirection: "column", border: true, borderColor, height: "100%", bg: "#0b0b0b" }} onMouseDown={onFocus}>
             <box style={{ paddingX: 1, height: 1, bg: "#1a1a1a", flexDirection: "row" }}>
                 {focused && <text style={{ fg: "black", bg: "cyan", bold: true }}> FOCUS </text>}
                 <text style={{ fg: "#d4a800", bold: true, bg: "#1a1a1a" }}>Git Graph</text>
+                {focused && <text style={{ fg: "gray", dim: true, bg: "#1a1a1a" }}> j/k:move e:expand</text>}
             </box>
             <box style={{ flexDirection: "column", flexGrow: 1, bg: "#0b0b0b" }}>
                 <scrollbox style={{ flexGrow: 1, paddingX: 1, bg: "#0b0b0b" }}>
-                    {logLines.length === 0 ? (
+                    {entries.length === 0 ? (
                         <text style={{ fg: "gray", dim: true, padding: 1 }}>No history found</text>
                     ) : (
-                        logLines.map((line, idx) => {
-                            const entry = parseLogLine(line);
-                            const indent = graphIndent(entry.graph);
+                        entries.map((entry, idx) => {
+                            const isSelected = idx === selectedIndex;
+                            const selectionBg = isSelected ? "#1a1a1a" : undefined;
+                            const graphDisplay = entry.graph.padEnd(maxGraphWidth, " ");
+                            const indent = graphIndent(graphDisplay);
+                            const showRefs = focused && entry.refs;
+                            const subjectText = truncateSubject(entry.subject, expandedIndex === idx);
 
                             return (
                                 <box key={idx} style={{ flexDirection: "column" }}>
                                     <box style={{ flexDirection: "row" }}>
-                                        <text style={{ fg: "cyan" }}>{entry.graph}</text>
-                                        {entry.hash && <text style={{ fg: "#d4a800", bold: true }}>{entry.hash}</text>}
-                                        {entry.time && <text style={{ fg: "gray", dim: true }}> · {entry.time}</text>}
+                                        <text style={{ fg: "cyan", bg: selectionBg }}>{graphDisplay}</text>
+                                        {entry.hasHead && <text style={{ fg: "#4ec9b0", bg: selectionBg, bold: true }}> *</text>}
+                                        {entry.hash && <text style={{ fg: "#d4a800", bg: selectionBg, bold: true }}> {entry.hash}</text>}
+                                        {entry.timeRelative && <text style={{ fg: "gray", bg: selectionBg, dim: true }}> - {entry.timeRelative}</text>}
                                     </box>
-                                    {entry.refs && (
+                                    {showRefs && (
                                         <box style={{ flexDirection: "row" }}>
-                                            <text style={{ fg: "cyan" }}>{indent}</text>
-                                            <text style={{ fg: "#4ec9b0", dim: true }}> {entry.refs}</text>
+                                            <text style={{ fg: "cyan", bg: selectionBg }}>{indent}</text>
+                                            <text style={{ fg: "#4ec9b0", bg: selectionBg, dim: true }}> {entry.refs}</text>
                                         </box>
                                     )}
-                                    {entry.subject && (
+                                    {subjectText && (
                                         <box style={{ flexDirection: "row" }}>
-                                            <text style={{ fg: "cyan" }}>{indent}</text>
-                                            <text style={{ fg: "white" }}>  {entry.subject}</text>
+                                            <text style={{ fg: "cyan", bg: selectionBg }}>{indent}</text>
+                                            <text style={{ fg: "white", bg: selectionBg }}>  {subjectText}</text>
                                         </box>
                                     )}
                                 </box>
@@ -197,6 +255,36 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
                         })
                     )}
                 </scrollbox>
+                {entries[selectedIndex] && (
+                    <box style={{ flexDirection: "column", height: 4, paddingX: 1, bg: "#111111" }}>
+                        <text style={{ fg: focused ? "#d4a800" : "gray", bold: true }}>
+                            {entries[selectedIndex].hash} {entries[selectedIndex].author && `- ${entries[selectedIndex].author}`}
+                        </text>
+                        <text style={{ fg: "gray", dim: true }}>
+                            {(() => {
+                                const absolute = formatAbsoluteTime(entries[selectedIndex].timeRaw);
+                                if (entries[selectedIndex].timeRelative && absolute) {
+                                    return `When: ${entries[selectedIndex].timeRelative} (${absolute})`;
+                                }
+                                if (entries[selectedIndex].timeRelative) {
+                                    return `When: ${entries[selectedIndex].timeRelative}`;
+                                }
+                                if (absolute) {
+                                    return `When: ${absolute}`;
+                                }
+                                return "When: unknown";
+                            })()}
+                        </text>
+                        <text style={{ fg: focused ? "white" : "gray" }}>
+                            {entries[selectedIndex].subject || "No commit message"}
+                        </text>
+                        {focused && entries[selectedIndex].refs && (
+                            <text style={{ fg: "#4ec9b0", dim: true }}>
+                                Refs: {entries[selectedIndex].refs}
+                            </text>
+                        )}
+                    </box>
+                )}
             </box>
         </box>
     );

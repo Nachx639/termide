@@ -449,7 +449,7 @@ export async function getGitLog(cwd: string, count: number = 20): Promise<string
     "--all",
     "--color=never",
     "--decorate=short",
-    "--pretty=format:%h%x1f%D%x1f%s%x1f%cr"
+    "--pretty=format:%h%x1f%D%x1f%s%x1f%ct%x1f%an"
   ], cwd);
 
   if (!logOutput) return [];
