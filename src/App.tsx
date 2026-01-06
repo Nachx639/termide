@@ -156,6 +156,9 @@ export function App({ rootPath }: AppProps) {
   notifyRef.current = notify;
   // Track last SIGINT time for double-tap to exit
   const lastSigintRef = useRef<number>(0);
+  // Ref for selectMode so SIGINT handler can access it
+  const selectModeRef = useRef<boolean>(false);
+  selectModeRef.current = selectMode;
 
   const isAnyModalOpen = showFuzzyFinder || showCommandPalette || showGlobalSearch || showHelpPanel || showShortcuts || showThemePicker || showFileOps || showQuickSettings || showCopyPanel;
 
@@ -213,8 +216,9 @@ export function App({ rootPath }: AppProps) {
   }, [rootPath, openTabs, activeTabIndex, focusedPanel, treeWidth, showAgent, recentFiles]);
 
   // Select mode - toggle mouse tracking for native terminal selection
+  // Use interval to keep mouse tracking disabled (OpenTUI may re-enable it on renders)
   useEffect(() => {
-    if (selectMode) {
+    const disableMouseTracking = () => {
       // Disable ALL mouse tracking modes - allows native terminal selection
       process.stdout.write("\x1b[?1000l"); // Disable X10 mouse reporting
       process.stdout.write("\x1b[?1001l"); // Disable highlight mouse tracking
@@ -224,11 +228,20 @@ export function App({ rootPath }: AppProps) {
       process.stdout.write("\x1b[?1005l"); // Disable UTF-8 mouse mode
       process.stdout.write("\x1b[?1006l"); // Disable SGR mouse mode
       process.stdout.write("\x1b[?1015l"); // Disable urxvt mouse mode
-    } else {
-      // Re-enable mouse tracking for TUI
-      process.stdout.write("\x1b[?1000h"); // Enable mouse click tracking
-      process.stdout.write("\x1b[?1002h"); // Enable button-event tracking
-      process.stdout.write("\x1b[?1006h"); // Enable SGR mouse mode
+    };
+
+    if (selectMode) {
+      // Disable immediately
+      disableMouseTracking();
+      // Keep disabling every 100ms in case OpenTUI re-enables it
+      const interval = setInterval(disableMouseTracking, 100);
+      return () => {
+        clearInterval(interval);
+        // Re-enable mouse tracking for TUI when leaving select mode
+        process.stdout.write("\x1b[?1000h"); // Enable mouse click tracking
+        process.stdout.write("\x1b[?1002h"); // Enable button-event tracking
+        process.stdout.write("\x1b[?1006h"); // Enable SGR mouse mode
+      };
     }
   }, [selectMode]);
 
@@ -253,6 +266,19 @@ export function App({ rootPath }: AppProps) {
         process.stdout.write("\x1b[?1049l"); // Exit alternate buffer
         // Force immediate exit to avoid React cleanup errors
         process.kill(process.pid, "SIGKILL");
+        return;
+      }
+
+      // 🎯 SELECT MODE: Let terminal handle Cmd+C natively!
+      // When in select mode, terminal's native selection is active.
+      // The terminal emulator copies the selection BEFORE sending SIGINT.
+      // So we just show a notification and DON'T overwrite the clipboard.
+      if (selectModeRef.current) {
+        notifyRef.current(
+          "✓ Copied! (native selection) | 2x Cmd+C to exit",
+          "success",
+          2000
+        );
         return;
       }
 
