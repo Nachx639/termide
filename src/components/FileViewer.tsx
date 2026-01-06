@@ -1093,7 +1093,7 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
             {langIndicator && <text style={{ fg: "#d4a800", dim: true }}> [{langIndicator}]</text>}
             {wordWrap && <text style={{ fg: "#d4a800", dim: true }}> [wrap]</text>}
             {showIndentGuides && <text style={{ fg: "gray", dim: true }}> [guides]</text>}
-            {showMinimap && <text style={{ fg: "blue", dim: true }}> [map]</text>}
+            {showMinimap && <text style={{ fg: "#90EE90", dim: true }}> [map]</text>}
             {relativeLineNumbers && <text style={{ fg: "yellow", dim: true }}> [rel]</text>}
             {!showLineNumbers && <text style={{ fg: "gray", dim: true }}> [noln]</text>}
             {foldedRegions.size > 0 && <text style={{ fg: "cyan", dim: true }}> [{foldedRegions.size} folded]</text>}

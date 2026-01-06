@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { ACPClient } from "../lib/ACP";
 import { spawn } from "bun";
+import { logger } from "../lib/logger";
 
 export interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -21,7 +22,9 @@ export function useACP() {
     if (proxyProcRef.current) {
       try {
         proxyProcRef.current.kill();
-      } catch { }
+      } catch (err) {
+        logger.debug("acp", "Failed to kill proxy process (may already be dead)", err);
+      }
       proxyProcRef.current = null;
     }
   }, []);
