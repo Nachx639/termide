@@ -27,18 +27,54 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
     const compactRelativeTime = (time: string) => {
         const match = time.match(/(\d+)\s+(second|minute|hour|day|week|month|year)/);
         if (!match) return time;
-        const value = match[1];
+
+        const value = parseInt(match[1], 10);
         const unit = match[2];
-        const suffixMap: Record<string, string> = {
-            second: "s",
-            minute: "m",
-            hour: "h",
-            day: "d",
-            week: "w",
-            month: "mo",
-            year: "y",
-        };
-        return `${value}${suffixMap[unit] || ""}`;
+
+        if (unit === "second") {
+            if (value >= 60) {
+                const minutes = Math.floor(value / 60);
+                const seconds = value % 60;
+                return seconds ? `${minutes}m ${seconds}s` : `${minutes}m`;
+            }
+            return `${value}s`;
+        }
+
+        if (unit === "minute") {
+            if (value >= 60) {
+                const hours = Math.floor(value / 60);
+                const minutes = value % 60;
+                return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
+            }
+            return `${value}m`;
+        }
+
+        if (unit === "hour") {
+            if (value >= 24) {
+                const days = Math.floor(value / 24);
+                const hours = value % 24;
+                return hours ? `${days}d ${hours}h` : `${days}d`;
+            }
+            return `${value}h`;
+        }
+
+        if (unit === "day") {
+            return `${value}d`;
+        }
+
+        if (unit === "week") {
+            return `${value}w`;
+        }
+
+        if (unit === "month") {
+            return `${value}mo`;
+        }
+
+        if (unit === "year") {
+            return `${value}y`;
+        }
+
+        return time;
     };
 
     const compactRefs = (refs: string) => {
@@ -144,11 +180,16 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
                                         {entry.hash && <text style={{ fg: "#d4a800", bold: true }}>{entry.hash}</text>}
                                         {entry.time && <text style={{ fg: "gray", dim: true }}> · {entry.time}</text>}
                                     </box>
-                                    {(entry.refs || entry.subject) && (
+                                    {entry.refs && (
                                         <box style={{ flexDirection: "row" }}>
                                             <text style={{ fg: "cyan" }}>{indent}</text>
-                                            {entry.refs && <text style={{ fg: "#4ec9b0", dim: true }}> {entry.refs}</text>}
-                                            {entry.subject && <text style={{ fg: "white" }}>  {entry.subject}</text>}
+                                            <text style={{ fg: "#4ec9b0", dim: true }}> {entry.refs}</text>
+                                        </box>
+                                    )}
+                                    {entry.subject && (
+                                        <box style={{ flexDirection: "row" }}>
+                                            <text style={{ fg: "cyan" }}>{indent}</text>
+                                            <text style={{ fg: "white" }}>  {entry.subject}</text>
                                         </box>
                                     )}
                                 </box>
