@@ -1,5 +1,3 @@
-# VHS Demo Script for termide
-# Run with: vhs demo.tape
 
 Output assets/demo.gif
 Set FontSize 14
