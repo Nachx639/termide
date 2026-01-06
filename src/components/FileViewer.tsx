@@ -483,33 +483,6 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
     return { start, end };
   }, [selectionStart, selectionEnd, cursorLine]);
 
-  // 🎯 Report selection changes to parent for Cmd+C (SIGINT) copy
-  // Use refs to avoid infinite loops - callback ref prevents deps from triggering
-  const lastReportedSelectionRef = React.useRef<string>("");
-  const onSelectionChangeRef = React.useRef(onSelectionChange);
-  onSelectionChangeRef.current = onSelectionChange;
-
-  useEffect(() => {
-    const callback = onSelectionChangeRef.current;
-    if (!callback) return;
-
-    let selectedText = "";
-    if (selectionStart !== null) {
-      // Report selected lines
-      const start = Math.min(selectionStart, selectionEnd ?? cursorLine);
-      const end = Math.max(selectionStart, selectionEnd ?? cursorLine);
-      selectedText = content.slice(start, end + 1).join("\n");
-    } else {
-      // No selection - report current line as potential copy target
-      selectedText = content[cursorLine] ?? "";
-    }
-
-    // Only call if selection actually changed (prevents infinite loops)
-    if (selectedText !== lastReportedSelectionRef.current) {
-      lastReportedSelectionRef.current = selectedText;
-      callback(selectedText);
-    }
-  }, [selectionStart, selectionEnd, cursorLine, content]);
 
   // Copy to system clipboard with multiple fallbacks
   const copyToSystemClipboard = useCallback(async (text: string): Promise<boolean> => {

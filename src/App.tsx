@@ -144,20 +144,13 @@ export function App({ rootPath }: AppProps) {
   // Select mode - disables mouse tracking so user can select text with mouse
   const [selectMode, setSelectMode] = useState(false);
 
-  // Global selection for Cmd+C (SIGINT) copy - stores text that can be copied when user presses Cmd+C
-  // This is a map of panel -> selection, so we can copy the right thing based on focused panel
-  const globalSelectionRef = useRef<{ [key: string]: string }>({});
+  // Ref to track focused panel for SIGINT handler
   const focusedPanelRef = useRef<Panel>(focusedPanel);
   focusedPanelRef.current = focusedPanel;
   const notifyRef = useRef<typeof notify>(notify);
   notifyRef.current = notify;
   // Track last SIGINT time for double-tap to exit
   const lastSigintRef = useRef<number>(0);
-
-  // Memoized callback for FileViewer selection changes - prevents infinite loops
-  const handleViewerSelectionChange = React.useCallback((text: string) => {
-    globalSelectionRef.current["viewer"] = text;
-  }, []);
 
   const isAnyModalOpen = showFuzzyFinder || showCommandPalette || showGlobalSearch || showHelpPanel || showShortcuts || showThemePicker || showFileOps || showQuickSettings || showCopyPanel;
 
@@ -234,10 +227,12 @@ export function App({ rootPath }: AppProps) {
     }
   }, [selectMode]);
 
-  // 🎯 CREATIVE HACK: Intercept SIGINT (Cmd+C) and copy selection instead of quitting!
-  // When user presses Cmd+C, terminal sends SIGINT. Instead of exiting, we copy the selection.
-  // This makes Cmd+C work as expected for copying in a TUI! (Like Konsole does)
+  // 🎯 CREATIVE HACK: Intercept SIGINT (Cmd+C) and copy instead of quitting!
+  // When user presses Cmd+C, terminal sends SIGINT. Instead of exiting, we copy.
   // Double-tap Cmd+C within 500ms to exit the app
+  // Note: selectedFileRef is defined later after selectedFile is computed
+  const selectedFileRef = useRef<string | null>(null);
+
   useEffect(() => {
     const handleSigint = async () => {
       const now = Date.now();
@@ -246,7 +241,6 @@ export function App({ rootPath }: AppProps) {
 
       // Double-tap Cmd+C within 500ms = exit
       if (timeSinceLastSigint < 500) {
-        // Clean exit
         process.stdout.write("\x1b[?1000l"); // Disable mouse tracking
         process.stdout.write("\x1b[?1006l"); // Disable SGR mouse
         process.stdout.write("\x1b[?25h");   // Show cursor
@@ -254,42 +248,33 @@ export function App({ rootPath }: AppProps) {
       }
 
       const currentPanel = focusedPanelRef.current;
-      const selections = globalSelectionRef.current;
-
-      // Get selection based on focused panel
       let textToCopy = "";
 
-      // Special handling for terminal - get content from terminalCopyRef
+      // Terminal panel - use terminalCopyRef
       if (currentPanel === "terminal" && terminalCopyRef.current) {
         textToCopy = terminalCopyRef.current();
-      } else {
-        textToCopy = selections[currentPanel] || "";
       }
-
-      // If no selection in current panel, try to get something useful
-      if (!textToCopy.trim()) {
-        // Try viewer selection, then terminal content
-        textToCopy = selections["viewer"] || "";
-        if (!textToCopy.trim() && terminalCopyRef.current) {
-          textToCopy = terminalCopyRef.current();
+      // Viewer panel - read current file content
+      else if (currentPanel === "viewer" && selectedFileRef.current) {
+        try {
+          const file = Bun.file(selectedFileRef.current);
+          textToCopy = await file.text();
+        } catch {
+          textToCopy = "";
         }
       }
 
       if (textToCopy && textToCopy.trim().length > 0) {
-        // Copy the selection to clipboard
         await copyToClipboard(textToCopy);
         const lineCount = textToCopy.split("\n").length;
         const charCount = textToCopy.length;
-        const preview = textToCopy.slice(0, 30).replace(/\n/g, "↵");
         notifyRef.current(
           `✓ Copied! ${lineCount}L/${charCount}ch | 2x Cmd+C to exit`,
           "success",
           2500
         );
-        // Don't exit - we handled the Cmd+C as copy
       } else {
-        // No selection - show hint
-        notifyRef.current("V=visual select | 2x Cmd+C=exit", "info", 2000);
+        notifyRef.current("Open a file to copy | 2x Cmd+C=exit", "info", 2000);
       }
     };
 
@@ -388,6 +373,7 @@ export function App({ rootPath }: AppProps) {
 
   // Get currently selected file from active tab
   const selectedFile = openTabs[activeTabIndex]?.filePath || null;
+  selectedFileRef.current = selectedFile; // Update ref for SIGINT handler
 
   // Update file stats and encoding when file changes
   useEffect(() => {
@@ -1296,7 +1282,6 @@ export function App({ rootPath }: AppProps) {
                         rootPath={rootPath}
                         height={currentViewerHeight}
                         onCursorChange={activeSplit === "left" ? (line, column) => setCursorPos({ line, column }) : undefined}
-                        onSelectionChange={activeSplit === "left" ? handleViewerSelectionChange : undefined}
                         onJumpToFile={(targetPath, line) => {
                           handleFileSelect(targetPath, line);
                         }}
@@ -1314,7 +1299,6 @@ export function App({ rootPath }: AppProps) {
                         rootPath={rootPath}
                         height={currentViewerHeight}
                         onCursorChange={activeSplit === "right" ? (line, column) => setCursorPos({ line, column }) : undefined}
-                        onSelectionChange={activeSplit === "right" ? handleViewerSelectionChange : undefined}
                         onJumpToFile={(targetPath, line) => {
                           setSplitFile(targetPath);
                           setTargetLine(line);
@@ -1336,7 +1320,6 @@ export function App({ rootPath }: AppProps) {
                         rootPath={rootPath}
                         height={Math.floor(currentViewerHeight / 2)}
                         onCursorChange={activeSplit === "left" ? (line, column) => setCursorPos({ line, column }) : undefined}
-                        onSelectionChange={activeSplit === "left" ? handleViewerSelectionChange : undefined}
                         onJumpToFile={(targetPath, line) => {
                           handleFileSelect(targetPath, line);
                         }}
@@ -1354,7 +1337,6 @@ export function App({ rootPath }: AppProps) {
                         rootPath={rootPath}
                         height={Math.floor(currentViewerHeight / 2)}
                         onCursorChange={activeSplit === "right" ? (line, column) => setCursorPos({ line, column }) : undefined}
-                        onSelectionChange={activeSplit === "right" ? handleViewerSelectionChange : undefined}
                         onJumpToFile={(targetPath, line) => {
                           setSplitFile(targetPath);
                           setTargetLine(line);
@@ -1370,7 +1352,6 @@ export function App({ rootPath }: AppProps) {
                     rootPath={rootPath}
                     height={currentViewerHeight}
                     onCursorChange={(line, column) => setCursorPos({ line, column })}
-                    onSelectionChange={handleViewerSelectionChange}
                     onJumpToFile={(targetPath, line) => {
                       handleFileSelect(targetPath, line);
                     }}
