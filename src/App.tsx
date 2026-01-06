@@ -155,13 +155,6 @@ export function App({ rootPath }: AppProps) {
     setCursorPos({ line, column });
   }, []);
 
-  // Ref to track focused panel for SIGINT handler
-  const focusedPanelRef = useRef<Panel>(focusedPanel);
-  focusedPanelRef.current = focusedPanel;
-  const notifyRef = useRef<typeof notify>(notify);
-  notifyRef.current = notify;
-  // Track last SIGINT time for double-tap to exit
-  const lastSigintRef = useRef<number>(0);
 
   const isAnyModalOpen = showFuzzyFinder || showCommandPalette || showGlobalSearch || showHelpPanel || showShortcuts || showThemePicker || showFileOps || showQuickSettings || showCopyPanel;
 
@@ -218,54 +211,31 @@ export function App({ rootPath }: AppProps) {
     };
   }, [rootPath, openTabs, activeTabIndex, focusedPanel, treeWidth, showAgent, recentFiles]);
 
-  // Mouse tracking is disabled at the renderer level (useMouse: false in index.tsx)
-  // This allows native Cmd+C copy to work out of the box
-
-  // 🎯 CREATIVE HACK: Intercept SIGINT (Cmd+C) and copy instead of quitting!
-  // When user presses Cmd+C, terminal sends SIGINT. Instead of exiting, we copy.
-  // Double-tap Cmd+C within 500ms to exit the app
-  // Note: selectedFileRef is defined later after selectedFile is computed
+  // 🎯 Mouse selection + manual copy
+  // Drag to select text, then press Ctrl+Y to copy
   const selectedFileRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    debugLog("🚀 SIGINT handler registered");
+  // Copy current OpenTUI selection to clipboard
+  const copySelection = useCallback(async () => {
+    const renderer = (globalThis as any).__termideRenderer;
+    if (!renderer) return false;
 
-    const handleSigint = async () => {
-      debugLog("⚡ SIGINT RECEIVED! Cmd+C was pressed");
-      const now = Date.now();
-      const timeSinceLastSigint = now - lastSigintRef.current;
-      lastSigintRef.current = now;
-      debugLog(`  Time since last SIGINT: ${timeSinceLastSigint}ms`);
+    try {
+      const selection = renderer.getSelection?.();
+      const text = selection?.getSelectedText?.();
 
-      // Double-tap Cmd+C within 500ms = exit
-      if (timeSinceLastSigint < 500) {
-        debugLog("  → Double-tap detected, exiting...");
-        // Clean exit - reset terminal modes before exit
-        process.stdout.write("\x1b[?1000l"); // Disable mouse tracking
-        process.stdout.write("\x1b[?1006l"); // Disable SGR mouse
-        process.stdout.write("\x1b[?25h");   // Show cursor
-        process.stdout.write("\x1b[?1049l"); // Exit alternate buffer
-        // Force immediate exit to avoid React cleanup errors
-        process.kill(process.pid, "SIGKILL");
-        return;
+      if (text && text.length > 0) {
+        await copyToClipboard(text);
+        renderer.clearSelection?.();
+        const lines = text.split("\n").length;
+        success(`Copied ${lines} line${lines > 1 ? "s" : ""}!`, 1500);
+        return true;
       }
-
-      // 🎯 Native terminal copy is active (useMouse: false in renderer)
-      // The terminal emulator copies the selection BEFORE sending SIGINT.
-      // Just show a notification - the clipboard already has the text!
-      debugLog("  → Native copy mode, terminal handles clipboard");
-      notifyRef.current(
-        "✓ Copied! | 2x Ctrl+C to exit",
-        "success",
-        2000
-      );
-    };
-
-    process.on("SIGINT", handleSigint);
-    return () => {
-      process.off("SIGINT", handleSigint);
-    };
-  }, []);
+    } catch (err) {
+      logger.debug("clipboard", "Selection API error", err);
+    }
+    return false;
+  }, [success]);
 
   // Update clock every second
   useEffect(() => {
@@ -356,7 +326,7 @@ export function App({ rootPath }: AppProps) {
 
   // Get currently selected file from active tab
   const selectedFile = openTabs[activeTabIndex]?.filePath || null;
-  selectedFileRef.current = selectedFile; // Update ref for SIGINT handler
+  selectedFileRef.current = selectedFile;
 
   // Update file stats and encoding when file changes
   useEffect(() => {
@@ -689,6 +659,14 @@ export function App({ rootPath }: AppProps) {
   useKeyboard(async (event) => {
     // Don't handle keyboard if overlays are open (except help panel)
     if (showFuzzyFinder || showCommandPalette || showGlobalSearch || showThemePicker || showQuickSettings) return;
+
+    // === COPY SELECTION with Ctrl+Y ===
+    // Try to copy OpenTUI selection when user presses Ctrl+Y
+    if (event.ctrl && (event.name === "y" || event.name === "Y") && !event.shift) {
+      const copied = await copySelection();
+      if (copied) return; // Selection was copied, don't process further
+      // No selection - fall through to normal handling
+    }
 
     // === LEADER KEY MODE (Ctrl+X prefix like vim/OpenCode) ===
     // This allows us to use multi-key shortcuts that bypass terminal interception

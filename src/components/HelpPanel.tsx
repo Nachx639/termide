@@ -82,12 +82,9 @@ const SHORTCUTS: ShortcutCategory[] = [
   {
     title: "Quick Copy (Global)",
     shortcuts: [
-      { keys: "⌘+C", description: "Native copy (select + copy)" },
-      { keys: "⌥+drag", description: "Native select (iTerm2)" },
-      { keys: "Ctrl+C 2x", description: "Exit app (double-tap)" },
+      { keys: "🖱️ drag", description: "Select text with mouse" },
+      { keys: "Ctrl+Y", description: "Copy selection to clipboard" },
       { keys: "Ctrl+X → V", description: "Open Copy Panel" },
-      { keys: "Ctrl+Y", description: "Copy all (quick)" },
-      { keys: "Ctrl+Shift+V", description: "Paste to terminal" },
     ],
   },
   {
@@ -104,6 +101,7 @@ const SHORTCUTS: ShortcutCategory[] = [
       { keys: "Ctrl+Q", description: "Zen Mode (distraction-free)" },
       { keys: "Ctrl+B / ?", description: "Toggle this help panel" },
       { keys: "Ctrl+Space", description: "Toggle AI agent panel" },
+      { keys: "Ctrl+C", description: "Exit application" },
     ],
   },
 ];

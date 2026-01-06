@@ -10,33 +10,26 @@ const debugLog = (msg: string) => {
   fs.appendFileSync("/tmp/termide-debug.log", `[${new Date().toISOString()}] ${msg}\n`);
 };
 
-// 🔥 CRITICAL: Register SIGINT handler IMMEDIATELY before anything else
-debugLog("📍 index.tsx: Registering SIGINT handler FIRST");
-let lastSigint = 0;
-process.on("SIGINT", () => {
-  debugLog("⚡ SIGINT received in index.tsx!");
-  const now = Date.now();
-  if (now - lastSigint < 500) {
-    debugLog("  → Double-tap, exiting...");
-    process.stdout.write("\x1b[?1000l\x1b[?1006l\x1b[?25h\x1b[?1049l");
-    process.exit(0);
-  }
-  lastSigint = now;
-  debugLog("  → Single tap, should copy...");
-});
+// Note: Ctrl+C exits the app (handled by Bun at low level)
+// Use Ctrl+Q for Zen Mode toggle within the app
 
 // Get the root path from command line or use current directory
 const rootPath = path.resolve(process.argv[2] || process.cwd());
 
-// 🎯 Disable mouse handling at source so native Cmd+C copy works!
-const renderer = await createCliRenderer({ useMouse: false });
-debugLog("🖱️ Renderer created with useMouse: false");
+// 🎯 Full mouse support - clicks work, drag to select, then Ctrl+Y to copy
+const renderer = await createCliRenderer({
+  useMouse: true
+});
+debugLog("🖱️ Renderer created with useMouse: true");
+
+// Export renderer for selection API
+(globalThis as any).__termideRenderer = renderer;
 
 const root = createRoot(renderer);
 root.render(<App rootPath={rootPath} />);
 
 // Handle graceful shutdown on SIGTERM (kill command)
-// Note: SIGINT (Cmd+C) is handled in App.tsx for copy functionality!
+// Selection/copy is handled via onMouseUp in App.tsx
 const cleanExit = () => {
     // Reset terminal modes before exit
     process.stdout.write("\x1b[?1000l"); // Disable mouse tracking
@@ -48,5 +41,5 @@ const cleanExit = () => {
     process.exit(0);
 };
 
-// Only SIGTERM triggers exit - SIGINT is now Cmd+C copy in App.tsx!
+// SIGTERM for clean exit
 process.on("SIGTERM", cleanExit);
