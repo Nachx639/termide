@@ -69,11 +69,22 @@ const SHORTCUTS: ShortcutCategory[] = [
     ],
   },
   {
-    title: "Copy Commands (Global)",
+    title: "Copy Panel (Ctrl+X → V)",
     shortcuts: [
-      { keys: "Ctrl+X → V", description: "Open Copy Panel (select lines)" },
+      { keys: "🖱️ drag", description: "Select with mouse" },
+      { keys: "v / V", description: "Char mode / Line mode" },
+      { keys: "hjkl", description: "Navigate & extend selection" },
+      { keys: "w / b", description: "Jump word forward/back" },
+      { keys: "0 / $", description: "Start/end of line" },
+      { keys: "y", description: "Copy selection (yank)" },
+    ],
+  },
+  {
+    title: "Quick Copy (Global)",
+    shortcuts: [
+      { keys: "Ctrl+X → V", description: "Open Copy Panel" },
       { keys: "Ctrl+X → Y", description: "Copy all content" },
-      { keys: "Ctrl+Y", description: "Copy all content (quick)" },
+      { keys: "Ctrl+Y", description: "Copy all (quick)" },
       { keys: "Ctrl+Shift+V", description: "Paste to terminal" },
     ],
   },
