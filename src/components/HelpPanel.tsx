@@ -99,7 +99,7 @@ const SHORTCUTS: ShortcutCategory[] = [
   {
     title: "Application",
     shortcuts: [
-      { keys: "Ctrl+Shift+S", description: "SELECT MODE (native copy)" },
+      { keys: "Ctrl+X → S", description: "SELECT MODE (native copy)" },
       { keys: "Ctrl+Q", description: "Zen Mode (distraction-free)" },
       { keys: "Ctrl+B / ?", description: "Toggle this help panel" },
       { keys: "Ctrl+Space", description: "Toggle AI agent panel" },
