@@ -677,12 +677,13 @@ export function App({ rootPath }: AppProps) {
       return;
     }
 
-    // Copy content: Ctrl+Y (Yank) or Ctrl+Shift+C (terminal standard)
+    // Copy content: Ctrl+Y (Yank), Ctrl+Shift+C, or Option+C
     // Note: Cmd+C doesn't work because terminal emulators intercept all Cmd keystrokes
-    if (
+    const isCopyShortcut =
       (event.ctrl && (event.name === "y" || event.name === "Y")) ||
-      (event.ctrl && event.shift && (event.name === "c" || event.name === "C"))
-    ) {
+      (event.ctrl && event.shift && (event.name === "c" || event.name === "C")) ||
+      (event.alt && (event.name === "c" || event.name === "C"));
+    if (isCopyShortcut) {
       try {
         if (focusedPanel === "viewer" && selectedFile) {
           const content = await Bun.file(selectedFile).text();
