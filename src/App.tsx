@@ -677,8 +677,12 @@ export function App({ rootPath }: AppProps) {
       return;
     }
 
-    // Copy content: Ctrl+Y (Yank) or Cmd+C (standard Mac)
-    if ((event.ctrl && (event.name === "y" || event.name === "Y")) || (event.meta && event.name === "c")) {
+    // Copy content: Ctrl+Y (Yank) or Ctrl+Shift+C (terminal standard)
+    // Note: Cmd+C doesn't work because terminal emulators intercept all Cmd keystrokes
+    if (
+      (event.ctrl && (event.name === "y" || event.name === "Y")) ||
+      (event.ctrl && event.shift && (event.name === "c" || event.name === "C"))
+    ) {
       try {
         if (focusedPanel === "viewer" && selectedFile) {
           const content = await Bun.file(selectedFile).text();
