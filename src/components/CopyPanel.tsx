@@ -233,21 +233,26 @@ export function CopyPanel({ isOpen, onClose, content, title, onCopy }: CopyPanel
         {/* Footer with shortcuts */}
         <box style={{ height: 1, paddingX: 1, borderTop: true, borderColor: "gray" }}>
           <box style={{ flexDirection: "row", gap: 2 }}>
-            <text style={{ fg: "gray" }}>
-              <text style={{ fg: "cyan" }}>v</text> select
-            </text>
-            <text style={{ fg: "gray" }}>
-              <text style={{ fg: "cyan" }}>j/k</text> move
-            </text>
-            <text style={{ fg: "gray" }}>
-              <text style={{ fg: "cyan" }}>y/Enter</text> copy
-            </text>
-            <text style={{ fg: "gray" }}>
-              <text style={{ fg: "cyan" }}>Ctrl+A</text> all
-            </text>
-            <text style={{ fg: "gray" }}>
-              <text style={{ fg: "cyan" }}>q/Esc</text> close
-            </text>
+            <box style={{ flexDirection: "row" }}>
+              <text style={{ fg: "cyan" }}>v</text>
+              <text style={{ fg: "gray" }}> select</text>
+            </box>
+            <box style={{ flexDirection: "row" }}>
+              <text style={{ fg: "cyan" }}>j/k</text>
+              <text style={{ fg: "gray" }}> move</text>
+            </box>
+            <box style={{ flexDirection: "row" }}>
+              <text style={{ fg: "cyan" }}>y</text>
+              <text style={{ fg: "gray" }}> copy</text>
+            </box>
+            <box style={{ flexDirection: "row" }}>
+              <text style={{ fg: "cyan" }}>Ctrl+A</text>
+              <text style={{ fg: "gray" }}> all</text>
+            </box>
+            <box style={{ flexDirection: "row" }}>
+              <text style={{ fg: "cyan" }}>q</text>
+              <text style={{ fg: "gray" }}> close</text>
+            </box>
           </box>
         </box>
       </box>
