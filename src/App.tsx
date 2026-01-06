@@ -1313,6 +1313,7 @@ export function App({ rootPath }: AppProps) {
                       onPasteReady={(pasteFn) => { terminalPasteRef.current = pasteFn; }}
                       onCopyReady={(copyFn) => { terminalCopyRef.current = copyFn; }}
                       height={currentTerminalHeight}
+                      selectMode={selectMode}
                     />
                   </box>
                 )}
