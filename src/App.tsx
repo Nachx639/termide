@@ -241,10 +241,14 @@ export function App({ rootPath }: AppProps) {
 
       // Double-tap Cmd+C within 500ms = exit
       if (timeSinceLastSigint < 500) {
+        // Clean exit - reset terminal modes before exit
         process.stdout.write("\x1b[?1000l"); // Disable mouse tracking
         process.stdout.write("\x1b[?1006l"); // Disable SGR mouse
         process.stdout.write("\x1b[?25h");   // Show cursor
-        process.exit(0);
+        process.stdout.write("\x1b[?1049l"); // Exit alternate buffer
+        // Force immediate exit to avoid React cleanup errors
+        process.kill(process.pid, "SIGKILL");
+        return;
       }
 
       const currentPanel = focusedPanelRef.current;
