@@ -36,7 +36,7 @@ export function CopyPanel({ isOpen, onClose, content, title, onCopy }: CopyPanel
   const HEADER_HEIGHT = 2; // Header row + border
   const FOOTER_HEIGHT = 2; // Footer row + border
 
-  // Reset state when opened
+  // Reset state when opened AND enable mouse tracking for panel-aware selection
   useEffect(() => {
     if (isOpen) {
       setScrollOffset(0);
@@ -46,7 +46,23 @@ export function CopyPanel({ isOpen, onClose, content, title, onCopy }: CopyPanel
       setSelectionEnd({ line: 0, col: lines[0]?.length || 0 });
       setSelectionMode("line");
       setIsDragging(false);
+
+      // Enable mouse tracking while CopyPanel is open
+      // This allows drag selection within the panel
+      process.stdout.write("\x1b[?1000h"); // Enable X10 mouse
+      process.stdout.write("\x1b[?1002h"); // Enable button-event tracking
+      process.stdout.write("\x1b[?1006h"); // Enable SGR mouse mode
     }
+
+    return () => {
+      if (isOpen) {
+        // Disable mouse tracking when CopyPanel closes
+        // This restores native Cmd+C copy functionality
+        process.stdout.write("\x1b[?1000l");
+        process.stdout.write("\x1b[?1002l");
+        process.stdout.write("\x1b[?1006l");
+      }
+    };
   }, [isOpen, lines]);
 
   const visibleHeight = Math.max(5, (dimensions.height || 24) - 8);
