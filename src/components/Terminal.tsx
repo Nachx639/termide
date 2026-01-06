@@ -9,6 +9,7 @@ interface TerminalProps {
   height?: number;
   onPasteReady?: (pasteFn: (text: string) => void) => void;
   onCopyReady?: (copyFn: () => string) => void;
+  selectMode?: boolean; // When true, disable mouse tracking for native terminal selection
 }
 
 interface TerminalRef {
@@ -16,7 +17,7 @@ interface TerminalRef {
   resize: (cols: number, rows: number) => void;
 }
 
-export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteReady, onCopyReady }: TerminalProps) {
+export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteReady, onCopyReady, selectMode = false }: TerminalProps) {
   const dimensions = useTerminalDimensions();
   const [renderCount, setRenderCount] = useState(0);
   const [initialized, setInitialized] = useState(false);
@@ -81,13 +82,12 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
 
 
 
-    // Enable Mouse Tracking (Send to stdout so real terminal sees it)
-
-    process.stdout.write("\x1b[?1000h");
-
-    // Also enable SGR mouse mode for better coordinate handling
-
-    process.stdout.write("\x1b[?1006h");
+    // Enable Mouse Tracking ONLY if not in select mode
+    // When selectMode is true, we want native terminal selection to work
+    if (!selectMode) {
+      process.stdout.write("\x1b[?1000h");
+      process.stdout.write("\x1b[?1006h");
+    }
 
 
 
@@ -249,7 +249,22 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
 
   }, [cwd, scheduleUpdate, onPasteReady, onCopyReady]);
 
+  // Handle selectMode changes - enable/disable mouse tracking
+  useEffect(() => {
+    if (!initialized) return;
 
+    if (selectMode) {
+      // Disable ALL mouse tracking for native terminal selection
+      process.stdout.write("\x1b[?1000l");
+      process.stdout.write("\x1b[?1002l");
+      process.stdout.write("\x1b[?1003l");
+      process.stdout.write("\x1b[?1006l");
+    } else {
+      // Re-enable mouse tracking for TUI
+      process.stdout.write("\x1b[?1000h");
+      process.stdout.write("\x1b[?1006h");
+    }
+  }, [selectMode, initialized]);
 
   // Debounce resize to prevent infinite loop crashes in Yoga/OpenTUI
 
