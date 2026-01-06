@@ -1,4 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import * as fs from "fs";
+
+// Debug logger - writes to /tmp/termide-debug.log
+const DEBUG_LOG = "/tmp/termide-debug.log";
+const debugLog = (msg: string) => {
+  const timestamp = new Date().toISOString();
+  fs.appendFileSync(DEBUG_LOG, `[${timestamp}] ${msg}\n`);
+};
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import { FileTree } from "./components/FileTree";
 import { FileViewer } from "./components/FileViewer";
@@ -141,8 +149,6 @@ export function App({ rootPath }: AppProps) {
   const [copyPanelContent, setCopyPanelContent] = useState("");
   const [copyPanelTitle, setCopyPanelTitle] = useState("");
 
-  // Select mode - disables mouse tracking so user can select text with mouse
-  const [selectMode, setSelectMode] = useState(false);
 
   // Stable handler for cursor position updates to prevent infinite loops
   const handleCursorChange = useCallback((line: number, column: number) => {
@@ -156,9 +162,6 @@ export function App({ rootPath }: AppProps) {
   notifyRef.current = notify;
   // Track last SIGINT time for double-tap to exit
   const lastSigintRef = useRef<number>(0);
-  // Ref for selectMode so SIGINT handler can access it
-  const selectModeRef = useRef<boolean>(false);
-  selectModeRef.current = selectMode;
 
   const isAnyModalOpen = showFuzzyFinder || showCommandPalette || showGlobalSearch || showHelpPanel || showShortcuts || showThemePicker || showFileOps || showQuickSettings || showCopyPanel;
 
@@ -215,35 +218,8 @@ export function App({ rootPath }: AppProps) {
     };
   }, [rootPath, openTabs, activeTabIndex, focusedPanel, treeWidth, showAgent, recentFiles]);
 
-  // Select mode - toggle mouse tracking for native terminal selection
-  // Use interval to keep mouse tracking disabled (OpenTUI may re-enable it on renders)
-  useEffect(() => {
-    const disableMouseTracking = () => {
-      // Disable ALL mouse tracking modes - allows native terminal selection
-      process.stdout.write("\x1b[?1000l"); // Disable X10 mouse reporting
-      process.stdout.write("\x1b[?1001l"); // Disable highlight mouse tracking
-      process.stdout.write("\x1b[?1002l"); // Disable button-event tracking
-      process.stdout.write("\x1b[?1003l"); // Disable any-event tracking
-      process.stdout.write("\x1b[?1004l"); // Disable focus events
-      process.stdout.write("\x1b[?1005l"); // Disable UTF-8 mouse mode
-      process.stdout.write("\x1b[?1006l"); // Disable SGR mouse mode
-      process.stdout.write("\x1b[?1015l"); // Disable urxvt mouse mode
-    };
-
-    if (selectMode) {
-      // Disable immediately
-      disableMouseTracking();
-      // Keep disabling every 100ms in case OpenTUI re-enables it
-      const interval = setInterval(disableMouseTracking, 100);
-      return () => {
-        clearInterval(interval);
-        // Re-enable mouse tracking for TUI when leaving select mode
-        process.stdout.write("\x1b[?1000h"); // Enable mouse click tracking
-        process.stdout.write("\x1b[?1002h"); // Enable button-event tracking
-        process.stdout.write("\x1b[?1006h"); // Enable SGR mouse mode
-      };
-    }
-  }, [selectMode]);
+  // Mouse tracking is disabled at the renderer level (useMouse: false in index.tsx)
+  // This allows native Cmd+C copy to work out of the box
 
   // 🎯 CREATIVE HACK: Intercept SIGINT (Cmd+C) and copy instead of quitting!
   // When user presses Cmd+C, terminal sends SIGINT. Instead of exiting, we copy.
@@ -252,13 +228,18 @@ export function App({ rootPath }: AppProps) {
   const selectedFileRef = useRef<string | null>(null);
 
   useEffect(() => {
+    debugLog("🚀 SIGINT handler registered");
+
     const handleSigint = async () => {
+      debugLog("⚡ SIGINT RECEIVED! Cmd+C was pressed");
       const now = Date.now();
       const timeSinceLastSigint = now - lastSigintRef.current;
       lastSigintRef.current = now;
+      debugLog(`  Time since last SIGINT: ${timeSinceLastSigint}ms`);
 
       // Double-tap Cmd+C within 500ms = exit
       if (timeSinceLastSigint < 500) {
+        debugLog("  → Double-tap detected, exiting...");
         // Clean exit - reset terminal modes before exit
         process.stdout.write("\x1b[?1000l"); // Disable mouse tracking
         process.stdout.write("\x1b[?1006l"); // Disable SGR mouse
@@ -269,48 +250,15 @@ export function App({ rootPath }: AppProps) {
         return;
       }
 
-      // 🎯 SELECT MODE: Let terminal handle Cmd+C natively!
-      // When in select mode, terminal's native selection is active.
+      // 🎯 Native terminal copy is active (useMouse: false in renderer)
       // The terminal emulator copies the selection BEFORE sending SIGINT.
-      // So we just show a notification and DON'T overwrite the clipboard.
-      if (selectModeRef.current) {
-        notifyRef.current(
-          "✓ Copied! (native selection) | 2x Cmd+C to exit",
-          "success",
-          2000
-        );
-        return;
-      }
-
-      const currentPanel = focusedPanelRef.current;
-      let textToCopy = "";
-
-      // Terminal panel - use terminalCopyRef
-      if (currentPanel === "terminal" && terminalCopyRef.current) {
-        textToCopy = terminalCopyRef.current();
-      }
-      // Viewer panel - read current file content
-      else if (currentPanel === "viewer" && selectedFileRef.current) {
-        try {
-          const file = Bun.file(selectedFileRef.current);
-          textToCopy = await file.text();
-        } catch {
-          textToCopy = "";
-        }
-      }
-
-      if (textToCopy && textToCopy.trim().length > 0) {
-        await copyToClipboard(textToCopy);
-        const lineCount = textToCopy.split("\n").length;
-        const charCount = textToCopy.length;
-        notifyRef.current(
-          `✓ Copied! ${lineCount}L/${charCount}ch | 2x Cmd+C to exit`,
-          "success",
-          2500
-        );
-      } else {
-        notifyRef.current("Open a file to copy | 2x Cmd+C=exit", "info", 2000);
-      }
+      // Just show a notification - the clipboard already has the text!
+      debugLog("  → Native copy mode, terminal handles clipboard");
+      notifyRef.current(
+        "✓ Copied! | 2x Ctrl+C to exit",
+        "success",
+        2000
+      );
     };
 
     process.on("SIGINT", handleSigint);
@@ -793,20 +741,6 @@ export function App({ rootPath }: AppProps) {
       // H = Help
       if (event.name === "h" || event.name === "H") {
         setShowHelpPanel(true);
-        return;
-      }
-
-      // S = Select mode (disable mouse tracking for native terminal selection)
-      if (event.name === "s" || event.name === "S") {
-        setSelectMode(s => {
-          const newMode = !s;
-          if (newMode) {
-            notify("SELECT MODE ON - Arrastra para seleccionar, Cmd+C para copiar, Ctrl+X S para salir", "info", 5000);
-          } else {
-            notify("Select mode OFF", "info", 1500);
-          }
-          return newMode;
-        });
         return;
       }
 
@@ -1414,7 +1348,7 @@ export function App({ rootPath }: AppProps) {
                       onPasteReady={(pasteFn) => { terminalPasteRef.current = pasteFn; }}
                       onCopyReady={(copyFn) => { terminalCopyRef.current = copyFn; }}
                       height={currentTerminalHeight}
-                      selectMode={selectMode}
+                      selectMode={true}
                     />
                   </box>
                 )}
@@ -1623,25 +1557,6 @@ export function App({ rootPath }: AppProps) {
             success(`Copied ${lineCount} line${lineCount > 1 ? "s" : ""} to clipboard!`, 2000);
           }}
         />
-      )}
-
-      {/* Select Mode Indicator - very visible */}
-      {selectMode && (
-        <box
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: dimensions.width,
-            height: 1,
-            bg: "yellow",
-            justifyContent: "center",
-          }}
-        >
-          <text style={{ fg: "black", bg: "yellow", bold: true }}>
-            ⚡ SELECT MODE - Selecciona con ratón, Cmd+C para copiar, Ctrl+X S para salir ⚡
-          </text>
-        </box>
       )}
 
       {/* Notifications */}
