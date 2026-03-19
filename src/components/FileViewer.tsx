@@ -269,9 +269,23 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
   const [showSearch, setShowSearch] = useState(false);
   const [initialLineHandled, setInitialLineHandled] = useState<number | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [cursorVisible, setCursorVisible] = useState(true);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isExternalUpdateRef = useRef(false);
+  const clearSelectionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [searchMode, setSearchMode] = useState<"search" | "goto">("search");
+
+  // Cursor blinking effect
+  useEffect(() => {
+    if (!focused) {
+      setCursorVisible(true);
+      return;
+    }
+    const interval = setInterval(() => {
+      setCursorVisible(v => !v);
+    }, 530);
+    return () => clearInterval(interval);
+  }, [focused, cursorLine, cursorColumn]);
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [wordWrap, setWordWrap] = useState(false);
   const [definitionHighlight, setDefinitionHighlight] = useState<SymbolLocation | null>(null);
@@ -1212,8 +1226,16 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
       const line = content[actualLine] || "";
       const col = Math.max(0, Math.min(clickCol, line.length));
       setCursorColumn(col);
+      // Reset cursor blink on click
+      setCursorVisible(true);
     }
-  }, [scrollOffset, content, treeWidth, showLineNumbers, lineNumWidth, showGitGutter, showBlame]);
+    // Clear selection after a short delay (only if not dragging)
+    // This prevents selection highlight on simple clicks
+    if (clearSelectionTimerRef.current) clearTimeout(clearSelectionTimerRef.current);
+    clearSelectionTimerRef.current = setTimeout(() => {
+      renderer?.clearSelection?.();
+    }, 150);
+  }, [scrollOffset, content, treeWidth, showLineNumbers, lineNumWidth, showGitGutter, showBlame, renderer]);
 
   // Get file type indicator
   const langIndicator = language ? language.toUpperCase() : "";
@@ -1462,7 +1484,7 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
                         return (
                           <>
                             <HighlightedLine line={beforeCursor} lang={language} showGuides={showIndentGuides} tabSize={tabSize} bracketHighlight={bracketHighlightCol} wordHighlight={highlightedWord} wordHighlightOccurrences={lineWordOccurrences} currentWordOccurrence={currentOccurrenceCol} />
-                            <text style={{ fg: "black", bg: "#d4a800", bold: true }}>{cursorChar}</text>
+                            <text style={{ fg: cursorVisible ? "black" : "#d4a800", bg: cursorVisible ? "#d4a800" : "transparent", bold: true }}>{cursorChar}</text>
                             <HighlightedLine line={afterCursor} lang={language} />
                           </>
                         );
