@@ -19,6 +19,7 @@ interface FileViewerProps {
   focused: boolean;
   rootPath?: string;
   height: number;
+  treeWidth?: number; // Width of the file tree panel for click positioning
   onJumpToFile?: (filePath: string, line?: number) => void;
   onCursorChange?: (line: number, column: number) => void;
   onSelectionChange?: (selectedText: string) => void; // Report selection for Cmd+C copy
@@ -259,7 +260,7 @@ function HighlightedLine({ line, lang, showGuides = false, tabSize = 2, bracketH
   );
 }
 
-export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, onCursorChange, onSelectionChange, initialLine }: FileViewerProps) {
+export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30, onJumpToFile, onCursorChange, onSelectionChange, initialLine }: FileViewerProps) {
   const renderer = useRenderer();
   const [content, setContent] = useState<string[]>([]);
   const [scrollOffset, setScrollOffset] = useState(0);
@@ -1198,28 +1199,21 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
 
   // Click handler to position cursor in the code area
   const handleLineClick = useCallback((lineIndex: number, event: any) => {
-    // Stop propagation to prevent OpenTUI's native text selection
-    event?.stopPropagation?.();
-    event?.preventDefault?.();
-    // Clear any existing selection
-    renderer?.clearSelection?.();
-
     // Position cursor at clicked line
     const actualLine = scrollOffset + lineIndex;
     if (actualLine < content.length) {
       setCursorLine(actualLine);
-      // Use event.source.x (the row box where handler is registered) for accurate position
+      // Calculate content start X from known layout:
+      // treeWidth + tree border(2) + viewer border(1) + inner padding(1)
+      // + git gutter(1) + fold indicator(1) + line numbers(lineNumWidth + 3)
+      const contentStartX = treeWidth + 2 + 1 + 1 + (showGitGutter ? 1 : 0) + 1 + (showBlame ? 12 : 0) + (showLineNumbers ? lineNumWidth + 3 : 0);
       const globalX = event?.x ?? 0;
-      const sourceAbsX = event?.source?.x ?? 0;
-      const localX = globalX - sourceAbsX;
-      // Subtract gutter width (git gutter + fold indicator + blame + line numbers)
-      const gutterWidth = (showGitGutter ? 1 : 0) + 1 + (showBlame ? 12 : 0) + (showLineNumbers ? lineNumWidth + 3 : 0);
-      const clickCol = localX - gutterWidth;
+      const clickCol = globalX - contentStartX;
       const line = content[actualLine] || "";
       const col = Math.max(0, Math.min(clickCol, line.length));
       setCursorColumn(col);
     }
-  }, [scrollOffset, content, showLineNumbers, lineNumWidth, showGitGutter, showBlame, renderer]);
+  }, [scrollOffset, content, treeWidth, showLineNumbers, lineNumWidth, showGitGutter, showBlame]);
 
   // Get file type indicator
   const langIndicator = language ? language.toUpperCase() : "";
