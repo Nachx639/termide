@@ -7,7 +7,7 @@ const debugLog = (msg: string) => {
   const timestamp = new Date().toISOString();
   fs.appendFileSync(DEBUG_LOG, `[${timestamp}] ${msg}\n`);
 };
-import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { useKeyboard, useTerminalDimensions, useRenderer } from "@opentui/react";
 import { FileTree } from "./components/FileTree";
 import { FileViewer } from "./components/FileViewer";
 import { Terminal } from "./components/Terminal";
@@ -155,6 +155,37 @@ export function App({ rootPath }: AppProps) {
   const [diffContent, setDiffContent] = useState("");
   const [diffFilePath, setDiffFilePath] = useState("");
 
+  // Copy-on-select: auto-copy selected text to clipboard when mouse selection ends
+  const renderer = useRenderer();
+  const lastSelectionRef = useRef<string>("");
+
+  useEffect(() => {
+    if (!renderer) return;
+
+    // Poll for selection changes on mouseUp events
+    const checkSelection = () => {
+      const selection = renderer.getSelection();
+      if (selection && !(selection as any).isDragging) {
+        const selectedText = selection.getSelectedText();
+        if (selectedText && selectedText.trim() && selectedText !== lastSelectionRef.current) {
+          lastSelectionRef.current = selectedText;
+          // Copy to clipboard automatically
+          copyToClipboard(selectedText).then(() => {
+            success(`Copied ${selectedText.split('\n').length} line${selectedText.split('\n').length > 1 ? 's' : ''} to clipboard`, 1500);
+          });
+        }
+      }
+    };
+
+    // Check selection state periodically when there might be a selection
+    const interval = setInterval(() => {
+      if (renderer.hasSelection) {
+        checkSelection();
+      }
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, [renderer]);
 
   // Stable handler for cursor position updates to prevent infinite loops
   const handleCursorChange = useCallback((line: number, column: number) => {
