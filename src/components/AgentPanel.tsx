@@ -319,26 +319,49 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
                     </box>
                 ) : (
                     <box style={{ flexDirection: "column", flexGrow: 1, justifyContent: "space-between" }}>
-                        {/* Chat History */}
+                        {/* Chat History with native Markdown rendering */}
                         <scrollbox ref={scrollBoxRef} style={{ flexGrow: 1 }} stickyScroll stickyStart="bottom">
-                            <text style={{ fg: "white" as any }}>
+                            <box style={{ flexDirection: "column", gap: 1 }}>
                                 {messages
                                     .filter(msg => {
-                                        // Filter out ALL system messages except errors
                                         if (msg.role === 'system') {
                                             return msg.content.startsWith('Error:');
                                         }
                                         return true;
                                     })
-                                    .slice(-20) // Show last 20 messages
-                                    .map(msg => {
-                                        const prefix = msg.role === 'user' ? '> ' : '';
-                                        const content = `${prefix}${msg.content}`;
-                                        return content;
-                                    })
-                                    .join('\n\n') // Separate messages with blank line
-                                }
-                            </text>
+                                    .slice(-20)
+                                    .map((msg, idx) => {
+                                        if (msg.role === 'user') {
+                                            return (
+                                                <box key={idx} style={{ flexDirection: "row" }}>
+                                                    <text style={{ fg: "cyan", bold: true }}>{'> '}</text>
+                                                    <text style={{ fg: "cyan" }}>{msg.content}</text>
+                                                </box>
+                                            );
+                                        }
+                                        if (msg.role === 'system') {
+                                            return (
+                                                <text key={idx} style={{ fg: "red" }}>{msg.content}</text>
+                                            );
+                                        }
+                                        // Assistant messages: full native markdown with streaming
+                                        return (
+                                            <markdown
+                                                key={idx}
+                                                content={msg.content}
+                                                syntaxStyle="monokai"
+                                                conceal
+                                                streaming={idx === messages.length - 1 && status === 'connected'}
+                                                tableOptions={{
+                                                    widthMode: "content",
+                                                    borders: true,
+                                                    borderStyle: "rounded",
+                                                    selectable: true,
+                                                }}
+                                            />
+                                        );
+                                    })}
+                            </box>
                         </scrollbox>
 
                         {/* Input Area - at bottom */}
