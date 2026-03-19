@@ -517,11 +517,12 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
   const insertChar = useCallback((char: string) => {
     const newContent = [...content];
     const line = newContent[cursorLine] || "";
-    // Pad line if cursor is beyond line end
-    const paddedLine = line.length < cursorColumn ? line + " ".repeat(cursorColumn - line.length) : line;
-    newContent[cursorLine] = paddedLine.slice(0, cursorColumn) + char + paddedLine.slice(cursorColumn);
+    // Insert AFTER the cursor character (block cursor sits ON a char)
+    const insertPos = Math.min(cursorColumn + 1, line.length);
+    const paddedLine = line.length < insertPos ? line + " ".repeat(insertPos - line.length) : line;
+    newContent[cursorLine] = paddedLine.slice(0, insertPos) + char + paddedLine.slice(insertPos);
     updateContentAndSave(newContent);
-    setCursorColumn(cursorColumn + char.length);
+    setCursorColumn(insertPos + char.length - 1);
   }, [content, cursorLine, cursorColumn, updateContentAndSave]);
 
   // Handle backspace
