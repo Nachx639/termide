@@ -29,6 +29,7 @@ import { FileOperationsModal, type FileOperation } from "./components/FileOperat
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { QuickSettings, type QuickSettingsState } from "./components/QuickSettings";
 import { CopyPanel } from "./components/CopyPanel";
+import { DiffViewer } from "./components/DiffViewer";
 import * as path from "path";
 import { getGitStatus, formatGitBranch, formatGitStatus, invalidateGitCache } from "./lib/GitIntegration";
 import type { GitStatus } from "./lib/GitIntegration";
@@ -148,6 +149,11 @@ export function App({ rootPath }: AppProps) {
   const [showCopyPanel, setShowCopyPanel] = useState(false);
   const [copyPanelContent, setCopyPanelContent] = useState("");
   const [copyPanelTitle, setCopyPanelTitle] = useState("");
+
+  // Diff viewer state (native OpenTUI DiffRenderable)
+  const [showDiffViewer, setShowDiffViewer] = useState(false);
+  const [diffContent, setDiffContent] = useState("");
+  const [diffFilePath, setDiffFilePath] = useState("");
 
 
   // Stable handler for cursor position updates to prevent infinite loops
@@ -1171,6 +1177,11 @@ export function App({ rootPath }: AppProps) {
                   rootPath={rootPath}
                   focused={!isAnyModalOpen && focusedPanel === "source"}
                   onFocus={() => setFocusedPanel("source")}
+                  onShowDiff={(diff, filePath) => {
+                    setDiffContent(diff);
+                    setDiffFilePath(filePath);
+                    setShowDiffViewer(true);
+                  }}
                 />
               </box>
             )}
@@ -1535,6 +1546,18 @@ export function App({ rootPath }: AppProps) {
             success(`Copied ${lineCount} line${lineCount > 1 ? "s" : ""} to clipboard!`, 2000);
           }}
         />
+      )}
+
+      {/* Diff Viewer - Native OpenTUI DiffRenderable */}
+      {showDiffViewer && (
+        <box style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", bg: "#0b0b0b" }}>
+          <DiffViewer
+            diff={diffContent}
+            filePath={diffFilePath}
+            focused={showDiffViewer}
+            onClose={() => setShowDiffViewer(false)}
+          />
+        </box>
       )}
 
       {/* Notifications */}
