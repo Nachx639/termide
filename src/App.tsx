@@ -1276,6 +1276,7 @@ export function App({ rootPath }: AppProps) {
                         filePath={selectedFile}
                         focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "left"}
                         rootPath={rootPath}
+                        treeWidth={responsiveTreeWidth}
                         height={currentViewerHeight}
                         onCursorChange={activeSplit === "left" ? handleCursorChange : undefined}
                         onJumpToFile={(targetPath, line) => {
@@ -1293,6 +1294,7 @@ export function App({ rootPath }: AppProps) {
                         filePath={splitFile}
                         focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "right"}
                         rootPath={rootPath}
+                        treeWidth={responsiveTreeWidth}
                         height={currentViewerHeight}
                         onCursorChange={activeSplit === "right" ? handleCursorChange : undefined}
                         onJumpToFile={(targetPath, line) => {
@@ -1314,6 +1316,7 @@ export function App({ rootPath }: AppProps) {
                         filePath={selectedFile}
                         focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "left"}
                         rootPath={rootPath}
+                        treeWidth={responsiveTreeWidth}
                         height={Math.floor(currentViewerHeight / 2)}
                         onCursorChange={activeSplit === "left" ? handleCursorChange : undefined}
                         onJumpToFile={(targetPath, line) => {
@@ -1331,6 +1334,7 @@ export function App({ rootPath }: AppProps) {
                         filePath={splitFile}
                         focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "right"}
                         rootPath={rootPath}
+                        treeWidth={responsiveTreeWidth}
                         height={Math.floor(currentViewerHeight / 2)}
                         onCursorChange={activeSplit === "right" ? handleCursorChange : undefined}
                         onJumpToFile={(targetPath, line) => {
@@ -1346,6 +1350,7 @@ export function App({ rootPath }: AppProps) {
                     filePath={selectedFile}
                     focused={!isAnyModalOpen && focusedPanel === "viewer"}
                     rootPath={rootPath}
+                    treeWidth={responsiveTreeWidth}
                     height={currentViewerHeight}
                     onCursorChange={handleCursorChange}
                     onJumpToFile={(targetPath, line) => {
