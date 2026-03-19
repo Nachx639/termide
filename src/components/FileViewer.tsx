@@ -1229,13 +1229,7 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
       // Reset cursor blink on click
       setCursorVisible(true);
     }
-    // Clear selection after a short delay (only if not dragging)
-    // This prevents selection highlight on simple clicks
-    if (clearSelectionTimerRef.current) clearTimeout(clearSelectionTimerRef.current);
-    clearSelectionTimerRef.current = setTimeout(() => {
-      renderer?.clearSelection?.();
-    }, 150);
-  }, [scrollOffset, content, treeWidth, showLineNumbers, lineNumWidth, showGitGutter, showBlame, renderer]);
+  }, [scrollOffset, content, treeWidth, showLineNumbers, lineNumWidth, showGitGutter, showBlame]);
 
   // Get file type indicator
   const langIndicator = language ? language.toUpperCase() : "";
