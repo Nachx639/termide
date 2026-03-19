@@ -517,12 +517,11 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
   const insertChar = useCallback((char: string) => {
     const newContent = [...content];
     const line = newContent[cursorLine] || "";
-    // Insert AFTER the cursor character (block cursor sits ON a char)
-    const insertPos = Math.min(cursorColumn + 1, line.length);
-    const paddedLine = line.length < insertPos ? line + " ".repeat(insertPos - line.length) : line;
-    newContent[cursorLine] = paddedLine.slice(0, insertPos) + char + paddedLine.slice(insertPos);
+    // Insert BEFORE cursor (standard text editor behavior)
+    const paddedLine = line.length < cursorColumn ? line + " ".repeat(cursorColumn - line.length) : line;
+    newContent[cursorLine] = paddedLine.slice(0, cursorColumn) + char + paddedLine.slice(cursorColumn);
     updateContentAndSave(newContent);
-    setCursorColumn(insertPos + char.length - 1);
+    setCursorColumn(cursorColumn + char.length);
   }, [content, cursorLine, cursorColumn, updateContentAndSave]);
 
   // Handle backspace
@@ -530,9 +529,9 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
     if (!filePath) return;
     const newContent = [...content];
     if (cursorColumn > 0) {
-      // Delete char under cursor (block cursor sits ON this char, insertion point is after it)
+      // Delete char before cursor (standard text editor behavior)
       const line = newContent[cursorLine] || "";
-      newContent[cursorLine] = line.slice(0, cursorColumn) + line.slice(cursorColumn + 1);
+      newContent[cursorLine] = line.slice(0, cursorColumn - 1) + line.slice(cursorColumn);
       updateContentAndSave(newContent);
       setCursorColumn(cursorColumn - 1);
     } else if (cursorLine > 0) {
@@ -1219,7 +1218,7 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
     if (actualLine < content.length) {
       setCursorLine(actualLine);
       // Calculate content start X from known layout:
-      // treeWidth + tree border(2) + viewer border(1) + inner padding(1)
+      // treeWidth + tree borders(2) + viewer border(1) + padding(1)
       // + git gutter(1) + fold indicator(1) + line numbers(lineNumWidth + 3)
       const contentStartX = treeWidth + 2 + 1 + 1 + (showGitGutter ? 1 : 0) + 1 + (showBlame ? 12 : 0) + (showLineNumbers ? lineNumWidth + 3 : 0);
       const globalX = event?.x ?? 0;
