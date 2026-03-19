@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useKeyboard } from "@opentui/react";
+import { useKeyboard, useRenderer } from "@opentui/react";
 import * as fs from "fs";
 import * as path from "path";
 import { tokenizeLine, detectLanguage, getTokenColor, type Token, DARK_THEME } from "../lib/SyntaxHighlighter";
@@ -260,6 +260,7 @@ function HighlightedLine({ line, lang, showGuides = false, tabSize = 2, bracketH
 }
 
 export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, onCursorChange, onSelectionChange, initialLine }: FileViewerProps) {
+  const renderer = useRenderer();
   const [content, setContent] = useState<string[]>([]);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [cursorLine, setCursorLine] = useState(0);
@@ -1197,14 +1198,20 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
 
   // Click handler to position cursor in the code area
   const handleLineClick = useCallback((lineIndex: number, event: any) => {
+    // Stop propagation to prevent OpenTUI's native text selection
+    event?.stopPropagation?.();
+    event?.preventDefault?.();
+    // Clear any existing selection
+    renderer?.clearSelection?.();
+
     // Position cursor at clicked line
     const actualLine = scrollOffset + lineIndex;
     if (actualLine < content.length) {
       setCursorLine(actualLine);
-      // Calculate local x by subtracting the absolute position of the clicked row
+      // Use event.source.x (the row box where handler is registered) for accurate position
       const globalX = event?.x ?? 0;
-      const targetAbsX = event?.target?.x ?? event?.source?.x ?? 0;
-      const localX = globalX - targetAbsX;
+      const sourceAbsX = event?.source?.x ?? 0;
+      const localX = globalX - sourceAbsX;
       // Subtract gutter width (git gutter + fold indicator + blame + line numbers)
       const gutterWidth = (showGitGutter ? 1 : 0) + 1 + (showBlame ? 12 : 0) + (showLineNumbers ? lineNumWidth + 3 : 0);
       const clickCol = localX - gutterWidth;
@@ -1212,7 +1219,7 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
       const col = Math.max(0, Math.min(clickCol, line.length));
       setCursorColumn(col);
     }
-  }, [scrollOffset, content, showLineNumbers, lineNumWidth, showGitGutter, showBlame]);
+  }, [scrollOffset, content, showLineNumbers, lineNumWidth, showGitGutter, showBlame, renderer]);
 
   // Get file type indicator
   const langIndicator = language ? language.toUpperCase() : "";
