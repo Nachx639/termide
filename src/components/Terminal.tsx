@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { useKeyboard, useTerminalDimensions, useRenderer } from "@opentui/react";
 import { VirtualTerminal } from "../lib/VirtualTerminal";
 
 interface TerminalProps {
@@ -19,6 +19,7 @@ interface TerminalRef {
 
 export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteReady, onCopyReady, selectMode = false }: TerminalProps) {
   const dimensions = useTerminalDimensions();
+  const renderer = useRenderer();
   const [renderCount, setRenderCount] = useState(0);
   const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -249,6 +250,35 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
 
   }, [cwd, scheduleUpdate, onPasteReady, onCopyReady]);
 
+  // Listen for native PasteEvent from OpenTUI renderer (bracketed paste via Cmd+V)
+  useEffect(() => {
+    if (!renderer || !focused) return;
+
+    const handlePaste = (event: any) => {
+      if (!focused || !terminalRef.current) return;
+      try {
+        // Decode paste bytes to text
+        let text: string;
+        if (event.bytes instanceof Uint8Array) {
+          text = new TextDecoder().decode(event.bytes);
+        } else {
+          text = String(event.bytes || '');
+        }
+        if (text) {
+          terminalRef.current.write(text);
+          setScrollOffset(0);
+        }
+      } catch (err) {
+        // Fallback: ignore decode errors
+      }
+    };
+
+    renderer.keyInput.on('paste', handlePaste);
+    return () => {
+      renderer.keyInput.off('paste', handlePaste);
+    };
+  }, [renderer, focused]);
+
   // Handle selectMode changes - enable/disable mouse tracking
   useEffect(() => {
     if (!initialized) return;
@@ -351,6 +381,21 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
     }
 
 
+
+    // Handle Cmd+V paste via pbpaste fallback (in case bracketed paste didn't fire)
+    if (event.meta && event.name === "v") {
+      (async () => {
+        try {
+          const proc = Bun.spawn(["pbpaste"], { stdout: "pipe" });
+          const text = await new Response(proc.stdout).text();
+          if (text && terminalRef.current) {
+            terminalRef.current.write(text);
+            setScrollOffset(0);
+          }
+        } catch {}
+      })();
+      return;
+    }
 
     if (event.meta) return;
 
