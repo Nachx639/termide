@@ -16,9 +16,10 @@ const debugLog = (msg: string) => {
 // Get the root path from command line or use current directory
 const rootPath = path.resolve(process.argv[2] || process.cwd());
 
-// 🎯 Full mouse support - clicks work, drag to select, then Ctrl+Y to copy
+// 🎯 Full mouse support + Ctrl+C goes to PTY, not to exit
 const renderer = await createCliRenderer({
-  useMouse: true
+  useMouse: true,
+  exitOnCtrlC: false, // Critical: let Terminal.tsx handle Ctrl+C → PTY, don't kill Termide
 });
 debugLog("🖱️ Renderer created with useMouse: true");
 
