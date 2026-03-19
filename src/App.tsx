@@ -697,6 +697,13 @@ export function App({ rootPath }: AppProps) {
     // Don't handle keyboard if overlays are open (except help panel)
     if (showFuzzyFinder || showCommandPalette || showGlobalSearch || showThemePicker || showQuickSettings) return;
 
+    // === CTRL+C: Exit Termide when NOT focused on terminal ===
+    // When terminal is focused, Ctrl+C goes to PTY (handled in Terminal.tsx)
+    // When any other panel is focused, Ctrl+C exits the app
+    if (event.ctrl && event.name === "c" && focusedPanel !== "terminal") {
+      process.exit(0);
+    }
+
     // === COPY SELECTION with Ctrl+Y ===
     // Try to copy OpenTUI selection when user presses Ctrl+Y
     if (event.ctrl && (event.name === "y" || event.name === "Y") && !event.shift) {
