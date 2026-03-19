@@ -1201,12 +1201,15 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
     const actualLine = scrollOffset + lineIndex;
     if (actualLine < content.length) {
       setCursorLine(actualLine);
-      // Try to estimate column from click x position
-      // The click x is relative to the box, subtracting line number width
-      const gutterWidth = (showLineNumbers ? lineNumWidth + 3 : 0) + (showGitGutter ? 1 : 0) + 1 + (showBlame ? 12 : 0);
-      const clickX = (event?.x || 0) - gutterWidth;
+      // Calculate local x by subtracting the absolute position of the clicked row
+      const globalX = event?.x ?? 0;
+      const targetAbsX = event?.target?.x ?? event?.source?.x ?? 0;
+      const localX = globalX - targetAbsX;
+      // Subtract gutter width (git gutter + fold indicator + blame + line numbers)
+      const gutterWidth = (showGitGutter ? 1 : 0) + 1 + (showBlame ? 12 : 0) + (showLineNumbers ? lineNumWidth + 3 : 0);
+      const clickCol = localX - gutterWidth;
       const line = content[actualLine] || "";
-      const col = Math.max(0, Math.min(clickX, line.length));
+      const col = Math.max(0, Math.min(clickCol, line.length));
       setCursorColumn(col);
     }
   }, [scrollOffset, content, showLineNumbers, lineNumWidth, showGitGutter, showBlame]);
