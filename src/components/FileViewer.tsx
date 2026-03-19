@@ -530,9 +530,9 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
     if (!filePath) return;
     const newContent = [...content];
     if (cursorColumn > 0) {
-      // Delete char before cursor
+      // Delete char under cursor (block cursor sits ON this char, insertion point is after it)
       const line = newContent[cursorLine] || "";
-      newContent[cursorLine] = line.slice(0, cursorColumn - 1) + line.slice(cursorColumn);
+      newContent[cursorLine] = line.slice(0, cursorColumn) + line.slice(cursorColumn + 1);
       updateContentAndSave(newContent);
       setCursorColumn(cursorColumn - 1);
     } else if (cursorLine > 0) {
