@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useKeyboard } from "@opentui/react";
 import * as fs from "fs";
 import * as path from "path";
@@ -266,6 +266,9 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
   const [cursorColumn, setCursorColumn] = useState(0);
   const [showSearch, setShowSearch] = useState(false);
   const [initialLineHandled, setInitialLineHandled] = useState<number | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isExternalUpdateRef = useRef(false);
   const [searchMode, setSearchMode] = useState<"search" | "goto">("search");
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [wordWrap, setWordWrap] = useState(false);
@@ -469,11 +472,111 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
     if (!filePath) return;
     try {
       fs.writeFileSync(filePath, newContent, "utf-8");
+      isExternalUpdateRef.current = true;
       setContent(newContent.split("\n"));
     } catch (e) {
       console.error("Error saving file:", e);
     }
   }, [filePath]);
+
+  // === INLINE EDITING: modify content and auto-save ===
+  const updateContentAndSave = useCallback((newContent: string[]) => {
+    if (!filePath) return;
+    isExternalUpdateRef.current = true;
+    setContent(newContent);
+    setIsDirty(true);
+    // Debounced auto-save (300ms)
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      try {
+        fs.writeFileSync(filePath, newContent.join("\n"), "utf-8");
+        setIsDirty(false);
+      } catch (e) {
+        console.error("Error saving file:", e);
+      }
+    }, 300);
+  }, [filePath]);
+
+  // Insert character at cursor position
+  const insertChar = useCallback((char: string) => {
+    const newContent = [...content];
+    const line = newContent[cursorLine] || "";
+    // Pad line if cursor is beyond line end
+    const paddedLine = line.length < cursorColumn ? line + " ".repeat(cursorColumn - line.length) : line;
+    newContent[cursorLine] = paddedLine.slice(0, cursorColumn) + char + paddedLine.slice(cursorColumn);
+    updateContentAndSave(newContent);
+    setCursorColumn(cursorColumn + char.length);
+  }, [content, cursorLine, cursorColumn, updateContentAndSave]);
+
+  // Handle backspace
+  const handleBackspace = useCallback(() => {
+    if (!filePath) return;
+    const newContent = [...content];
+    if (cursorColumn > 0) {
+      // Delete char before cursor
+      const line = newContent[cursorLine] || "";
+      newContent[cursorLine] = line.slice(0, cursorColumn - 1) + line.slice(cursorColumn);
+      updateContentAndSave(newContent);
+      setCursorColumn(cursorColumn - 1);
+    } else if (cursorLine > 0) {
+      // Merge with previous line
+      const prevLine = newContent[cursorLine - 1] || "";
+      const curLine = newContent[cursorLine] || "";
+      const newCol = prevLine.length;
+      newContent[cursorLine - 1] = prevLine + curLine;
+      newContent.splice(cursorLine, 1);
+      updateContentAndSave(newContent);
+      setCursorLine(cursorLine - 1);
+      setCursorColumn(newCol);
+    }
+  }, [filePath, content, cursorLine, cursorColumn, updateContentAndSave]);
+
+  // Handle delete key
+  const handleDelete = useCallback(() => {
+    if (!filePath) return;
+    const newContent = [...content];
+    const line = newContent[cursorLine] || "";
+    if (cursorColumn < line.length) {
+      // Delete char at cursor
+      newContent[cursorLine] = line.slice(0, cursorColumn) + line.slice(cursorColumn + 1);
+      updateContentAndSave(newContent);
+    } else if (cursorLine < content.length - 1) {
+      // Merge with next line
+      const nextLine = newContent[cursorLine + 1] || "";
+      newContent[cursorLine] = line + nextLine;
+      newContent.splice(cursorLine + 1, 1);
+      updateContentAndSave(newContent);
+    }
+  }, [filePath, content, cursorLine, cursorColumn, updateContentAndSave]);
+
+  // Handle enter key
+  const handleEnter = useCallback(() => {
+    if (!filePath) return;
+    const newContent = [...content];
+    const line = newContent[cursorLine] || "";
+    const before = line.slice(0, cursorColumn);
+    const after = line.slice(cursorColumn);
+    // Auto-indent: match the leading whitespace of the current line
+    const indent = line.match(/^(\s*)/)?.[1] || "";
+    newContent[cursorLine] = before;
+    newContent.splice(cursorLine + 1, 0, indent + after);
+    updateContentAndSave(newContent);
+    setCursorLine(cursorLine + 1);
+    setCursorColumn(indent.length);
+    // Adjust scroll
+    const scrollMargin = 2;
+    if (cursorLine + 1 >= scrollOffset + viewHeight - scrollMargin) {
+      setScrollOffset(Math.min(
+        Math.max(0, newContent.length - viewHeight),
+        cursorLine + 1 - viewHeight + 1 + scrollMargin
+      ));
+    }
+  }, [filePath, content, cursorLine, cursorColumn, updateContentAndSave, scrollOffset, viewHeight]);
+
+  // Handle tab key
+  const handleTab = useCallback(() => {
+    insertChar("  "); // Insert 2 spaces
+  }, [insertChar]);
 
   // Get selected lines range
   const getSelectedRange = useCallback(() => {
@@ -679,16 +782,24 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
     // Initial read
     readFile();
     setScrollOffset(0);
+    setIsDirty(false);
 
-    // Watch for changes
+    // Watch for external changes only (not our own saves)
     try {
       const watcher = fs.watch(filePath, (event) => {
-        if (event === "change") {
-          readFile();
+        if (event === "change" && !isExternalUpdateRef.current) {
+          // Only reload if we didn't cause the change
+          if (!isDirty) {
+            readFile();
+          }
         }
+        isExternalUpdateRef.current = false;
       });
 
-      return () => watcher.close();
+      return () => {
+        watcher.close();
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      };
     } catch (e) {
       console.error("Watcher error:", e);
     }
@@ -797,6 +908,44 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
 
     if (showSearch || showFindReplace || showSymbolPicker) return;
 
+    // === INLINE EDITING: character insertion ===
+    // Handle printable characters (single chars, not ctrl/meta combos)
+    if (!event.ctrl && !event.meta && event.name && event.name.length === 1 && !event.shift) {
+      // Skip vim navigation keys — now we type directly
+      insertChar(event.name);
+      return;
+    }
+    // Handle shifted characters (uppercase, symbols like !, @, #, etc.)
+    if (event.shift && event.name && event.name.length === 1 && !event.ctrl && !event.meta) {
+      insertChar(event.name.toUpperCase());
+      return;
+    }
+    // Handle space
+    if (event.name === "space" && !event.ctrl && !event.meta) {
+      insertChar(" ");
+      return;
+    }
+    // Backspace
+    if (event.name === "backspace" && !event.ctrl && !event.meta) {
+      handleBackspace();
+      return;
+    }
+    // Delete
+    if (event.name === "delete" && !event.ctrl && !event.meta) {
+      handleDelete();
+      return;
+    }
+    // Enter
+    if (event.name === "return" && !event.ctrl && !event.meta) {
+      handleEnter();
+      return;
+    }
+    // Tab
+    if (event.name === "tab" && !event.ctrl && !event.meta && !event.shift) {
+      handleTab();
+      return;
+    }
+
     if (event.alt && event.name === "f") {
       setSearchMode("search");
       setShowSearch(true);
@@ -830,18 +979,16 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
       return;
     }
 
-    // Code folding: z = toggle fold, zM = fold all, zR = unfold all
-    if (event.name === "z" && !event.ctrl && !event.meta && !event.alt) {
+    // Code folding: Ctrl+[ = toggle fold, Ctrl+Shift+[ = fold all, Ctrl+Shift+] = unfold all
+    if (event.ctrl && event.name === "[" && !event.shift) {
       handleToggleFold();
       return;
     }
-    if ((event.shift && event.name === "z") || event.name === "Z") {
-      // Shift+Z = fold all
+    if (event.ctrl && event.shift && event.name === "[") {
       handleFoldAll();
       return;
     }
-    if (event.alt && event.name === "z") {
-      // Alt+Z = unfold all
+    if (event.ctrl && event.shift && event.name === "]") {
       handleUnfoldAll();
       return;
     }
@@ -901,13 +1048,12 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
     }
 
     // Line editing operations
-    // V = Start visual selection (vim-style)
-    if (event.name === "v" || event.name === "V") {
+    // Ctrl+Shift+V = Start visual selection
+    if (event.ctrl && event.shift && (event.name === "v" || event.name === "V")) {
       if (selectionStart === null) {
         setSelectionStart(cursorLine);
         setSelectionEnd(cursorLine);
       } else {
-        // Clear selection
         setSelectionStart(null);
         setSelectionEnd(null);
       }
@@ -935,20 +1081,20 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
       return;
     }
 
-    // Ctrl+C or y = Copy line(s)
-    if ((event.ctrl && event.name === "c") || event.name === "y") {
+    // Ctrl+C = Copy line(s)
+    if (event.ctrl && event.name === "c") {
       copySelectedLines();
       return;
     }
 
-    // Ctrl+X or d+d = Cut/delete line(s)
+    // Ctrl+X = Cut/delete line(s)
     if (event.ctrl && event.name === "x") {
       cutSelectedLines();
       return;
     }
 
-    // Ctrl+V or p = Paste line(s)
-    if ((event.ctrl && event.name === "v") || event.name === "p") {
+    // Ctrl+V = Paste line(s)
+    if (event.ctrl && event.name === "v") {
       pasteLines();
       return;
     }
@@ -988,20 +1134,21 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
 
     if (showPreview) return;
 
-    if (event.name === "up" || event.name === "k") {
+    if (event.name === "up") {
       const newCursor = Math.max(0, cursorLine - 1);
       setCursorLine(newCursor);
-
-      // Smart Auto-scroll (edge-triggered)
+      // Clamp column to line length
+      const newLine = content[newCursor] || "";
+      setCursorColumn(Math.min(cursorColumn, newLine.length));
       const scrollMargin = 2;
       if (newCursor < scrollOffset + scrollMargin) {
         setScrollOffset(Math.max(0, newCursor - scrollMargin));
       }
-    } else if (event.name === "down" || event.name === "j") {
+    } else if (event.name === "down") {
       const newCursor = Math.min(content.length - 1, cursorLine + 1);
       setCursorLine(newCursor);
-
-      // Smart Auto-scroll (edge-triggered)
+      const newLine = content[newCursor] || "";
+      setCursorColumn(Math.min(cursorColumn, newLine.length));
       const scrollMargin = 2;
       if (newCursor >= scrollOffset + viewHeight - scrollMargin) {
         setScrollOffset(Math.min(
@@ -1017,44 +1164,29 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
       const newOffset = Math.min(Math.max(0, content.length - viewHeight), scrollOffset + viewHeight);
       setScrollOffset(newOffset);
       setCursorLine(newOffset);
-    } else if (event.name === "g") {
-      setScrollOffset(0);
-      setCursorLine(0);
-    } else if (event.name === "G") {
-      const lastOffset = Math.max(0, content.length - viewHeight);
-      setScrollOffset(lastOffset);
-      setCursorLine(content.length - 1);
-    } else if (event.name === "left" || event.name === "h") {
-      // Move cursor left
+    } else if (event.name === "left") {
+      if (cursorColumn > 0) {
+        setCursorColumn(cursorColumn - 1);
+      } else if (cursorLine > 0) {
+        // Move to end of previous line
+        const prevLine = content[cursorLine - 1] || "";
+        setCursorLine(cursorLine - 1);
+        setCursorColumn(prevLine.length);
+      }
+    } else if (event.name === "right") {
       const line = content[cursorLine] || "";
-      setCursorColumn(Math.max(0, cursorColumn - 1));
-    } else if (event.name === "right" || event.name === "l") {
-      // Move cursor right
-      const line = content[cursorLine] || "";
-      setCursorColumn(Math.min(line.length, cursorColumn + 1));
-    } else if (event.name === "home" || event.name === "0") {
-      // Go to start of line
+      if (cursorColumn < line.length) {
+        setCursorColumn(cursorColumn + 1);
+      } else if (cursorLine < content.length - 1) {
+        // Move to start of next line
+        setCursorLine(cursorLine + 1);
+        setCursorColumn(0);
+      }
+    } else if (event.name === "home") {
       setCursorColumn(0);
-    } else if (event.name === "end" || event.name === "$") {
-      // Go to end of line
+    } else if (event.name === "end") {
       const line = content[cursorLine] || "";
       setCursorColumn(line.length);
-    } else if (event.name === "w") {
-      // Jump to next word
-      const line = content[cursorLine] || "";
-      const rest = line.slice(cursorColumn);
-      const match = rest.match(/^\s*\w+\s*/);
-      if (match) {
-        setCursorColumn(Math.min(line.length, cursorColumn + match[0].length));
-      }
-    } else if (event.name === "b") {
-      // Jump to previous word
-      const line = content[cursorLine] || "";
-      const before = line.slice(0, cursorColumn);
-      const match = before.match(/\s*\w+\s*$/);
-      if (match) {
-        setCursorColumn(Math.max(0, cursorColumn - match[0].length));
-      }
     }
   });
 
@@ -1062,6 +1194,22 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
   const fileName = filePath ? path.basename(filePath) : "No file selected";
   const borderColor = focused ? "cyan" : "gray";
   const lineNumWidth = Math.max(4, String(content.length).length);
+
+  // Click handler to position cursor in the code area
+  const handleLineClick = useCallback((lineIndex: number, event: any) => {
+    // Position cursor at clicked line
+    const actualLine = scrollOffset + lineIndex;
+    if (actualLine < content.length) {
+      setCursorLine(actualLine);
+      // Try to estimate column from click x position
+      // The click x is relative to the box, subtracting line number width
+      const gutterWidth = (showLineNumbers ? lineNumWidth + 3 : 0) + (showGitGutter ? 1 : 0) + 1 + (showBlame ? 12 : 0);
+      const clickX = (event?.x || 0) - gutterWidth;
+      const line = content[actualLine] || "";
+      const col = Math.max(0, Math.min(clickX, line.length));
+      setCursorColumn(col);
+    }
+  }, [scrollOffset, content, showLineNumbers, lineNumWidth, showGitGutter, showBlame]);
 
   // Get file type indicator
   const langIndicator = language ? language.toUpperCase() : "";
@@ -1113,7 +1261,8 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
       {/* Header with Breadcrumbs and status indicators */}
       <box style={{ height: 1, paddingX: 1, flexDirection: "row", justifyContent: "space-between" }}>
         <box style={{ flexDirection: "row", gap: 1, flexShrink: 1 }}>
-          {focused && <text style={{ fg: "black", bg: "cyan", bold: true }}> FOCUS </text>}
+          {focused && <text style={{ fg: "black", bg: "cyan", bold: true }}> EDIT </text>}
+          {isDirty && <text style={{ fg: "black", bg: "yellow", bold: true }}> ● </text>}
           {selectionStart !== null && <text style={{ fg: "black", bg: "yellow", bold: true }}> VISUAL </text>}
           {filePath ? (
             <box style={{ flexShrink: 1 }}><Breadcrumbs filePath={filePath} rootPath={rootPath} /></box>
@@ -1282,7 +1431,7 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
                 const gutterIndicator = lineDiff ? getLineDiffIndicator(lineDiff.status) : null;
 
                 return (
-                  <box key={index} style={{ flexDirection: "row", bg: lineBg as any, overflow: "hidden" }}>
+                  <box key={index} style={{ flexDirection: "row", bg: lineBg as any, overflow: "hidden" }} onMouseDown={(e: any) => handleLineClick(index, e)}>
                     {/* Git gutter indicator */}
                     {showGitGutter && (
                       <text style={{ fg: gutterIndicator?.color as any || "transparent", flexShrink: 0 }}>
@@ -1301,7 +1450,20 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
                       </text>
                     )}
                     <box style={{ flexGrow: 1, flexShrink: 1, width: 0, flexDirection: "row", overflow: "hidden", paddingRight: 1 }}>
-                      <HighlightedLine
+                      {/* Cursor rendering */}
+                      {isCurrentLine && focused && (() => {
+                        const beforeCursor = line.slice(0, cursorColumn);
+                        const cursorChar = line[cursorColumn] || " ";
+                        const afterCursor = line.slice(cursorColumn + 1);
+                        return (
+                          <>
+                            <HighlightedLine line={beforeCursor} lang={language} showGuides={showIndentGuides} tabSize={tabSize} bracketHighlight={bracketHighlightCol} wordHighlight={highlightedWord} wordHighlightOccurrences={lineWordOccurrences} currentWordOccurrence={currentOccurrenceCol} />
+                            <text style={{ fg: "black", bg: "#d4a800", bold: true }}>{cursorChar}</text>
+                            <HighlightedLine line={afterCursor} lang={language} />
+                          </>
+                        );
+                      })()}
+                      {!(isCurrentLine && focused) && <HighlightedLine
                         line={line}
                         lang={language}
                         showGuides={showIndentGuides}
@@ -1310,7 +1472,7 @@ export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, 
                         wordHighlight={highlightedWord}
                         wordHighlightOccurrences={lineWordOccurrences}
                         currentWordOccurrence={currentOccurrenceCol}
-                      />
+                      />}
                       {foldMarker === "collapsed" && (
                         <text style={{ fg: "gray", dim: true }}> ⋯ ({foldedCount} lines)</text>
                       )}
