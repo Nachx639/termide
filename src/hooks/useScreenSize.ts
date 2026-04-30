@@ -48,7 +48,7 @@ function getScreenSize(cols: number): ScreenSize {
  * ```
  */
 export function useScreenSize(): UseScreenSizeReturn {
-  const { cols, rows } = useTerminalDimensions();
+  const { width: cols, height: rows } = useTerminalDimensions();
 
   const size = getScreenSize(cols);
   const isSmall = size === "small";

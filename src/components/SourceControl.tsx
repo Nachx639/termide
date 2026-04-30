@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useKeyboard } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 import {
     getGitChanges,
     type FileGitStatus,
@@ -182,55 +183,55 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
     const unstaged = changes.filter(c => !c.status.staged);
 
     return (
-        <box style={{ flexDirection: "column", border: true, borderColor, height: "100%", bg: "#0b0b0b" }} onMouseDown={onFocus}>
-            <box style={{ paddingX: 1, height: 1, bg: "#1a1a1a", flexDirection: "row" }}>
-                {focused && <text style={{ fg: "black", bg: "cyan", bold: true }}> FOCUS </text>}
-                <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a" }}>Source Control</text>
+        <box style={{ flexDirection: "column", border: true, borderColor, height: "100%", backgroundColor: "#0b0b0b" }} onMouseDown={onFocus}>
+            <box style={{ paddingX: 1, height: 1, backgroundColor: "#1a1a1a", flexDirection: "row" }}>
+                {focused && <text style={{ fg: "black", bg: "cyan", attributes: TextAttributes.BOLD }}> FOCUS </text>}
+                <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>Source Control</text>
                 {focused && (
-                    <text style={{ fg: "gray", dim: true, bg: "#1a1a1a" }}> s:stage c:commit x:discard</text>
+                    <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#1a1a1a" }}> s:stage c:commit x:discard</text>
                 )}
             </box>
 
             {/* Status message */}
             {statusMessage && (
-                <box style={{ paddingX: 1, height: 1, bg: "#2a2a2a" }}>
-                    <text style={{ fg: "#4ec9b0", bold: true }}>{statusMessage}</text>
+                <box style={{ paddingX: 1, height: 1, backgroundColor: "#2a2a2a" }}>
+                    <text style={{ fg: "#4ec9b0", attributes: TextAttributes.BOLD }}>{statusMessage}</text>
                 </box>
             )}
 
             {/* Commit modal */}
             {showCommitModal && (
-                <box style={{ flexDirection: "column", paddingX: 1, paddingY: 1, bg: "#1e1e1e", border: true, borderColor: "cyan" }}>
-                    <text style={{ fg: "cyan", bold: true }}>Commit Message</text>
+                <box style={{ flexDirection: "column", paddingX: 1, paddingY: 1, backgroundColor: "#1e1e1e", border: true, borderColor: "cyan" }}>
+                    <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Commit Message</text>
                     <box style={{ height: 1 }} />
-                    <box style={{ flexDirection: "row", bg: "#2a2a2a", paddingX: 1 }}>
+                    <box style={{ flexDirection: "row", backgroundColor: "#2a2a2a", paddingX: 1 }}>
                         <text style={{ fg: "white" }}>{commitMessage || " "}</text>
-                        <text style={{ fg: "cyan", bold: true }}>│</text>
+                        <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>│</text>
                     </box>
                     <box style={{ height: 1 }} />
-                    <text style={{ fg: "gray", dim: true }}>Ctrl+Enter to commit, Esc to cancel</text>
+                    <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>Ctrl+Enter to commit, Esc to cancel</text>
                     <box style={{ flexDirection: "row", marginTop: 1 }}>
                         <text style={{ fg: "green" }}>Staged: {staged.length} files</text>
                     </box>
                 </box>
             )}
 
-            <box style={{ flexDirection: "column", flexGrow: 1, bg: "#0b0b0b" }}>
-                <scrollbox style={{ flexGrow: 1, paddingX: 1, bg: "#0b0b0b" }}>
+            <box style={{ flexDirection: "column", flexGrow: 1, backgroundColor: "#0b0b0b" }}>
+                <scrollbox style={{ flexGrow: 1, paddingX: 1, backgroundColor: "#0b0b0b" }}>
                 {changes.length === 0 ? (
-                    <text style={{ fg: "gray", dim: true, padding: 1 }}>No changes detected</text>
+                    <text style={{ fg: "gray", attributes: TextAttributes.DIM, padding: 1 } as any}>No changes detected</text>
                 ) : (
                     <>
                         {staged.length > 0 && (
                             <box style={{ flexDirection: "column", marginBottom: 1 }}>
                                 <box style={{ flexDirection: "row" }}>
-                                    <text style={{ fg: "green", bold: true }}>✓ Staged Changes ({staged.length})</text>
-                                    {focused && <text style={{ fg: "gray", dim: true }}> [u:unstage U:unstage all]</text>}
+                                    <text style={{ fg: "green", attributes: TextAttributes.BOLD }}>✓ Staged Changes ({staged.length})</text>
+                                    {focused && <text style={{ fg: "gray", attributes: TextAttributes.DIM }}> [u:unstage U:unstage all]</text>}
                                 </box>
                                 {staged.map((change, idx) => {
                                     const isSelected = changes.indexOf(change) === selectedIndex && focused;
                                     return (
-                                        <box key={`staged-${change.path}`} style={{ flexDirection: "row", bg: isSelected ? "blue" : undefined as any }}>
+                                        <box key={`staged-${change.path}`} style={{ flexDirection: "row", backgroundColor: isSelected ? "blue" : undefined as any }}>
                                             <text style={{ fg: getFileStatusColor(change.status) as any }}>
                                                 {getFileStatusIcon(change.status)}
                                             </text>
@@ -243,13 +244,13 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
                         {unstaged.length > 0 && (
                             <box style={{ flexDirection: "column" }}>
                                 <box style={{ flexDirection: "row" }}>
-                                    <text style={{ fg: "#d4a800", bold: true }}>○ Changes ({unstaged.length})</text>
-                                    {focused && <text style={{ fg: "gray", dim: true }}> [s:stage S:stage all]</text>}
+                                    <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD }}>○ Changes ({unstaged.length})</text>
+                                    {focused && <text style={{ fg: "gray", attributes: TextAttributes.DIM }}> [s:stage S:stage all]</text>}
                                 </box>
                                 {unstaged.map((change, idx) => {
                                     const isSelected = changes.indexOf(change) === selectedIndex && focused;
                                     return (
-                                        <box key={`unstaged-${change.path}`} style={{ flexDirection: "row", bg: isSelected ? "blue" : undefined as any }}>
+                                        <box key={`unstaged-${change.path}`} style={{ flexDirection: "row", backgroundColor: isSelected ? "blue" : undefined as any }}>
                                             <text style={{ fg: getFileStatusColor(change.status) as any }}>
                                                 {getFileStatusIcon(change.status)}
                                             </text>

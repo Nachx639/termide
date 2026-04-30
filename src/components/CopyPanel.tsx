@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 
 interface Position {
   line: number;
@@ -492,27 +493,27 @@ export function CopyPanel({ isOpen, onClose, content, title, onCopy }: CopyPanel
           flexDirection: "column",
           border: true,
           borderColor: "cyan",
-          bg: "#0a0a0a",
+          backgroundColor: "#0a0a0a",
         }}
       >
         {/* Header */}
-        <box style={{ height: 1, paddingX: 1, borderBottom: true, borderColor: "gray" }}>
+        <box style={{ height: 1, paddingX: 1, border: ["bottom"], borderColor: "gray" }}>
           <box style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
             <box style={{ flexDirection: "row", gap: 1 }}>
-              <text style={{ fg: "cyan", bold: true }}>📋 Copy Mode</text>
+              <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>📋 Copy Mode</text>
               <text style={{ fg: "gray" }}>- {title}</text>
               {isInVisualMode && (
-                <text style={{ fg: "black", bg: selectionMode === "line" ? "yellow" : "magenta", bold: true }}>
+                <text style={{ fg: "black", bg: selectionMode === "line" ? "yellow" : "magenta", attributes: TextAttributes.BOLD }}>
                   {selectionMode === "line" ? " V-LINE " : " V-CHAR "}
                 </text>
               )}
             </box>
-            <text style={{ fg: "gray", dim: true }}>{selectionInfo}</text>
+            <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>{selectionInfo}</text>
           </box>
         </box>
 
         {/* Content */}
-        <box style={{ flex: 1, flexDirection: "column", overflow: "hidden" }}>
+        <box style={{ flexGrow: 1, flexDirection: "column", overflow: "hidden" }}>
           {lines.slice(scrollOffset, scrollOffset + visibleHeight).map((line, idx) => {
             const actualLine = scrollOffset + idx;
             const isCurrentLine = actualLine === cursor.line;
@@ -523,11 +524,11 @@ export function CopyPanel({ isOpen, onClose, content, title, onCopy }: CopyPanel
               const bg = "#2a2a4a";
               const lineNumFg = "cyan";
               return (
-                <box key={actualLine} style={{ flexDirection: "row", bg }}>
-                  <text style={{ fg: lineNumFg, width: LINE_NUM_WIDTH, textAlign: "right" }}>
+                <box key={actualLine} style={{ flexDirection: "row", backgroundColor: bg }}>
+                  <text style={{ fg: lineNumFg, width: LINE_NUM_WIDTH, textAlign: "right" } as any}>
                     {String(actualLine + 1).padStart(4)}
                   </text>
-                  <text style={{ fg: "gray", dim: true }}> │ </text>
+                  <text style={{ fg: "gray", attributes: TextAttributes.DIM }}> │ </text>
                   <text style={{ fg: "white" }}>{line.slice(0, contentWidth) || " "}</text>
                 </box>
               );
@@ -569,11 +570,11 @@ export function CopyPanel({ isOpen, onClose, content, title, onCopy }: CopyPanel
             }
 
             return (
-              <box key={actualLine} style={{ flexDirection: "row", bg: lineBg }}>
-                <text style={{ fg: lineNumFg, width: LINE_NUM_WIDTH, textAlign: "right" }}>
+              <box key={actualLine} style={{ flexDirection: "row", backgroundColor: lineBg }}>
+                <text style={{ fg: lineNumFg, width: LINE_NUM_WIDTH, textAlign: "right" } as any}>
                   {String(actualLine + 1).padStart(4)}
                 </text>
-                <text style={{ fg: "gray", dim: true }}> │ </text>
+                <text style={{ fg: "gray", attributes: TextAttributes.DIM }}> │ </text>
                 {segments.map((seg, segIdx) => (
                   <text
                     key={segIdx}
@@ -591,7 +592,7 @@ export function CopyPanel({ isOpen, onClose, content, title, onCopy }: CopyPanel
         </box>
 
         {/* Footer with shortcuts */}
-        <box style={{ height: 1, paddingX: 1, borderTop: true, borderColor: "gray" }}>
+        <box style={{ height: 1, paddingX: 1, border: ["top"], borderColor: "gray" }}>
           <box style={{ flexDirection: "row", gap: 2 }}>
             <box style={{ flexDirection: "row" }}>
               <text style={{ fg: "cyan" }}>🖱️ drag</text>
@@ -606,7 +607,7 @@ export function CopyPanel({ isOpen, onClose, content, title, onCopy }: CopyPanel
               <text style={{ fg: "gray" }}> move</text>
             </box>
             <box style={{ flexDirection: "row" }}>
-              <text style={{ fg: "yellow", bold: true }}>y</text>
+              <text style={{ fg: "yellow", attributes: TextAttributes.BOLD }}>y</text>
               <text style={{ fg: "gray" }}> COPY</text>
             </box>
             <box style={{ flexDirection: "row" }}>

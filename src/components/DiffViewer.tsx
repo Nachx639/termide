@@ -1,5 +1,6 @@
 import React, { useRef } from "react";
 import { useKeyboard } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 
 interface DiffViewerProps {
   diff: string;
@@ -66,18 +67,18 @@ export function DiffViewer({ diff, filePath, focused, onClose, onFocus }: DiffVi
 
   return (
     <box
-      style={{ flexDirection: "column", border: true, borderColor: focused ? "cyan" : "gray", height: "100%", bg: "#0b0b0b" }}
+      style={{ flexDirection: "column", border: true, borderColor: focused ? "cyan" : "gray", height: "100%", backgroundColor: "#0b0b0b" }}
       onMouseDown={onFocus}
     >
       {/* Header */}
-      <box style={{ paddingX: 1, height: 1, bg: "#1a1a1a", flexDirection: "row", justifyContent: "space-between" }}>
+      <box style={{ paddingX: 1, height: 1, backgroundColor: "#1a1a1a", flexDirection: "row", justifyContent: "space-between" }}>
         <box style={{ flexDirection: "row", gap: 1 }}>
-          {focused && <text style={{ fg: "black", bg: "cyan", bold: true }}> FOCUS </text>}
-          <text style={{ fg: "#d4a800", bold: true }}>📊 Diff</text>
+          {focused && <text style={{ fg: "black", bg: "cyan", attributes: TextAttributes.BOLD }}> FOCUS </text>}
+          <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD }}>📊 Diff</text>
           <text style={{ fg: "white" }}>{fileName}</text>
-          <text style={{ fg: "gray", dim: true }}>({viewMode})</text>
+          <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>({viewMode})</text>
         </box>
-        <text style={{ fg: "gray", dim: true }}>v:toggle view | q/Esc:close</text>
+        <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>v:toggle view | q/Esc:close</text>
       </box>
 
       {/* Native Diff Renderable */}
@@ -87,7 +88,8 @@ export function DiffViewer({ diff, filePath, focused, onClose, onFocus }: DiffVi
           view={viewMode}
           syncScroll
           filetype={filetype}
-          syntaxStyle="monokai"
+          // TODO: opentui 0.2.1 SyntaxStyle migration
+          syntaxStyle={"monokai" as any}
           conceal
           showLineNumbers
           wrapMode="word"

@@ -1,5 +1,6 @@
 import React from "react";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 
 interface HelpPanelProps {
   isOpen: boolean;
@@ -146,7 +147,7 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
           flexDirection: "column",
           border: true,
           borderColor: "cyan",
-          bg: "#050505",
+          backgroundColor: "#050505",
           position: "relative",
           overflow: "hidden",
         }}
@@ -159,7 +160,7 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
             left: 0,
             width: "100%",
             height: "100%",
-            bg: "#050505",
+            backgroundColor: "#050505",
             flexDirection: "column",
           }}
         >
@@ -169,18 +170,18 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
         </box>
 
         {/* Header */}
-        <box style={{ paddingX: 1, borderBottom: true, borderColor: "gray", bg: "#1a1a1a" }}>
-          <box style={{ flexDirection: "row", justifyContent: "space-between", bg: "#1a1a1a" }}>
-            <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a" }}>
+        <box style={{ paddingX: 1, border: ["bottom"], borderColor: "gray", backgroundColor: "#1a1a1a" }}>
+          <box style={{ flexDirection: "row", justifyContent: "space-between", backgroundColor: "#1a1a1a" }}>
+            <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>
               📖 Termide Keyboard Shortcuts
             </text>
-            <text style={{ fg: "gray", dim: true, bg: "#1a1a1a" }}>Press Esc or F1 to close</text>
+            <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#1a1a1a" }}>Press Esc or F1 to close</text>
           </box>
         </box>
 
         {/* Content */}
-        <scrollbox style={{ flexGrow: 1, bg: "#050505" }}>
-          <box style={{ flexDirection: "row", flexWrap: "wrap", padding: 2, gap: 4, bg: "#050505" }}>
+        <scrollbox style={{ flexGrow: 1, backgroundColor: "#050505" }}>
+          <box style={{ flexDirection: "row", flexWrap: "wrap", padding: 2, gap: 4, backgroundColor: "#050505" }}>
             {SHORTCUTS.map((category) => (
               <box
                 key={category.title}
@@ -188,16 +189,16 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
                   flexDirection: "column",
                   width: 38,
                   marginBottom: 2,
-                  bg: "#050505",
+                  backgroundColor: "#050505",
                 }}
               >
-                <box style={{ marginBottom: 1, borderBottom: true, borderColor: "blue", bg: "#050505" }}>
-                  <text style={{ fg: "#d4a800", bold: true, bg: "#050505" }}>
+                <box style={{ marginBottom: 1, border: ["bottom"], borderColor: "blue", backgroundColor: "#050505" }}>
+                  <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD, bg: "#050505" }}>
                     {category.title.toUpperCase()}
                   </text>
                 </box>
                 {category.shortcuts.map((shortcut, idx) => (
-                  <box key={idx} style={{ flexDirection: "row", marginBottom: 0, bg: "#050505" }}>
+                  <box key={idx} style={{ flexDirection: "row", marginBottom: 0, backgroundColor: "#050505" }}>
                     <text style={{ fg: "cyan", width: 14, bg: "#050505" }}>{shortcut.keys}</text>
                     <text style={{ fg: "white", bg: "#050505" }}>{shortcut.description}</text>
                   </box>
@@ -205,16 +206,16 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
               </box>
             ))}
             {/* Filler to ensure bottom padding and background solidity */}
-            <box style={{ height: 10, width: "100%", bg: "#050505" }}>
+            <box style={{ height: 10, width: "100%", backgroundColor: "#050505" }}>
               <text style={{ bg: "#050505" }}>{" ".repeat(200)}</text>
             </box>
           </box>
         </scrollbox>
 
         {/* Footer */}
-        <box style={{ paddingX: 1, borderTop: true, borderColor: "gray", bg: "#0b0b0b" }}>
-          <box style={{ flexDirection: "row", justifyContent: "space-between", bg: "#0b0b0b" }}>
-            <text style={{ fg: "gray", dim: true, bg: "#0b0b0b" }}>
+        <box style={{ paddingX: 1, border: ["top"], borderColor: "gray", backgroundColor: "#0b0b0b" }}>
+          <box style={{ flexDirection: "row", justifyContent: "space-between", backgroundColor: "#0b0b0b" }}>
+            <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#0b0b0b" }}>
               Termide v0.1.0 - Terminal IDE for AI Coding Agents
             </text>
             <text style={{ fg: "#d4a800", bg: "#0b0b0b" }}>Made with ♥</text>
