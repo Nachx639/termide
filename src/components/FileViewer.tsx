@@ -1273,9 +1273,17 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
     }
   };
 
+  // Per-panel bottomTitle (useful in split mode where the global status bar
+  // only reflects one of the open panes)
+  const bottomTitle = filePath
+    ? ` ${langIndicator || "TXT"} · Ln ${cursorLine + 1}:${cursorColumn + 1}/${content.length} `
+    : "";
+
   return (
     <box
       style={{ flexDirection: "column", border: true, borderColor, height: "100%" }}
+      bottomTitle={bottomTitle}
+      bottomTitleAlignment="right"
       onMouse={handleMouseScroll}
       onMouseScroll={handleMouseScroll}
     >
