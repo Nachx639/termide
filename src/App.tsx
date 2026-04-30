@@ -7,7 +7,8 @@ const debugLog = (msg: string) => {
   const timestamp = new Date().toISOString();
   fs.appendFileSync(DEBUG_LOG, `[${timestamp}] ${msg}\n`);
 };
-import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { useKeyboard, useTerminalDimensions, useRenderer } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 import { FileTree } from "./components/FileTree";
 import { FileViewer } from "./components/FileViewer";
 import { Terminal } from "./components/Terminal";
@@ -29,6 +30,7 @@ import { FileOperationsModal, type FileOperation } from "./components/FileOperat
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { QuickSettings, type QuickSettingsState } from "./components/QuickSettings";
 import { CopyPanel } from "./components/CopyPanel";
+import { DiffViewer } from "./components/DiffViewer";
 import * as path from "path";
 import { getGitStatus, formatGitBranch, formatGitStatus, invalidateGitCache } from "./lib/GitIntegration";
 import type { GitStatus } from "./lib/GitIntegration";
@@ -144,11 +146,54 @@ export function App({ rootPath }: AppProps) {
   const [leaderMode, setLeaderMode] = useState(false);
   const leaderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Native-terminal selection mode. Default OFF: clicks track everywhere in
+  // the IDE. When ON, the embedded Terminal disables mouse tracking so the
+  // host terminal handles drag-to-select / copy. Toggle with Ctrl+M.
+  // (In opentui 0.2.1 the disable sequence kills clicks app-wide, so this
+  // *must* be off most of the time.)
+  const [terminalSelectMode, setTerminalSelectMode] = useState(false);
+
   // Copy panel state
   const [showCopyPanel, setShowCopyPanel] = useState(false);
   const [copyPanelContent, setCopyPanelContent] = useState("");
   const [copyPanelTitle, setCopyPanelTitle] = useState("");
 
+  // Diff viewer state (native OpenTUI DiffRenderable)
+  const [showDiffViewer, setShowDiffViewer] = useState(false);
+  const [diffContent, setDiffContent] = useState("");
+  const [diffFilePath, setDiffFilePath] = useState("");
+
+  // Copy-on-select: auto-copy selected text to clipboard when mouse selection ends
+  const renderer = useRenderer();
+  const lastSelectionRef = useRef<string>("");
+
+  useEffect(() => {
+    if (!renderer) return;
+
+    // Poll for selection changes on mouseUp events
+    const checkSelection = () => {
+      const selection = renderer.getSelection();
+      if (selection && !(selection as any).isDragging) {
+        const selectedText = selection.getSelectedText();
+        if (selectedText && selectedText.trim() && selectedText !== lastSelectionRef.current) {
+          lastSelectionRef.current = selectedText;
+          // Copy to clipboard automatically
+          copyToClipboard(selectedText).then(() => {
+            success(`Copied ${selectedText.split('\n').length} line${selectedText.split('\n').length > 1 ? 's' : ''} to clipboard`, 1500);
+          });
+        }
+      }
+    };
+
+    // Check selection state periodically when there might be a selection
+    const interval = setInterval(() => {
+      if (renderer.hasSelection) {
+        checkSelection();
+      }
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, [renderer]);
 
   // Stable handler for cursor position updates to prevent infinite loops
   const handleCursorChange = useCallback((line: number, column: number) => {
@@ -660,6 +705,13 @@ export function App({ rootPath }: AppProps) {
     // Don't handle keyboard if overlays are open (except help panel)
     if (showFuzzyFinder || showCommandPalette || showGlobalSearch || showThemePicker || showQuickSettings) return;
 
+    // === CTRL+C: Exit Termide when NOT focused on terminal ===
+    // When terminal is focused, Ctrl+C goes to PTY (handled in Terminal.tsx)
+    // When any other panel is focused, Ctrl+C exits the app
+    if (event.ctrl && event.name === "c" && focusedPanel !== "terminal") {
+      process.exit(0);
+    }
+
     // === COPY SELECTION with Ctrl+Y ===
     // Try to copy OpenTUI selection when user presses Ctrl+Y
     if (event.ctrl && (event.name === "y" || event.name === "Y") && !event.shift) {
@@ -827,7 +879,7 @@ export function App({ rootPath }: AppProps) {
     const isCopyShortcut =
       (event.ctrl && (event.name === "y" || event.name === "Y")) ||
       (event.ctrl && event.shift && (event.name === "c" || event.name === "C")) ||
-      (event.alt && (event.name === "c" || event.name === "C"));
+      (event.option && (event.name === "c" || event.name === "C"));
     if (isCopyShortcut) {
       try {
         if (focusedPanel === "viewer" && selectedFile) {
@@ -877,6 +929,20 @@ export function App({ rootPath }: AppProps) {
     if (event.ctrl && !event.shift && (event.name === "f" || event.name === "F")) {
       setIsMaximized((m) => !m);
       success(isMaximized ? "Focus: Off" : "Focus: On", 1000);
+      return;
+    }
+
+    // Ctrl+M - Toggle native terminal selection mode. ON disables app mouse
+    // tracking so host terminal can drag-to-select text from the embedded
+    // shell; OFF (default) restores clicks across all panels.
+    if (event.ctrl && (event.name === "m" || event.name === "M")) {
+      setTerminalSelectMode((s) => !s);
+      success(
+        terminalSelectMode
+          ? "Mouse: TUI mode (clicks track)"
+          : "Mouse: native-select mode (drag to copy from terminal)",
+        1500
+      );
       return;
     }
 
@@ -940,7 +1006,7 @@ export function App({ rootPath }: AppProps) {
     }
 
     // Alt+Arrow to switch between splits (left/right for vertical, up/down for horizontal)
-    if (splitMode !== "none" && event.alt) {
+    if (splitMode !== "none" && event.option) {
       if (event.name === "left" || event.name === "h" || event.name === "up" || event.name === "k") {
         setActiveSplit("left"); // "left" = "top" in horizontal mode
         return;
@@ -1067,12 +1133,12 @@ export function App({ rootPath }: AppProps) {
   }
 
   return (
-    <box style={{ flexDirection: "column", width: "100%", height: "100%", bg: "#050505" }}>
+    <box style={{ flexDirection: "column", width: "100%", height: "100%", backgroundColor: "#050505" }}>
       {/* Top Header - Compact or Full (hidden in Zen Mode) */}
       {!zenMode && (isCompactMode ? (
         <CompactHeader rootPath={rootPath} width={dimensions.width || 80} />
       ) : (
-      <box style={{ height: 5, borderBottom: true, borderColor: "cyan", flexDirection: "column", bg: "#0b0b0b" }}>
+      <box style={{ height: 5, border: ["bottom"], borderColor: "cyan", flexDirection: "column", backgroundColor: "#0b0b0b" }}>
         {(() => {
           const logoWidth = 30;
           const terminalWidth = dimensions.width || 80;
@@ -1096,27 +1162,27 @@ export function App({ rootPath }: AppProps) {
           return (
             <>
               {/* Row 1 */}
-              <box style={{ paddingX: 1, flexDirection: "row", bg: "#1a1a1a" }}>
-                <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a", width: logoWidth }}>  ▀█▀ █▀▀ █▀▄ █▄▀▄█ █ █▀▄ █▀▀</text>
-                <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
+              <box style={{ paddingX: 1, flexDirection: "row", backgroundColor: "#1a1a1a" }}>
+                <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a", width: logoWidth }}>  ▀█▀ █▀▀ █▀▄ █▄▀▄█ █ █▀▄ █▀▀</text>
+                <box style={{ flexGrow: 1, backgroundColor: "#1a1a1a" }}>
                   <text style={{ fg: "cyan" }}>{antLines[0]}</text>
                 </box>
                 <text style={{ fg: "gray", bg: "#1a1a1a" }}>{pathText}</text>
               </box>
 
               {/* Row 2 */}
-              <box style={{ paddingX: 1, flexDirection: "row", bg: "#1a1a1a" }}>
-                <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a", width: logoWidth }}>   █  █▀▀ █▀▄ █ █ █ █ █ █ █▀▀</text>
-                <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
+              <box style={{ paddingX: 1, flexDirection: "row", backgroundColor: "#1a1a1a" }}>
+                <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a", width: logoWidth }}>   █  █▀▀ █▀▄ █ █ █ █ █ █ █▀▀</text>
+                <box style={{ flexGrow: 1, backgroundColor: "#1a1a1a" }}>
                   <text style={{ fg: "cyan" }}>{antLines[1]}</text>
                 </box>
                 <text style={{ fg: "#d4a800", bg: "#1a1a1a" }}>Ctrl+P: open | Ctrl+K: menu | Ctrl+F: focus</text>
               </box>
 
               {/* Row 3 */}
-              <box style={{ paddingX: 1, flexDirection: "row", bg: "#1a1a1a" }}>
-                <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a", width: logoWidth }}>   ▀  ▀▀▀ ▀ ▀ ▀   ▀ ▀ ▀▀  ▀▀▀</text>
-                <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
+              <box style={{ paddingX: 1, flexDirection: "row", backgroundColor: "#1a1a1a" }}>
+                <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a", width: logoWidth }}>   ▀  ▀▀▀ ▀ ▀ ▀   ▀ ▀ ▀▀  ▀▀▀</text>
+                <box style={{ flexGrow: 1, backgroundColor: "#1a1a1a" }}>
                   <text style={{ fg: "cyan" }}>{antLines[2]}</text>
                 </box>
                 <text style={{ fg: "#d4a800", bg: "#1a1a1a" }}>Ctrl+Space: agent | Ctrl+B: help | Ctrl+Q: zen</text>
@@ -1171,6 +1237,11 @@ export function App({ rootPath }: AppProps) {
                   rootPath={rootPath}
                   focused={!isAnyModalOpen && focusedPanel === "source"}
                   onFocus={() => setFocusedPanel("source")}
+                  onShowDiff={(diff, filePath) => {
+                    setDiffContent(diff);
+                    setDiffFilePath(filePath);
+                    setShowDiffViewer(true);
+                  }}
                 />
               </box>
             )}
@@ -1227,8 +1298,10 @@ export function App({ rootPath }: AppProps) {
                         filePath={selectedFile}
                         focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "left"}
                         rootPath={rootPath}
+                        treeWidth={responsiveTreeWidth}
                         height={currentViewerHeight}
                         onCursorChange={activeSplit === "left" ? handleCursorChange : undefined}
+                        onFocus={() => { setFocusedPanel("viewer"); setActiveSplit("left"); }}
                         onJumpToFile={(targetPath, line) => {
                           handleFileSelect(targetPath, line);
                         }}
@@ -1244,8 +1317,10 @@ export function App({ rootPath }: AppProps) {
                         filePath={splitFile}
                         focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "right"}
                         rootPath={rootPath}
+                        treeWidth={responsiveTreeWidth}
                         height={currentViewerHeight}
                         onCursorChange={activeSplit === "right" ? handleCursorChange : undefined}
+                        onFocus={() => { setFocusedPanel("viewer"); setActiveSplit("right"); }}
                         onJumpToFile={(targetPath, line) => {
                           setSplitFile(targetPath);
                           setTargetLine(line);
@@ -1265,8 +1340,10 @@ export function App({ rootPath }: AppProps) {
                         filePath={selectedFile}
                         focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "left"}
                         rootPath={rootPath}
+                        treeWidth={responsiveTreeWidth}
                         height={Math.floor(currentViewerHeight / 2)}
                         onCursorChange={activeSplit === "left" ? handleCursorChange : undefined}
+                        onFocus={() => { setFocusedPanel("viewer"); setActiveSplit("left"); }}
                         onJumpToFile={(targetPath, line) => {
                           handleFileSelect(targetPath, line);
                         }}
@@ -1282,8 +1359,10 @@ export function App({ rootPath }: AppProps) {
                         filePath={splitFile}
                         focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "right"}
                         rootPath={rootPath}
+                        treeWidth={responsiveTreeWidth}
                         height={Math.floor(currentViewerHeight / 2)}
                         onCursorChange={activeSplit === "right" ? handleCursorChange : undefined}
+                        onFocus={() => { setFocusedPanel("viewer"); setActiveSplit("right"); }}
                         onJumpToFile={(targetPath, line) => {
                           setSplitFile(targetPath);
                           setTargetLine(line);
@@ -1297,8 +1376,10 @@ export function App({ rootPath }: AppProps) {
                     filePath={selectedFile}
                     focused={!isAnyModalOpen && focusedPanel === "viewer"}
                     rootPath={rootPath}
+                    treeWidth={responsiveTreeWidth}
                     height={currentViewerHeight}
                     onCursorChange={handleCursorChange}
+                    onFocus={() => setFocusedPanel("viewer")}
                     onJumpToFile={(targetPath, line) => {
                       handleFileSelect(targetPath, line);
                     }}
@@ -1326,7 +1407,7 @@ export function App({ rootPath }: AppProps) {
                       onPasteReady={(pasteFn) => { terminalPasteRef.current = pasteFn; }}
                       onCopyReady={(copyFn) => { terminalCopyRef.current = copyFn; }}
                       height={currentTerminalHeight}
-                      selectMode={true}
+                      selectMode={terminalSelectMode}
                     />
                   </box>
                 )}
@@ -1337,7 +1418,7 @@ export function App({ rootPath }: AppProps) {
       </box>
 
       {/* Status bar (hidden in Zen Mode) */}
-      {!zenMode && <box style={{ height: 1, paddingX: 1, bg: "black", flexDirection: "row" }}>
+      {!zenMode && <box style={{ height: 1, paddingX: 1, backgroundColor: "black", flexDirection: "row" }}>
         <box style={{ flexDirection: "row", flexShrink: 1 }}>
           {/* Git branch */}
           {gitStatus?.isRepo && (
@@ -1359,7 +1440,7 @@ export function App({ rootPath }: AppProps) {
           {fileStats && (
             <box style={{ flexDirection: "row", flexShrink: 0 }}>
               <text style={{ fg: "gray" }}> │ </text>
-              <text style={{ fg: "gray", dim: true }}>
+              <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
                 {fileStats.lineCount} lines, {formatFileSize(fileStats.size)}
               </text>
             </box>
@@ -1368,17 +1449,17 @@ export function App({ rootPath }: AppProps) {
           {fileInfo && !isCompactMode && (
             <box style={{ flexDirection: "row", flexShrink: 0 }}>
               <text style={{ fg: "gray" }}> │ </text>
-              <text style={{ fg: "gray", dim: true }}>
+              <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
                 {formatEncoding(fileInfo)}
               </text>
               <text style={{ fg: "gray" }}> </text>
-              <text style={{ fg: "gray", dim: true }}>
+              <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
                 {formatLineEnding(fileInfo.lineEnding)}
               </text>
               {formatIndent(fileInfo) && (
                 <>
                   <text style={{ fg: "gray" }}> </text>
-                  <text style={{ fg: "gray", dim: true }}>
+                  <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
                     {formatIndent(fileInfo)}
                   </text>
                 </>
@@ -1404,19 +1485,19 @@ export function App({ rootPath }: AppProps) {
             </text>
           )}
           {/* Screen size indicator */}
-          <text style={{ fg: isCompactMode ? "yellow" : "gray", dim: !isCompactMode }}>
+          <text style={{ fg: isCompactMode ? "yellow" : "gray", attributes: !isCompactMode ? TextAttributes.DIM : 0 }}>
             {getScreenSizeLabel(layoutConfig.screenSize)}
           </text>
           {/* Clock - hidden in compact */}
           {!isCompactMode && (
-            <text style={{ fg: "gray", dim: true }}>
+            <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
               {currentTime.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" })}
             </text>
           )}
           {/* Panel indicator */}
           <box style={{ flexDirection: "row" }}>
             <text style={{ fg: "gray" }}>[</text>
-            <text style={{ fg: "cyan", bold: true }}>
+            <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>
               {(() => {
                 switch (focusedPanel) {
                   case "tree": return isCompactMode ? "EXP" : "EXPLORER";
@@ -1437,7 +1518,7 @@ export function App({ rootPath }: AppProps) {
       {/* Zen Mode indicator */}
       {zenMode && (
         <box style={{ position: "absolute", top: 0, right: 2, height: 1 }}>
-          <text style={{ fg: "cyan", dim: true }}>ZEN (Ctrl+Q to exit)</text>
+          <text style={{ fg: "cyan", attributes: TextAttributes.DIM }}>ZEN (Ctrl+Q to exit)</text>
         </box>
       )}
 
@@ -1535,6 +1616,18 @@ export function App({ rootPath }: AppProps) {
             success(`Copied ${lineCount} line${lineCount > 1 ? "s" : ""} to clipboard!`, 2000);
           }}
         />
+      )}
+
+      {/* Diff Viewer - Native OpenTUI DiffRenderable */}
+      {showDiffViewer && (
+        <box style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", backgroundColor: "#0b0b0b" }}>
+          <DiffViewer
+            diff={diffContent}
+            filePath={diffFilePath}
+            focused={showDiffViewer}
+            onClose={() => setShowDiffViewer(false)}
+          />
+        </box>
       )}
 
       {/* Notifications */}

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 
 export interface Command {
   id: string;
@@ -54,20 +55,12 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
     setScrollTop(0);
   }, [isOpen, query]);
 
-  // Handle keyboard events exclusively when open
+  // Navigation + close (input handles typing/backspace/paste natively)
   useKeyboard((event) => {
     if (!isOpen) return;
 
     if (event.name === "escape") {
       onClose();
-      return;
-    }
-
-    if (event.name === "return") {
-      if (filteredCommands[selectedIndex]) {
-        filteredCommands[selectedIndex].action();
-        onClose();
-      }
       return;
     }
 
@@ -79,18 +72,6 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
     if (event.name === "down" || (event.ctrl && event.name === "n")) {
       setSelectedIndex((i) => Math.min(filteredCommands.length - 1, i + 1));
       return;
-    }
-
-    if (event.name === "backspace") {
-      setQuery((q) => q.slice(0, -1));
-      setSelectedIndex(0);
-      return;
-    }
-
-    // Regular characters
-    if (event.name && event.name.length === 1 && !event.ctrl && !event.meta) {
-      setQuery((q) => q + event.name);
-      setSelectedIndex(0);
     }
   });
 
@@ -169,7 +150,7 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
           flexDirection: "column",
           border: true,
           borderColor: "yellow",
-          bg: "#050505",
+          backgroundColor: "#050505",
           position: "relative",
         }}
       >
@@ -181,7 +162,7 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
             left: 0,
             width: "100%",
             height: 17,
-            bg: "#050505",
+            backgroundColor: "#050505",
             flexDirection: "column",
           }}
         >
@@ -190,19 +171,30 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
           ))}
         </box>
 
-        {/* Row 1: Search Input */}
-        <box style={{ paddingX: 2, height: 1, bg: "#050505", flexDirection: "row" }}>
-          <text style={{ fg: "#d4a800", bold: true, bg: "#050505" }}> › </text>
-          <text style={{ fg: "white", bg: "#050505" }}>{query}</text>
-          <text style={{ fg: "#d4a800", bg: "#050505" }}>█</text>
+        {/* Row 1: Search Input (native <input>, gives us paste/word-motion/undo) */}
+        <box style={{ paddingX: 2, height: 1, backgroundColor: "#050505", flexDirection: "row" }}>
+          <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD, bg: "#050505" }}> › </text>
+          <input
+            focused={isOpen}
+            value={query}
+            placeholder="Type a command…"
+            onInput={(value: string) => { setQuery(value); setSelectedIndex(0); }}
+            onSubmit={() => {
+              if (filteredCommands[selectedIndex]) {
+                filteredCommands[selectedIndex].action();
+                onClose();
+              }
+            }}
+            style={{ flexGrow: 1, backgroundColor: "#050505", textColor: "white", placeholderColor: "gray", cursorColor: "#d4a800" }}
+          />
         </box>
 
         {/* Row 2: Top Divider */}
-        <box style={{ height: 1, borderTop: true, borderColor: "gray", bg: "#050505", borderBottom: false }} />
+        <box style={{ height: 1, border: ["top"], borderColor: "gray", backgroundColor: "#050505" }} />
 
         {/* Rows 3-13: Results Area (Fixed 11 lines) */}
         <box
-          style={{ flexDirection: "column", height: 11, paddingX: 2, bg: "#050505" }}
+          style={{ flexDirection: "column", height: 11, paddingX: 2, backgroundColor: "#050505" }}
           onMouse={(event: any) => {
             if (event.action === "wheel") {
               if (event.direction === "up") {
@@ -215,15 +207,15 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
         >
 
           {visibleLines.length === 0 ? (
-            <text style={{ fg: "gray", dim: true, bg: "#050505" }}>No commands found</text>
+            <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#050505" }}>No commands found</text>
           ) : (
             visibleLines.map((item, i) => {
               const itemKey = item.type === "header" ? `h-${item.label}-${i}` : `c-${item.cmd.id}`;
 
               if (item.type === "header") {
                 return (
-                  <box key={itemKey} style={{ height: 1, bg: "#050505" }}>
-                    <text style={{ fg: "gray", dim: true, bold: true, bg: "#050505" }}>{item.label}</text>
+                  <box key={itemKey} style={{ height: 1, backgroundColor: "#050505" }}>
+                    <text style={{ fg: "gray", attributes: TextAttributes.DIM | TextAttributes.BOLD, bg: "#050505" }}>{item.label}</text>
                   </box>
                 );
               }
@@ -238,10 +230,10 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
                     height: 1,
                     flexDirection: "row",
                     justifyContent: "space-between",
-                    bg: isSelected ? "#d4a800" : "#050505" as any,
+                    backgroundColor: isSelected ? "#d4a800" : "#050505" as any,
                   }}
                 >
-                  <box style={{ flexDirection: "row", bg: isSelected ? "#d4a800" : "#050505" as any }}>
+                  <box style={{ flexDirection: "row", backgroundColor: isSelected ? "#d4a800" : "#050505" as any }}>
                     <text style={{ fg: isSelected ? "black" : "gray", bg: isSelected ? "#d4a800" : "#050505" as any }}>
                       {isSelected ? "▸ " : "  "}
                     </text>
@@ -249,7 +241,7 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
                       {cmd.label}
                     </text>
                     {cmd.description && (
-                      <text style={{ fg: isSelected ? "black" : "gray", dim: !isSelected, bg: isSelected ? "#d4a800" : "#050505" as any }}>
+                      <text style={{ fg: isSelected ? "black" : "gray", attributes: !isSelected ? TextAttributes.DIM : 0, bg: isSelected ? "#d4a800" : "#050505" as any }}>
                         {" - "}{cmd.description}
                       </text>
                     )}
@@ -266,11 +258,11 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
         </box>
 
         {/* Row 16: Footer Divider */}
-        <box style={{ height: 1, borderTop: true, borderColor: "gray", bg: "#050505", borderBottom: false }} />
+        <box style={{ height: 1, border: ["top"], borderColor: "gray", backgroundColor: "#050505" }} />
 
         {/* Row 17: Footer Instructions */}
-        <box style={{ paddingX: 2, height: 1, bg: "#050505" }}>
-          <text style={{ fg: "gray", dim: true, bg: "#050505" }}>
+        <box style={{ paddingX: 2, height: 1, backgroundColor: "#050505" }}>
+          <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#050505" }}>
             {`${filteredCommands.length} commands | ↑↓ select | Enter run | Esc close`}
           </text>
         </box>
