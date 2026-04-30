@@ -22,6 +22,11 @@ const themeStyles = {
   emphasis: { fg: RGBA.fromHex("#C792EA"), italic: true },
   strong: { fg: RGBA.fromHex("#FFCB6B"), bold: true },
   default: { fg: RGBA.fromHex("#EEFFFF") },
+  // Editor decorations (used by addHighlight from FileViewer for bracket
+  // matching, search matches, word-highlight, etc.)
+  bracketMatch: { fg: RGBA.fromHex("#000000"), bg: RGBA.fromHex("#FFCB6B"), bold: true },
+  searchMatch: { fg: RGBA.fromHex("#000000"), bg: RGBA.fromHex("#FFFF00") },
+  selectionMatch: { fg: RGBA.fromHex("#FFFFFF"), bg: RGBA.fromHex("#3a3a3a") },
 };
 
 let cached: SyntaxStyle | null = null;
