@@ -1,5 +1,6 @@
 import React from "react";
 import { useKeyboard } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 import * as path from "path";
 import { getFileIconSimple } from "../lib/FileIcons";
 
@@ -57,11 +58,11 @@ export function TabBar({ tabs, activeTabIndex, onSelectTab, onCloseTab, focused 
   }
 
   return (
-    <box style={{ flexDirection: "row", bg: "#111111", height: 1 }}>
+    <box style={{ flexDirection: "row", backgroundColor: "#111111", height: 1 }}>
       {tabs.map((tab, index) => {
         const isActive = index === activeTabIndex;
         const fileName = path.basename(tab.filePath);
-        const icon = getFileIconSimple(fileName);
+        const icon = getFileIconSimple(fileName, false);
 
         return (
           <box
@@ -69,8 +70,8 @@ export function TabBar({ tabs, activeTabIndex, onSelectTab, onCloseTab, focused 
             style={{
               flexDirection: "row",
               paddingX: 1,
-              bg: isActive ? "#1a2a35" : undefined,
-              borderRight: true,
+              backgroundColor: isActive ? "#1a2a35" : undefined,
+              border: ["right"],
               borderColor: "#333333",
             }}
             onMouseDown={() => onSelectTab(index)}
@@ -83,7 +84,7 @@ export function TabBar({ tabs, activeTabIndex, onSelectTab, onCloseTab, focused 
             <text
               style={{
                 fg: isActive ? "cyan" : "#888888",
-                bold: isActive,
+                attributes: isActive ? TextAttributes.BOLD : 0,
               }}
             >
               {fileName}
@@ -94,7 +95,7 @@ export function TabBar({ tabs, activeTabIndex, onSelectTab, onCloseTab, focused 
             )}
             {/* Close button - clickable */}
             <text
-              style={{ fg: isActive ? "cyan" : "#444444", dim: !isActive }}
+              style={{ fg: isActive ? "cyan" : "#444444", attributes: !isActive ? TextAttributes.DIM : 0 }}
               onMouseDown={(e: any) => {
                 e.stopPropagation?.();
                 onCloseTab(index);
@@ -106,8 +107,8 @@ export function TabBar({ tabs, activeTabIndex, onSelectTab, onCloseTab, focused 
         );
       })}
       {/* Tab hint */}
-      <box style={{ flexGrow: 1, justifyContent: "flex-end", bg: "#111111" }}>
-        <text style={{ fg: "gray", dim: true, paddingX: 1 }}>
+      <box style={{ flexGrow: 1, justifyContent: "flex-end", backgroundColor: "#111111" }}>
+        <text style={{ fg: "gray", attributes: TextAttributes.DIM, paddingX: 1 } as any}>
           Click to switch | Ctrl+W close
         </text>
       </box>

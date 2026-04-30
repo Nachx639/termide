@@ -1,31 +1,39 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { TextAttributes } from "@opentui/core";
+import type { TextareaRenderable, LineNumberRenderable } from "@opentui/core";
 import { useKeyboard } from "@opentui/react";
 import * as fs from "fs";
 import * as path from "path";
-import { tokenizeLine, detectLanguage, getTokenColor, type Token, DARK_THEME } from "../lib/SyntaxHighlighter";
-import { SearchBar } from "./SearchBar";
-import { Minimap } from "./Minimap";
-import { MarkdownPreview } from "./MarkdownPreview";
-import { FindReplace } from "./FindReplace";
-import { findMatchingBracket, isBracket, type BracketMatch } from "../lib/BracketMatcher";
-import { findDefinition, getWordAtPosition, getAllSymbols, type SymbolLocation } from "../lib/SymbolFinder";
+import { detectLanguage } from "../lib/SyntaxHighlighter";
+import { getTermideSyntaxStyle } from "../lib/SyntaxStyles";
+import { getFileLineDiffs, type LineDiffStatus } from "../lib/GitIntegration";
+import { findMatchingBracket } from "../lib/BracketMatcher";
+import { getWordAtPosition, getAllSymbols, type SymbolLocation } from "../lib/SymbolFinder";
+import { getGitBlame, type BlameLine } from "../lib/GitBlame";
 import { SymbolPicker } from "./SymbolPicker";
-import { detectFoldableRegions, getFoldMarker, toggleFold, foldAll, unfoldAll, type FoldableRegion } from "../lib/CodeFolding";
-import { getGitBlame, getBlameAnnotation, getBlameColor, type BlameLine } from "../lib/GitBlame";
-import { getFileLineDiffs, getLineDiffIndicator, type LineDiffInfo } from "../lib/GitIntegration";
+import { Minimap } from "./Minimap";
 
 interface FileViewerProps {
   filePath: string | null;
   focused: boolean;
   rootPath?: string;
   height: number;
+  /** Width of the file tree panel (kept for API compatibility with legacy props). */
+  treeWidth?: number;
   onJumpToFile?: (filePath: string, line?: number) => void;
   onCursorChange?: (line: number, column: number) => void;
-  onSelectionChange?: (selectedText: string) => void; // Report selection for Cmd+C copy
-  initialLine?: number; // Line to jump to when file is opened
+  onSelectionChange?: (selectedText: string) => void;
+  /** 1-indexed line to jump to when the file opens. */
+  initialLine?: number;
+  /**
+   * Called when the user clicks anywhere inside this viewer. Lets the parent
+   * focus this pane — needed because the inner <textarea> captures mouse
+   * events and the wrapper in App.tsx never sees them.
+   */
+  onFocus?: () => void;
 }
 
-// Breadcrumbs component
+// Breadcrumbs subcomponent (copied from FileViewerLegacy for visual parity).
 function Breadcrumbs({ filePath, rootPath }: { filePath: string; rootPath?: string }) {
   const relativePath = rootPath ? path.relative(rootPath, filePath) : filePath;
   const parts = relativePath.split(path.sep);
@@ -36,1355 +44,616 @@ function Breadcrumbs({ filePath, rootPath }: { filePath: string; rootPath?: stri
       {parts.map((part, idx) => (
         <box key={idx} style={{ flexDirection: "row" }}>
           <text style={{ fg: "gray" }}>{part}</text>
-          <text style={{ fg: "gray", dim: true }}> › </text>
+          <text style={{ fg: "gray", attributes: TextAttributes.DIM }}> › </text>
         </box>
       ))}
-      <text style={{ fg: "cyan", bold: true }}>{fileName}</text>
+      <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>{fileName}</text>
     </box>
   );
 }
 
-// Calculate indentation level of a line
-function getIndentLevel(line: string, tabSize: number = 2): number {
-  let spaces = 0;
-  for (const char of line) {
-    if (char === " ") spaces++;
-    else if (char === "\t") spaces += tabSize;
-    else break;
-  }
-  return Math.floor(spaces / tabSize);
-}
+const SAVE_DEBOUNCE_MS = 500;
 
-// Generate indent guides for a line
-function generateIndentGuides(line: string, tabSize: number = 2): string {
-  const level = getIndentLevel(line, tabSize);
-  if (level === 0) return "";
+export function FileViewer({
+  filePath,
+  focused,
+  rootPath,
+  height,
+  onCursorChange,
+  onSelectionChange,
+  initialLine,
+  onFocus,
+}: FileViewerProps) {
+  const textareaRef = useRef<TextareaRenderable | null>(null);
+  const lineNumberRef = useRef<LineNumberRenderable | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Suppresses the dirty flag for content changes triggered by us loading a file
+  // (otherwise setText would immediately mark the buffer dirty and re-save).
+  const suppressDirtyRef = useRef(false);
 
-  let guides = "";
-  for (let i = 0; i < level; i++) {
-    guides += "│" + " ".repeat(tabSize - 1);
-  }
-  return guides;
-}
-
-// Helper to wrap a line to a specific width
-function wrapLine(line: string, width: number): string[] {
-  if (line.length <= width) return [line];
-
-  const wrapped: string[] = [];
-  let remaining = line;
-
-  while (remaining.length > 0) {
-    if (remaining.length <= width) {
-      wrapped.push(remaining);
-      break;
-    }
-
-    // Try to break at a word boundary
-    let breakPoint = width;
-    const lastSpace = remaining.lastIndexOf(" ", width);
-    if (lastSpace > width * 0.5) {
-      breakPoint = lastSpace + 1;
-    }
-
-    wrapped.push(remaining.slice(0, breakPoint));
-    remaining = remaining.slice(breakPoint);
-  }
-
-  return wrapped;
-}
-
-// Props for bracket highlighting
-interface HighlightedLineProps {
-  line: string;
-  lang: string | null;
-  showGuides?: boolean;
-  tabSize?: number;
-  bracketHighlight?: number; // Column to highlight as matching bracket
-  wordHighlight?: string | null; // Word to highlight all occurrences
-  wordHighlightOccurrences?: Array<number>; // Column positions of occurrences on this line
-  currentWordOccurrence?: number | null; // The current occurrence column (for extra emphasis)
-}
-
-// Component to render a line with syntax highlighting
-function HighlightedLine({ line, lang, showGuides = false, tabSize = 2, bracketHighlight, wordHighlight, wordHighlightOccurrences, currentWordOccurrence }: HighlightedLineProps) {
-  const tokens = useMemo(() => tokenizeLine(line, lang), [line, lang]);
-
-  // Build a set of columns that are part of word highlight occurrences
-  const highlightRanges = useMemo(() => {
-    if (!wordHighlight || !wordHighlightOccurrences || wordHighlightOccurrences.length === 0) return null;
-    const ranges: Array<{ start: number; end: number; isCurrent: boolean }> = [];
-    for (const col of wordHighlightOccurrences) {
-      ranges.push({
-        start: col,
-        end: col + wordHighlight.length,
-        isCurrent: col === currentWordOccurrence,
-      });
-    }
-    return ranges;
-  }, [wordHighlight, wordHighlightOccurrences, currentWordOccurrence]);
-
-  // Calculate indent and strip leading whitespace for guides
-  const indentLevel = getIndentLevel(line, tabSize);
-  const leadingSpaces = line.match(/^[\s]*/)?.[0].length || 0;
-  const trimmedLine = line.slice(leadingSpaces);
-
-  // Check if a column is within a word highlight range
-  const getWordHighlightInfo = (col: number): { highlighted: boolean; isCurrent: boolean } | null => {
-    if (!highlightRanges) return null;
-    for (const range of highlightRanges) {
-      if (col >= range.start && col < range.end) {
-        return { highlighted: true, isCurrent: range.isCurrent };
-      }
-    }
-    return null;
-  };
-
-  // Helper to render tokens with bracket and word highlighting
-  const renderTokens = (tokensToRender: Token[], offset: number = 0) => {
-    const result: React.ReactNode[] = [];
-    let currentCol = offset;
-
-    for (let idx = 0; idx < tokensToRender.length; idx++) {
-      const token = tokensToRender[idx]!;
-      const tokenStart = currentCol;
-      const tokenEnd = currentCol + token.text.length;
-
-      // Check if bracket highlight falls within this token
-      if (bracketHighlight !== undefined && bracketHighlight >= tokenStart && bracketHighlight < tokenEnd) {
-        const relativePos = bracketHighlight - tokenStart;
-        // Split token into before, highlighted char, and after
-        const before = token.text.slice(0, relativePos);
-        const highlighted = token.text[relativePos];
-        const after = token.text.slice(relativePos + 1);
-
-        if (before) {
-          result.push(
-            <text key={`${idx}-before`} style={{ fg: getTokenColor(token.type) as any }}>
-              {before}
-            </text>
-          );
-        }
-        result.push(
-          <text key={`${idx}-hl`} style={{ fg: "black", bg: "yellow", bold: true }}>
-            {highlighted}
-          </text>
-        );
-        if (after) {
-          result.push(
-            <text key={`${idx}-after`} style={{ fg: getTokenColor(token.type) as any }}>
-              {after}
-            </text>
-          );
-        }
-      } else if (highlightRanges && highlightRanges.length > 0) {
-        // Check for word highlighting - need to render character by character for highlighted ranges
-        let charIdx = 0;
-        let segments: React.ReactNode[] = [];
-        let segmentStart = 0;
-        let currentHighlight: { highlighted: boolean; isCurrent: boolean } | null = null;
-
-        while (charIdx <= token.text.length) {
-          const absCol = tokenStart + charIdx;
-          const newHighlight = charIdx < token.text.length ? getWordHighlightInfo(absCol) : null;
-
-          const highlightChanged = (
-            (currentHighlight === null && newHighlight !== null) ||
-            (currentHighlight !== null && newHighlight === null) ||
-            (currentHighlight !== null && newHighlight !== null && currentHighlight.isCurrent !== newHighlight.isCurrent)
-          );
-
-          if (highlightChanged || charIdx === token.text.length) {
-            // Flush the current segment
-            if (charIdx > segmentStart) {
-              const segmentText = token.text.slice(segmentStart, charIdx);
-              if (currentHighlight) {
-                segments.push(
-                  <text
-                    key={`${idx}-seg-${segmentStart}`}
-                    style={{
-                      fg: currentHighlight.isCurrent ? "black" : getTokenColor(token.type) as any,
-                      bg: currentHighlight.isCurrent ? "#569cd6" : "#3a3d41",
-                      bold: currentHighlight.isCurrent,
-                    }}
-                  >
-                    {segmentText}
-                  </text>
-                );
-              } else {
-                segments.push(
-                  <text key={`${idx}-seg-${segmentStart}`} style={{ fg: getTokenColor(token.type) as any }}>
-                    {segmentText}
-                  </text>
-                );
-              }
-            }
-            segmentStart = charIdx;
-            currentHighlight = newHighlight;
-          }
-          charIdx++;
-        }
-        result.push(...segments);
-      } else {
-        result.push(
-          <text key={idx} style={{ fg: getTokenColor(token.type) as any }}>
-            {token.text}
-          </text>
-        );
-      }
-
-      currentCol = tokenEnd;
-    }
-
-    return result;
-  };
-
-  return (
-    <>
-      {showGuides && indentLevel > 0 ? (
-        <>
-          {/* Render indent guides */}
-          {Array.from({ length: indentLevel }).map((_, i) => (
-            <text key={`guide-${i}`} style={{ fg: "gray", dim: true }}>
-              │{" ".repeat(tabSize - 1)}
-            </text>
-          ))}
-          {/* Render the rest of the line after guides */}
-          {renderTokens(tokenizeLine(trimmedLine, lang), leadingSpaces)}
-        </>
-      ) : (
-        renderTokens(tokens, 0)
-      )}
-    </>
-  );
-}
-
-export function FileViewer({ filePath, focused, rootPath, height, onJumpToFile, onCursorChange, onSelectionChange, initialLine }: FileViewerProps) {
-  const [content, setContent] = useState<string[]>([]);
-  const [scrollOffset, setScrollOffset] = useState(0);
-  const [cursorLine, setCursorLine] = useState(0);
-  const [cursorColumn, setCursorColumn] = useState(0);
-  const [showSearch, setShowSearch] = useState(false);
-  const [initialLineHandled, setInitialLineHandled] = useState<number | null>(null);
-  const [searchMode, setSearchMode] = useState<"search" | "goto">("search");
-  const [showFindReplace, setShowFindReplace] = useState(false);
-  const [wordWrap, setWordWrap] = useState(false);
-  const [definitionHighlight, setDefinitionHighlight] = useState<SymbolLocation | null>(null);
-
-  // Line selection state
-  const [selectionStart, setSelectionStart] = useState<number | null>(null);
-  const [selectionEnd, setSelectionEnd] = useState<number | null>(null);
-  const [clipboard, setClipboard] = useState<string[]>([]);
-  const [showIndentGuides, setShowIndentGuides] = useState(true);
-  const [showMinimap, setShowMinimap] = useState(true);
-  const [showPreview, setShowPreview] = useState(false);
-
-  // Code folding state
-  const [foldedRegions, setFoldedRegions] = useState<Set<number>>(new Set());
-
-  // Git blame state
+  const [isDirty, setIsDirty] = useState(false);
+  const [initialContent, setInitialContent] = useState<string>("");
+  const [cursorLine, setCursorLine] = useState(0); // 0-indexed
+  const [cursorColumn, setCursorColumn] = useState(0); // 0-indexed
+  const [lineCount, setLineCount] = useState(0);
+  // Ctrl+D selects/highlights all instances of the word under the cursor.
+  const [wordHighlight, setWordHighlight] = useState<string | null>(null);
+  // Ctrl+G B toggles inline git blame in the line-number gutter.
   const [showBlame, setShowBlame] = useState(false);
-  const [blameData, setBlameData] = useState<BlameLine[]>([]);
-
-  // Relative line numbers state
-  const [relativeLineNumbers, setRelativeLineNumbers] = useState(false);
-
-  // Show/hide line numbers state
-  const [showLineNumbers, setShowLineNumbers] = useState(true);
-
-  // Git gutter state (inline diff indicators)
-  const [showGitGutter, setShowGitGutter] = useState(true);
-  const [lineDiffs, setLineDiffs] = useState<Map<number, LineDiffInfo>>(new Map());
-
-  // Symbol picker state (Ctrl+Shift+O)
+  const [blameLines, setBlameLines] = useState<BlameLine[]>([]);
+  // Inline search (Ctrl+F): query, current match index, all match locations.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchMatches, setSearchMatches] = useState<Array<{ line: number; col: number }>>([]);
+  const [searchIndex, setSearchIndex] = useState(0);
+  // Symbol picker (Ctrl+Shift+O / @): list of symbols for the active file.
   const [showSymbolPicker, setShowSymbolPicker] = useState(false);
-
-  // Multi-cursor / word highlight state (Ctrl+D)
-  const [highlightedWord, setHighlightedWord] = useState<string | null>(null);
-  const [wordOccurrences, setWordOccurrences] = useState<Array<{ line: number; column: number }>>([]);
-  const [currentOccurrenceIndex, setCurrentOccurrenceIndex] = useState(0);
-
-  // Sticky Scroll state
-  const [showStickyScroll, setShowStickyScroll] = useState(true);
-
-  const isMarkdown = filePath?.toLowerCase().endsWith(".md") || filePath?.toLowerCase().endsWith(".markdown");
-  const headerHeight = 1;
-  const headerSeparatorHeight = 1; // The line from borderBottom
-  const chromeHeight = 2; // Outer Border top/bottom
-  const searchHeight = showSearch ? 1 : 0;
-  const viewHeight = Math.max(1, height - headerHeight - headerSeparatorHeight - chromeHeight - searchHeight - 1);
-
-  const wrapWidth = 80;
-  const tabSize = 2;
-  const minimapHeight = Math.max(5, viewHeight);
-
-  const language = useMemo(() => {
-    return filePath ? detectLanguage(filePath) : null;
-  }, [filePath]);
-
-  // Compute sticky scroll context - shows parent function/class headers
-  const stickyScrollContext = useMemo(() => {
-    if (!showStickyScroll || content.length === 0) return [];
-
-    const contexts: Array<{ line: number; text: string; kind: string }> = [];
-
-    // Find all scope-defining lines that are above the current scroll position
-    // but whose scope includes the visible area
-    const scopePatterns = [
-      { regex: /^(export\s+)?(async\s+)?function\s+\w+/, kind: "function" },
-      { regex: /^(export\s+)?class\s+\w+/, kind: "class" },
-      { regex: /^(export\s+)?interface\s+\w+/, kind: "interface" },
-      { regex: /^(export\s+)?const\s+\w+\s*=\s*(async\s+)?\(/, kind: "function" },
-      { regex: /^(export\s+)?const\s+\w+\s*=\s*(async\s+)?function/, kind: "function" },
-      { regex: /^\s+(async\s+)?(?:public|private|protected)?\s*\w+\s*\([^)]*\)\s*[:{]/, kind: "method" },
-    ];
-
-    // Track nesting level using braces
-    let braceCount = 0;
-    const scopeStack: Array<{ line: number; text: string; kind: string; braceLevel: number }> = [];
-
-    for (let i = 0; i < content.length && i <= scrollOffset + viewHeight; i++) {
-      const line = content[i] || "";
-      const trimmed = line.trim();
-
-      // Count braces
-      for (const char of line) {
-        if (char === '{') braceCount++;
-        else if (char === '}') {
-          braceCount--;
-          // Pop scopes that have closed
-          while (scopeStack.length > 0 && scopeStack[scopeStack.length - 1]!.braceLevel >= braceCount) {
-            scopeStack.pop();
-          }
-        }
-      }
-
-      // Check if this line starts a new scope
-      for (const { regex, kind } of scopePatterns) {
-        if (regex.test(trimmed)) {
-          scopeStack.push({
-            line: i,
-            text: trimmed.slice(0, 60) + (trimmed.length > 60 ? "..." : ""),
-            kind,
-            braceLevel: braceCount
-          });
-          break;
-        }
-      }
-    }
-
-    // Return scopes that are above scroll offset but still open
-    return scopeStack
-      .filter(s => s.line < scrollOffset)
-      .slice(-3) // Show at most 3 levels of context
-      .map(s => ({ line: s.line, text: s.text, kind: s.kind }));
-  }, [showStickyScroll, content, scrollOffset, viewHeight]);
-
-  // Compute symbols for current file
-  const fileSymbols = useMemo(() => {
-    if (!filePath || content.length === 0) return [];
-    return getAllSymbols(content.join("\n"), filePath);
-  }, [filePath, content]);
-
-  // Fetch git line diffs when file changes
-  useEffect(() => {
-    if (!filePath || !rootPath || !showGitGutter) {
-      setLineDiffs(new Map());
-      return;
-    }
-
-    const fetchLineDiffs = async () => {
-      const diffs = await getFileLineDiffs(filePath, rootPath);
-      const diffMap = new Map<number, LineDiffInfo>();
-      for (const diff of diffs) {
-        diffMap.set(diff.lineNumber, diff);
-      }
-      setLineDiffs(diffMap);
-    };
-
-    fetchLineDiffs();
-    // Refresh periodically
-    const interval = setInterval(fetchLineDiffs, 5000);
-    return () => clearInterval(interval);
-  }, [filePath, rootPath, showGitGutter, content]);
-
-  // Notify parent of cursor position changes
-  useEffect(() => {
-    if (onCursorChange && filePath) {
-      onCursorChange(cursorLine + 1, cursorColumn + 1); // 1-indexed for display
-    }
-  }, [cursorLine, cursorColumn, onCursorChange, filePath]);
-
-  // Find matching bracket for the current cursor line
-  // Check first bracket on line or last bracket before cursor position
-  const bracketMatch = useMemo((): BracketMatch | null => {
-    if (content.length === 0) return null;
-    const line = content[cursorLine];
-    if (!line) return null;
-
-    // Find the first bracket on the line
-    for (let col = 0; col < line.length; col++) {
-      if (isBracket(line[col]!)) {
-        const match = findMatchingBracket(content, cursorLine, col);
-        if (match) return match;
-      }
-    }
-    return null;
-  }, [content, cursorLine]);
-
-  // Detect foldable regions
-  const foldableRegions = useMemo((): FoldableRegion[] => {
-    if (content.length === 0) return [];
-    return detectFoldableRegions(content, language);
-  }, [content, language]);
-
-  // Handle toggling fold at cursor line
-  const handleToggleFold = useCallback(() => {
-    const region = foldableRegions.find((r) => r.startLine === cursorLine);
-    if (region) {
-      setFoldedRegions(toggleFold(cursorLine, foldableRegions, foldedRegions));
-    }
-  }, [cursorLine, foldableRegions, foldedRegions]);
-
-  // Handle folding all regions
-  const handleFoldAll = useCallback(() => {
-    setFoldedRegions(foldAll(foldableRegions));
-  }, [foldableRegions]);
-
-  // Handle unfolding all regions
-  const handleUnfoldAll = useCallback(() => {
-    setFoldedRegions(unfoldAll());
-  }, []);
-
-  // Handle jumping to a line (from search or goto)
-  const handleJumpToLine = (lineIndex: number) => {
-    setCursorLine(lineIndex);
-    // Center the line in view
-    const newOffset = Math.max(0, Math.min(lineIndex - Math.floor(viewHeight / 2), Math.max(0, content.length - viewHeight)));
-    setScrollOffset(newOffset);
-  };
-
-  // Handle replacing content from Find & Replace
-  const handleReplaceContent = useCallback((newContent: string) => {
-    if (!filePath) return;
+  const fileSymbols: SymbolLocation[] = useMemo(() => {
+    if (!filePath || !initialContent) return [];
     try {
-      fs.writeFileSync(filePath, newContent, "utf-8");
-      setContent(newContent.split("\n"));
-    } catch (e) {
-      console.error("Error saving file:", e);
-    }
-  }, [filePath]);
-
-  // Get selected lines range
-  const getSelectedRange = useCallback(() => {
-    if (selectionStart === null) return null;
-    const start = Math.min(selectionStart, selectionEnd ?? cursorLine);
-    const end = Math.max(selectionStart, selectionEnd ?? cursorLine);
-    return { start, end };
-  }, [selectionStart, selectionEnd, cursorLine]);
-
-
-  // Copy to system clipboard with multiple fallbacks
-  const copyToSystemClipboard = useCallback(async (text: string): Promise<boolean> => {
-    // Try OSC52 first (works in iTerm2, Kitty, etc.)
-    const base64 = Buffer.from(text).toString("base64");
-    process.stdout.write(`\x1b]52;c;${base64}\x07`);
-
-    // Also try pbcopy on macOS as fallback
-    try {
-      const proc = Bun.spawn(["pbcopy"], { stdin: "pipe" });
-      proc.stdin.write(text);
-      proc.stdin.end();
-      await proc.exited;
-      return true;
+      return getAllSymbols(initialContent, filePath);
     } catch {
-      // pbcopy failed, OSC52 might still work
-      return true;
+      return [];
     }
-  }, []);
+  }, [filePath, initialContent]);
 
-  // Copy selected lines to clipboard
-  const copySelectedLines = useCallback(async () => {
-    const range = getSelectedRange();
-    let text: string;
-    let lineCount: number;
+  const language = useMemo(() => (filePath ? detectLanguage(filePath) : null), [filePath]);
+  const langIndicator = language ? language.toUpperCase() : "";
 
-    if (!range) {
-      // Copy current line if no selection
-      const line = content[cursorLine];
-      if (line !== undefined) {
-        setClipboard([line]);
-        text = line;
-        lineCount = 1;
-      } else {
-        return;
-      }
-    } else {
-      const lines = content.slice(range.start, range.end + 1);
-      setClipboard(lines);
-      text = lines.join("\n");
-      lineCount = lines.length;
-    }
+  const syntaxStyle = useMemo(() => getTermideSyntaxStyle(), []);
 
-    await copyToSystemClipboard(text);
-
-    // Clear selection after copy and show feedback via console (notification would need prop)
-    setSelectionStart(null);
-    setSelectionEnd(null);
-    console.log(`✓ Copied ${lineCount} line${lineCount > 1 ? "s" : ""} to clipboard`);
-  }, [content, cursorLine, getSelectedRange, copyToSystemClipboard]);
-
-  // Cut selected lines
-  const cutSelectedLines = useCallback(() => {
-    if (!filePath) return;
-    const range = getSelectedRange();
-    const startLine = range ? range.start : cursorLine;
-    const endLine = range ? range.end : cursorLine;
-
-    const linesToCut = content.slice(startLine, endLine + 1);
-    setClipboard(linesToCut);
-
-    // Copy to system clipboard
-    const text = linesToCut.join("\n");
-    const base64 = Buffer.from(text).toString("base64");
-    process.stdout.write(`\x1b]52;c;${base64}\x07`);
-
-    // Remove lines from content
-    const newContent = [...content.slice(0, startLine), ...content.slice(endLine + 1)];
-    if (newContent.length === 0) newContent.push("");
-
-    try {
-      fs.writeFileSync(filePath, newContent.join("\n"), "utf-8");
-      setContent(newContent);
-      setCursorLine(Math.min(startLine, newContent.length - 1));
-      setSelectionStart(null);
-      setSelectionEnd(null);
-    } catch (e) {
-      console.error("Error cutting lines:", e);
-    }
-  }, [filePath, content, cursorLine, getSelectedRange]);
-
-  // Paste clipboard lines
-  const pasteLines = useCallback(() => {
-    if (!filePath || clipboard.length === 0) return;
-
-    const insertAt = cursorLine + 1;
-    const newContent = [
-      ...content.slice(0, insertAt),
-      ...clipboard,
-      ...content.slice(insertAt),
-    ];
-
-    try {
-      fs.writeFileSync(filePath, newContent.join("\n"), "utf-8");
-      setContent(newContent);
-      setCursorLine(insertAt + clipboard.length - 1);
-      setSelectionStart(null);
-      setSelectionEnd(null);
-    } catch (e) {
-      console.error("Error pasting lines:", e);
-    }
-  }, [filePath, content, cursorLine, clipboard]);
-
-  // Duplicate current line or selection
-  const duplicateLines = useCallback(() => {
-    if (!filePath) return;
-    const range = getSelectedRange();
-    const startLine = range ? range.start : cursorLine;
-    const endLine = range ? range.end : cursorLine;
-
-    const linesToDupe = content.slice(startLine, endLine + 1);
-    const newContent = [
-      ...content.slice(0, endLine + 1),
-      ...linesToDupe,
-      ...content.slice(endLine + 1),
-    ];
-
-    try {
-      fs.writeFileSync(filePath, newContent.join("\n"), "utf-8");
-      setContent(newContent);
-      setCursorLine(endLine + linesToDupe.length);
-      setSelectionStart(null);
-      setSelectionEnd(null);
-    } catch (e) {
-      console.error("Error duplicating lines:", e);
-    }
-  }, [filePath, content, cursorLine, getSelectedRange]);
-
-  // Delete current line or selection
-  const deleteLines = useCallback(() => {
-    if (!filePath) return;
-    const range = getSelectedRange();
-    const startLine = range ? range.start : cursorLine;
-    const endLine = range ? range.end : cursorLine;
-
-    const newContent = [...content.slice(0, startLine), ...content.slice(endLine + 1)];
-    if (newContent.length === 0) newContent.push("");
-
-    try {
-      fs.writeFileSync(filePath, newContent.join("\n"), "utf-8");
-      setContent(newContent);
-      setCursorLine(Math.min(startLine, newContent.length - 1));
-      setSelectionStart(null);
-      setSelectionEnd(null);
-    } catch (e) {
-      console.error("Error deleting lines:", e);
-    }
-  }, [filePath, content, cursorLine, getSelectedRange]);
-
-  // Go to definition of symbol at cursor
-  const goToDefinition = useCallback(() => {
-    if (!filePath || content.length === 0) return;
-
-    const line = content[cursorLine];
-    if (!line) return;
-
-    // Get word at cursor position
-    const wordInfo = getWordAtPosition(line, cursorColumn);
-    if (!wordInfo) return;
-
-    const currentContent = content.join("\n");
-    const definition = findDefinition(currentContent, filePath, wordInfo.word);
-
-    if (definition) {
-      if (definition.filePath === filePath) {
-        // Jump within same file
-        handleJumpToLine(definition.line);
-        setCursorColumn(definition.column);
-        // Briefly highlight the definition
-        setDefinitionHighlight(definition);
-        setTimeout(() => setDefinitionHighlight(null), 1500);
-      } else if (onJumpToFile) {
-        // Jump to different file
-        onJumpToFile(definition.filePath, definition.line);
-      }
-    }
-  }, [filePath, content, cursorLine, cursorColumn, handleJumpToLine, onJumpToFile]);
-
-  useEffect(() => {
-    if (!filePath || !fs.existsSync(filePath)) {
-      setContent([]);
-      return;
-    }
-
-    const readFile = () => {
-      try {
-        const text = fs.readFileSync(filePath, "utf-8");
-        setContent(text.split("\n"));
-      } catch {
-        setContent(["Error reading file"]);
-      }
-    };
-
-    // Initial read
-    readFile();
-    setScrollOffset(0);
-
-    // Watch for changes
-    try {
-      const watcher = fs.watch(filePath, (event) => {
-        if (event === "change") {
-          readFile();
-        }
-      });
-
-      return () => watcher.close();
-    } catch (e) {
-      console.error("Watcher error:", e);
-    }
+  const fileName = useMemo(() => {
+    if (!filePath) return "";
+    return path.basename(filePath);
   }, [filePath]);
 
-  // Jump to initial line when specified and content is loaded
-  useEffect(() => {
-    if (initialLine !== undefined && initialLine !== initialLineHandled && content.length > 0) {
-      // Use the handleJumpToLine function to scroll to the line
-      const targetLine = Math.max(0, Math.min(initialLine, content.length - 1));
-      setCursorLine(targetLine);
-      setCursorColumn(0);
-      // Center the line in the view
-      const centerOffset = Math.max(0, targetLine - Math.floor(viewHeight / 2));
-      setScrollOffset(Math.min(centerOffset, Math.max(0, content.length - viewHeight)));
-      setInitialLineHandled(initialLine);
-    }
-  }, [initialLine, initialLineHandled, content.length, viewHeight]);
+  // Flush any pending save to disk synchronously.
+  const flushPendingSave = useCallback(
+    (targetPath: string | null) => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      if (!targetPath) return;
+      const content = textareaRef.current?.plainText;
+      if (content === undefined) return;
+      try {
+        fs.writeFileSync(targetPath, content);
+      } catch {
+        // Swallow write errors; legacy viewer also did not surface them here.
+      }
+    },
+    [],
+  );
 
-  // Load git blame data when enabled
+  // Load file when filePath changes.
   useEffect(() => {
-    if (!showBlame || !filePath) {
-      setBlameData([]);
+    // Flush save for the previous file before switching.
+    // We can't know the previous file path inside this effect cleanly, but the
+    // cleanup function below handles it via closure.
+    if (!filePath) {
+      setInitialContent("");
+      setLineCount(0);
+      setIsDirty(false);
       return;
     }
 
-    // Load blame data asynchronously
-    const blame = getGitBlame(filePath);
-    setBlameData(blame);
-  }, [showBlame, filePath]);
+    let content = "";
+    try {
+      content = fs.readFileSync(filePath, "utf8");
+    } catch {
+      content = "";
+    }
 
-  // Handle symbol selection - jump to symbol's line
-  const handleSymbolSelect = useCallback((symbol: SymbolLocation) => {
-    handleJumpToLine(symbol.line);
-    setCursorColumn(symbol.column);
-  }, [handleJumpToLine]);
+    setInitialContent(content);
+    setLineCount(content === "" ? 0 : content.split("\n").length);
+    setIsDirty(false);
 
-  // Find all occurrences of a word in content
-  const findWordOccurrences = useCallback((word: string): Array<{ line: number; column: number }> => {
-    const occurrences: Array<{ line: number; column: number }> = [];
-    const wordRegex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g');
-
-    for (let lineNum = 0; lineNum < content.length; lineNum++) {
-      const line = content[lineNum]!;
-      let match;
-      while ((match = wordRegex.exec(line)) !== null) {
-        occurrences.push({ line: lineNum, column: match.index });
+    // If the textarea is already mounted (re-loading a different file), call
+    // setText so we get a clean undo history per file.
+    if (textareaRef.current) {
+      suppressDirtyRef.current = true;
+      textareaRef.current.setText(content);
+      // Reset cursor to top so we don't restore the previous file's position.
+      try {
+        textareaRef.current.gotoLine(0);
+      } catch {
+        // gotoLine may throw on empty buffers; ignore.
       }
     }
 
-    return occurrences;
-  }, [content]);
+    return () => {
+      // When filePath changes, ensure pending writes for the previous file land
+      // on the previous file (not the new one).
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+        try {
+          fs.writeFileSync(filePath, textareaRef.current?.plainText ?? "");
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, [filePath]);
 
-  // Handle Ctrl+D - select word and find occurrences, or jump to next
-  const handleSelectWord = useCallback(() => {
-    if (!filePath || content.length === 0) return;
-
-    const currentLine = content[cursorLine];
-    if (!currentLine) return;
-
-    // Get word at cursor
-    const wordInfo = getWordAtPosition(currentLine, cursorColumn);
-    if (!wordInfo) return;
-
-    if (highlightedWord === wordInfo.word && wordOccurrences.length > 0) {
-      // Already highlighting this word, jump to next occurrence
-      const nextIndex = (currentOccurrenceIndex + 1) % wordOccurrences.length;
-      setCurrentOccurrenceIndex(nextIndex);
-      const nextOccurrence = wordOccurrences[nextIndex]!;
-      handleJumpToLine(nextOccurrence.line);
-      setCursorColumn(nextOccurrence.column);
-    } else {
-      // New word - find all occurrences
-      const occurrences = findWordOccurrences(wordInfo.word);
-      setHighlightedWord(wordInfo.word);
-      setWordOccurrences(occurrences);
-
-      // Find current occurrence index
-      const currentIdx = occurrences.findIndex(
-        occ => occ.line === cursorLine && occ.column >= wordInfo.startColumn && occ.column <= wordInfo.endColumn
-      );
-      setCurrentOccurrenceIndex(currentIdx >= 0 ? currentIdx : 0);
-    }
-  }, [filePath, content, cursorLine, cursorColumn, highlightedWord, wordOccurrences, currentOccurrenceIndex, findWordOccurrences, handleJumpToLine]);
-
-  // Clear word highlight when cursor moves away from highlighted word or escape pressed
+  // Jump to initialLine when set (after file content is loaded).
   useEffect(() => {
-    if (!highlightedWord) return;
+    if (!filePath || !initialLine || initialLine < 1) return;
+    // Defer to next tick so the textarea has the new content already.
+    const handle = setTimeout(() => {
+      try {
+        textareaRef.current?.gotoLine(initialLine - 1);
+      } catch {
+        // ignore
+      }
+    }, 0);
+    return () => clearTimeout(handle);
+  }, [filePath, initialLine, initialContent]);
 
-    const currentLine = content[cursorLine];
-    if (!currentLine) {
-      setHighlightedWord(null);
-      setWordOccurrences([]);
-      return;
-    }
+  // Flush save on unmount.
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+    };
+  }, []);
 
-    const wordInfo = getWordAtPosition(currentLine, cursorColumn);
-    if (!wordInfo || wordInfo.word !== highlightedWord) {
-      // Don't clear immediately - only clear if we've moved to a different word
-      // This allows jumping between occurrences
-    }
-  }, [cursorLine, cursorColumn, content, highlightedWord]);
-
+  // Editor-local keybindings — Ctrl+D word highlight, Ctrl+G git blame,
+  // Ctrl+F inline search. Esc clears the topmost overlay.
   useKeyboard((event) => {
     if (!focused) return;
 
-    if (showSearch || showFindReplace || showSymbolPicker) return;
-
-    if (event.alt && event.name === "f") {
-      setSearchMode("search");
-      setShowSearch(true);
-      return;
-    }
-
-    if (event.ctrl && event.name === "g") {
-      setSearchMode("goto");
-      setShowSearch(true);
-      return;
-    }
-
-    // Find & Replace (Ctrl+H)
-    if (event.ctrl && event.name === "h") {
-      setShowFindReplace(true);
-      return;
-    }
-
-    // Go to definition (F12)
-    if (event.name === "f12") {
-      goToDefinition();
-      return;
-    }
-
-    // Jump to Symbol (Ctrl+Shift+O or @)
-    if ((event.ctrl && event.shift && (event.name === "o" || event.name === "O")) ||
-      (event.name === "@" || (event.shift && event.name === "2"))) {
-      if (filePath && fileSymbols.length > 0) {
-        setShowSymbolPicker(true);
+    // Search-mode capture: while the search bar is open, all printable keys
+    // type into the query, and Enter / arrows step through matches.
+    if (searchOpen) {
+      if (event.name === "escape") {
+        setSearchOpen(false);
+        setSearchQuery("");
+        setSearchMatches([]);
+        return;
       }
-      return;
-    }
-
-    // Code folding: z = toggle fold, zM = fold all, zR = unfold all
-    if (event.name === "z" && !event.ctrl && !event.meta && !event.alt) {
-      handleToggleFold();
-      return;
-    }
-    if ((event.shift && event.name === "z") || event.name === "Z") {
-      // Shift+Z = fold all
-      handleFoldAll();
-      return;
-    }
-    if (event.alt && event.name === "z") {
-      // Alt+Z = unfold all
-      handleUnfoldAll();
-      return;
-    }
-
-    // Git blame: Ctrl+Shift+G
-    if (event.ctrl && event.shift && (event.name === "g" || event.name === "G")) {
-      setShowBlame((v) => !v);
-      return;
-    }
-
-    // Ctrl+W - Toggle word wrap
-    if (event.ctrl && !event.shift && event.name === "w") {
-      setWordWrap((w) => !w);
-      return;
-    }
-
-    if (event.meta && event.name === "i") {
-      setShowIndentGuides((v) => !v);
-      return;
-    }
-
-    // Ctrl+E - Toggle minimap (E for Eye view)
-    if (event.ctrl && !event.shift && event.name === "e") {
-      setShowMinimap((v) => !v);
-      return;
-    }
-
-    // Ctrl+N - Toggle line numbers visibility (N for Numbers)
-    if (event.ctrl && !event.shift && event.name === "n") {
-      setShowLineNumbers((v) => !v);
-      return;
-    }
-
-    // Ctrl+R - Toggle relative line numbers
-    if (event.ctrl && !event.shift && event.name === "r") {
-      setRelativeLineNumbers((v) => !v);
-      return;
-    }
-
-    // Ctrl+T - Toggle sticky scroll (T for Top context)
-    if (event.ctrl && !event.shift && event.name === "t") {
-      setShowStickyScroll((v) => !v);
-      return;
-    }
-
-    // Ctrl+I - Toggle git gutter (I for Inline diff)
-    if (event.ctrl && !event.shift && event.name === "i") {
-      setShowGitGutter((v) => !v);
-      return;
-    }
-
-    if (event.meta && event.name === "p") {
-      if (isMarkdown) {
-        setShowPreview((v) => !v);
+      if (event.name === "return") {
+        if (searchMatches.length > 0) {
+          const idx = event.shift
+            ? (searchIndex - 1 + searchMatches.length) % searchMatches.length
+            : (searchIndex + 1) % searchMatches.length;
+          setSearchIndex(idx);
+          const m = searchMatches[idx];
+          if (m) textareaRef.current?.gotoLine(m.line);
+        }
+        return;
       }
-      return;
-    }
-
-    // Line editing operations
-    // V = Start visual selection (vim-style)
-    if (event.name === "v" || event.name === "V") {
-      if (selectionStart === null) {
-        setSelectionStart(cursorLine);
-        setSelectionEnd(cursorLine);
-      } else {
-        // Clear selection
-        setSelectionStart(null);
-        setSelectionEnd(null);
+      if (event.name === "backspace") {
+        setSearchQuery((q) => q.slice(0, -1));
+        return;
       }
-      return;
-    }
-
-    // Shift+Up/Down = Extend selection
-    if (event.shift && (event.name === "up" || event.name === "k")) {
-      if (selectionStart === null) {
-        setSelectionStart(cursorLine);
+      if (event.name && event.name.length === 1 && !event.ctrl && !event.meta) {
+        setSearchQuery((q) => q + event.name);
+        return;
       }
-      const newLine = Math.max(0, cursorLine - 1);
-      setSelectionEnd(newLine);
-      setCursorLine(newLine);
-      return;
+      // Other keys fall through (so e.g. Ctrl+F still toggles).
     }
 
-    if (event.shift && (event.name === "down" || event.name === "j")) {
-      if (selectionStart === null) {
-        setSelectionStart(cursorLine);
-      }
-      const newLine = Math.min(content.length - 1, cursorLine + 1);
-      setSelectionEnd(newLine);
-      setCursorLine(newLine);
-      return;
-    }
-
-    // Ctrl+C or y = Copy line(s)
-    if ((event.ctrl && event.name === "c") || event.name === "y") {
-      copySelectedLines();
-      return;
-    }
-
-    // Ctrl+X or d+d = Cut/delete line(s)
-    if (event.ctrl && event.name === "x") {
-      cutSelectedLines();
-      return;
-    }
-
-    // Ctrl+V or p = Paste line(s)
-    if ((event.ctrl && event.name === "v") || event.name === "p") {
-      pasteLines();
-      return;
-    }
-
-    // Ctrl+D = Select word and find occurrences (VSCode-style)
     if (event.ctrl && event.name === "d") {
-      handleSelectWord();
+      const ta = textareaRef.current;
+      if (!ta) return;
+      const lines = (ta.plainText ?? "").split("\n");
+      const lineText = lines[cursorLine] ?? "";
+      const w = getWordAtPosition(lineText, cursorColumn);
+      if (w) setWordHighlight(w.word === wordHighlight ? null : w.word);
       return;
     }
-
-    // Alt+Shift+D = Duplicate line(s)
-    if (event.alt && event.shift && (event.name === "d" || event.name === "D")) {
-      duplicateLines();
+    if (event.ctrl && event.name === "g") {
+      setShowBlame((s) => !s);
       return;
     }
-
-    // Ctrl+Shift+K or dd = Delete line(s)
-    if (event.ctrl && event.shift && event.name === "k") {
-      deleteLines();
+    if (event.ctrl && event.name === "f") {
+      setSearchOpen((s) => !s);
+      setSearchQuery("");
       return;
     }
-
-    // Escape = Clear selection and word highlight
+    // @ opens the symbol picker.
+    if (event.name === "@" || (event.ctrl && event.shift && event.name === "o")) {
+      if (fileSymbols.length > 0) setShowSymbolPicker(true);
+      return;
+    }
     if (event.name === "escape") {
-      if (highlightedWord) {
-        setHighlightedWord(null);
-        setWordOccurrences([]);
-        setCurrentOccurrenceIndex(0);
-        return;
-      }
-      if (selectionStart !== null) {
-        setSelectionStart(null);
-        setSelectionEnd(null);
-        return;
-      }
-    }
-
-    if (showPreview) return;
-
-    if (event.name === "up" || event.name === "k") {
-      const newCursor = Math.max(0, cursorLine - 1);
-      setCursorLine(newCursor);
-
-      // Smart Auto-scroll (edge-triggered)
-      const scrollMargin = 2;
-      if (newCursor < scrollOffset + scrollMargin) {
-        setScrollOffset(Math.max(0, newCursor - scrollMargin));
-      }
-    } else if (event.name === "down" || event.name === "j") {
-      const newCursor = Math.min(content.length - 1, cursorLine + 1);
-      setCursorLine(newCursor);
-
-      // Smart Auto-scroll (edge-triggered)
-      const scrollMargin = 2;
-      if (newCursor >= scrollOffset + viewHeight - scrollMargin) {
-        setScrollOffset(Math.min(
-          Math.max(0, content.length - viewHeight),
-          newCursor - viewHeight + 1 + scrollMargin
-        ));
-      }
-    } else if (event.name === "pageup") {
-      const newOffset = Math.max(0, scrollOffset - viewHeight);
-      setScrollOffset(newOffset);
-      setCursorLine(newOffset);
-    } else if (event.name === "pagedown") {
-      const newOffset = Math.min(Math.max(0, content.length - viewHeight), scrollOffset + viewHeight);
-      setScrollOffset(newOffset);
-      setCursorLine(newOffset);
-    } else if (event.name === "g") {
-      setScrollOffset(0);
-      setCursorLine(0);
-    } else if (event.name === "G") {
-      const lastOffset = Math.max(0, content.length - viewHeight);
-      setScrollOffset(lastOffset);
-      setCursorLine(content.length - 1);
-    } else if (event.name === "left" || event.name === "h") {
-      // Move cursor left
-      const line = content[cursorLine] || "";
-      setCursorColumn(Math.max(0, cursorColumn - 1));
-    } else if (event.name === "right" || event.name === "l") {
-      // Move cursor right
-      const line = content[cursorLine] || "";
-      setCursorColumn(Math.min(line.length, cursorColumn + 1));
-    } else if (event.name === "home" || event.name === "0") {
-      // Go to start of line
-      setCursorColumn(0);
-    } else if (event.name === "end" || event.name === "$") {
-      // Go to end of line
-      const line = content[cursorLine] || "";
-      setCursorColumn(line.length);
-    } else if (event.name === "w") {
-      // Jump to next word
-      const line = content[cursorLine] || "";
-      const rest = line.slice(cursorColumn);
-      const match = rest.match(/^\s*\w+\s*/);
-      if (match) {
-        setCursorColumn(Math.min(line.length, cursorColumn + match[0].length));
-      }
-    } else if (event.name === "b") {
-      // Jump to previous word
-      const line = content[cursorLine] || "";
-      const before = line.slice(0, cursorColumn);
-      const match = before.match(/\s*\w+\s*$/);
-      if (match) {
-        setCursorColumn(Math.max(0, cursorColumn - match[0].length));
-      }
+      if (wordHighlight) setWordHighlight(null);
     }
   });
 
-  const visibleLines = content.slice(scrollOffset, scrollOffset + viewHeight);
-  const fileName = filePath ? path.basename(filePath) : "No file selected";
+  // Compute search matches whenever the query or content changes.
+  useEffect(() => {
+    if (!searchOpen || !searchQuery) {
+      setSearchMatches([]);
+      return;
+    }
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const lines = (ta.plainText ?? "").split("\n");
+    const q = searchQuery.toLowerCase();
+    const out: Array<{ line: number; col: number }> = [];
+    for (let i = 0; i < lines.length; i++) {
+      const lower = (lines[i] ?? "").toLowerCase();
+      let from = 0;
+      while ((from = lower.indexOf(q, from)) !== -1) {
+        out.push({ line: i, col: from });
+        from += Math.max(1, q.length);
+      }
+    }
+    setSearchMatches(out);
+    setSearchIndex(0);
+    if (out.length > 0 && out[0]) {
+      textareaRef.current?.gotoLine(out[0].line);
+    }
+  }, [searchOpen, searchQuery, isDirty]);
+
+  // Apply searchMatch highlights for every hit; emphasise the active one
+  // with bracketMatch (yellow bg) so the user can see where Enter will jump.
+  const searchHlRefRef = useRef<number>(0);
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    if (searchHlRefRef.current) {
+      ta.removeHighlightsByRef(searchHlRefRef.current);
+      searchHlRefRef.current = 0;
+    }
+    if (!searchOpen || searchMatches.length === 0) return;
+    const matchStyle = syntaxStyle.getStyleId("searchMatch");
+    const activeStyle = syntaxStyle.getStyleId("bracketMatch");
+    if (matchStyle == null) return;
+    const ref = (Date.now() & 0x7fffffff) | 1; // unique-ish
+    searchHlRefRef.current = ref;
+    for (let i = 0; i < searchMatches.length; i++) {
+      const m = searchMatches[i];
+      if (!m) continue;
+      const style = i === searchIndex && activeStyle != null ? activeStyle : matchStyle;
+      ta.addHighlight(m.line, {
+        start: m.col,
+        end: m.col + searchQuery.length,
+        styleId: style,
+        hlRef: ref,
+      });
+    }
+  }, [searchOpen, searchMatches, searchIndex, searchQuery, syntaxStyle]);
+
+  // Apply word-highlight: scan every line for the active word and add a
+  // selectionMatch highlight at every occurrence. Wiped via hlRef on change.
+  const wordHlRefRef = useRef<number>(0);
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+
+    if (wordHlRefRef.current) {
+      ta.removeHighlightsByRef(wordHlRefRef.current);
+      wordHlRefRef.current = 0;
+    }
+    if (!wordHighlight) return;
+
+    const styleId = syntaxStyle.getStyleId("selectionMatch");
+    if (styleId == null) return;
+
+    const ref = (bracketHlRefRef.current + 1000) | 0; // separate ref space
+    wordHlRefRef.current = ref;
+
+    const lines = (ta.plainText ?? "").split("\n");
+    const word = wordHighlight;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i] ?? "";
+      let from = 0;
+      while ((from = line.indexOf(word, from)) !== -1) {
+        // Whole-word filter: neighbour chars must not be word-like.
+        const prev = line[from - 1] ?? "";
+        const next = line[from + word.length] ?? "";
+        const isWordChar = (c: string) => /[a-zA-Z0-9_$]/.test(c);
+        if (!isWordChar(prev) && !isWordChar(next)) {
+          ta.addHighlight(i, {
+            start: from,
+            end: from + word.length,
+            styleId,
+            hlRef: ref,
+          });
+        }
+        from += word.length;
+      }
+    }
+  }, [wordHighlight, syntaxStyle, isDirty]);
+
+  // Inline git blame — fetch when toggled on, then drive setLineSign so
+  // each line shows " · author" in the gutter.
+  useEffect(() => {
+    if (!showBlame || !filePath) {
+      setBlameLines([]);
+      return;
+    }
+    const lines = getGitBlame(filePath);
+    setBlameLines(lines);
+  }, [showBlame, filePath, isDirty]);
+
+  useEffect(() => {
+    const ln = lineNumberRef.current;
+    if (!ln) return;
+    if (!showBlame || blameLines.length === 0) return;
+
+    for (const bl of blameLines) {
+      const author = (bl.author || "?").slice(0, 12);
+      ln.setLineSign(bl.line, {
+        after: ` ${author}`,
+        afterColor: "#6e7681",
+      });
+    }
+    return () => {
+      const cur = lineNumberRef.current;
+      if (!cur) return;
+      // Clearing only the `after` portion — leave `before` (diff gutter).
+      // setLineSigns Map<number, LineSign> overrides whole signs, so we
+      // re-apply diff signs after blame is toggled off via the diff effect
+      // re-running on isDirty change.
+      for (const bl of blameLines) {
+        cur.clearLineSign(bl.line);
+      }
+    };
+  }, [showBlame, blameLines]);
+
+  // Bracket matching — when the cursor sits on (or just after) a bracket,
+  // highlight its mate using the textarea's per-line addHighlight. We track
+  // a per-buffer hlRef so we can wipe the previous match cleanly.
+  const bracketHlRefRef = useRef<number>(0);
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+
+    if (bracketHlRefRef.current) {
+      ta.removeHighlightsByRef(bracketHlRefRef.current);
+    }
+
+    if (cursorLine < 0 || cursorColumn < 0) return;
+    const styleId = syntaxStyle.getStyleId("bracketMatch");
+    if (styleId == null) return;
+
+    const lines = (ta.plainText ?? "").split("\n");
+    const match =
+      findMatchingBracket(lines, cursorLine, cursorColumn) ??
+      (cursorColumn > 0 ? findMatchingBracket(lines, cursorLine, cursorColumn - 1) : null);
+    if (!match) return;
+
+    const ref = bracketHlRefRef.current + 1;
+    bracketHlRefRef.current = ref;
+    ta.addHighlight(match.openLine, {
+      start: match.openColumn,
+      end: match.openColumn + 1,
+      styleId,
+      hlRef: ref,
+    });
+    ta.addHighlight(match.closeLine, {
+      start: match.closeColumn,
+      end: match.closeColumn + 1,
+      styleId,
+      hlRef: ref,
+    });
+  }, [cursorLine, cursorColumn, syntaxStyle]);
+
+  // Git diff gutter — fetch line statuses for the current file and feed them
+  // into the line-number's setLineSign so changed lines get a colored bar.
+  useEffect(() => {
+    if (!filePath || !rootPath) return;
+    const ln = lineNumberRef.current;
+    if (!ln) return;
+
+    let cancelled = false;
+    ln.clearAllLineSigns();
+
+    const colors: Record<Exclude<LineDiffStatus, null>, { char: string; color: string }> = {
+      added: { char: "┃", color: "#4ec9b0" },
+      modified: { char: "┃", color: "#569cd6" },
+      deleted: { char: "▼", color: "#f14c4c" },
+    };
+
+    getFileLineDiffs(filePath, rootPath)
+      .then((diffs) => {
+        if (cancelled) return;
+        const cur = lineNumberRef.current;
+        if (!cur) return;
+        for (const d of diffs) {
+          if (!d.status) continue;
+          const c = colors[d.status];
+          // line-number is 1-indexed (matches getFileLineDiffs output).
+          cur.setLineSign(d.lineNumber, { before: c.char, beforeColor: c.color });
+        }
+      })
+      .catch(() => {
+        // Non-fatal: leave the gutter empty if git is unavailable.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filePath, rootPath, isDirty]);
+
+  const handleContentChange = useCallback(() => {
+    // Track line count for the bottomTitle / status row.
+    const ta = textareaRef.current;
+    if (ta) setLineCount(ta.lineCount);
+
+    // If the change came from us programmatically loading a file, do not mark dirty.
+    if (suppressDirtyRef.current) {
+      suppressDirtyRef.current = false;
+      return;
+    }
+
+    if (!filePath) return;
+    setIsDirty(true);
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    const targetPath = filePath;
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
+      const latest = textareaRef.current?.plainText ?? "";
+      try {
+        fs.writeFileSync(targetPath, latest);
+        setIsDirty(false);
+      } catch {
+        // Keep dirty state if the write failed.
+      }
+    }, SAVE_DEBOUNCE_MS);
+  }, [filePath]);
+
+  const handleCursorChange = useCallback(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const v = ta.visualCursor;
+    if (!v) return;
+    // Use logical row/col so reported values match line/column in the file as
+    // edited (visual coords differ when wrapping is enabled).
+    const line = (v.logicalRow ?? v.visualRow ?? 0);
+    const col = (v.logicalCol ?? v.visualCol ?? 0);
+    setCursorLine(line);
+    setCursorColumn(col);
+    if (onCursorChange) {
+      onCursorChange(line + 1, col + 1);
+    }
+    if (onSelectionChange && ta.hasSelection?.()) {
+      try {
+        onSelectionChange(ta.getSelectedText() ?? "");
+      } catch {
+        // ignore
+      }
+    }
+  }, [onCursorChange, onSelectionChange]);
+
   const borderColor = focused ? "cyan" : "gray";
-  const lineNumWidth = Math.max(4, String(content.length).length);
 
-  // Get file type indicator
-  const langIndicator = language ? language.toUpperCase() : "";
+  const bottomTitle = filePath
+    ? ` ${langIndicator || "TXT"} · Ln ${cursorLine + 1}:${cursorColumn + 1}/${lineCount} `
+    : "";
 
-  // Mouse scroll handler - at top level so it works anywhere in the viewer
-  const handleMouseScroll = (event: any) => {
-    // OpenTUI scroll events have type "scroll" and scroll.direction
-    if (event.type === "scroll" && event.scroll) {
-      if (event.scroll.direction === "up") {
-        const newOffset = Math.max(0, scrollOffset - 3);
-        setScrollOffset(newOffset);
-        if (cursorLine >= newOffset + viewHeight) {
-          setCursorLine(newOffset + viewHeight - 1);
-        }
-      } else if (event.scroll.direction === "down") {
-        const maxOffset = Math.max(0, content.length - viewHeight);
-        const newOffset = Math.min(maxOffset, scrollOffset + 3);
-        setScrollOffset(newOffset);
-        if (cursorLine < newOffset) {
-          setCursorLine(newOffset);
-        }
-      }
-    }
-    // Also support wheel action format for compatibility
-    if (event.action === "wheel") {
-      if (event.direction === "up") {
-        const newOffset = Math.max(0, scrollOffset - 3);
-        setScrollOffset(newOffset);
-        if (cursorLine >= newOffset + viewHeight) {
-          setCursorLine(newOffset + viewHeight - 1);
-        }
-      } else if (event.direction === "down") {
-        const maxOffset = Math.max(0, content.length - viewHeight);
-        const newOffset = Math.min(maxOffset, scrollOffset + 3);
-        setScrollOffset(newOffset);
-        if (cursorLine < newOffset) {
-          setCursorLine(newOffset);
-        }
-      }
-    }
-  };
+  // No-file state.
+  if (!filePath) {
+    return (
+      <box
+        style={{
+          flexDirection: "column",
+          border: true,
+          borderColor,
+          height: "100%",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+        onMouseDown={onFocus}
+      >
+        <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>Select a file to view</text>
+      </box>
+    );
+  }
 
   return (
     <box
       style={{ flexDirection: "column", border: true, borderColor, height: "100%" }}
-      onMouse={handleMouseScroll}
-      onMouseScroll={handleMouseScroll}
+      bottomTitle={bottomTitle}
+      bottomTitleAlignment="right"
+      onMouseDown={onFocus}
     >
-      {/* Header with Breadcrumbs and status indicators */}
+      {/* Header row: FOCUS badge, dirty dot, breadcrumbs, lang indicator */}
       <box style={{ height: 1, paddingX: 1, flexDirection: "row", justifyContent: "space-between" }}>
         <box style={{ flexDirection: "row", gap: 1, flexShrink: 1 }}>
-          {focused && <text style={{ fg: "black", bg: "cyan", bold: true }}> FOCUS </text>}
-          {selectionStart !== null && <text style={{ fg: "black", bg: "yellow", bold: true }}> VISUAL </text>}
-          {filePath ? (
-            <box style={{ flexShrink: 1 }}><Breadcrumbs filePath={filePath} rootPath={rootPath} /></box>
-          ) : (
-            <text style={{ fg: "cyan", bold: true }}>{fileName}</text>
+          {focused && (
+            <text style={{ fg: "black", bg: "cyan", attributes: TextAttributes.BOLD }}> EDIT </text>
           )}
-          <box style={{ flexDirection: "row", flexShrink: 0 }}>
-            {langIndicator && <text style={{ fg: "#d4a800", dim: true }}> [{langIndicator}]</text>}
-            {wordWrap && <text style={{ fg: "#d4a800", dim: true }}> [wrap]</text>}
-            {showIndentGuides && <text style={{ fg: "gray", dim: true }}> [guides]</text>}
-            {showMinimap && <text style={{ fg: "#90EE90", dim: true }}> [map]</text>}
-            {relativeLineNumbers && <text style={{ fg: "yellow", dim: true }}> [rel]</text>}
-            {!showLineNumbers && <text style={{ fg: "gray", dim: true }}> [noln]</text>}
-            {foldedRegions.size > 0 && <text style={{ fg: "cyan", dim: true }}> [{foldedRegions.size} folded]</text>}
-            {showBlame && <text style={{ fg: "magenta", dim: true }}> [blame]</text>}
-            {showGitGutter && lineDiffs.size > 0 && <text style={{ fg: "#4ec9b0", dim: true }}> [git]</text>}
-            {showStickyScroll && <text style={{ fg: "#c586c0", dim: true }}> [sticky]</text>}
-            {highlightedWord && <text style={{ fg: "#569cd6", dim: false }}> [{currentOccurrenceIndex + 1}/{wordOccurrences.length}]</text>}
-            {isMarkdown && (
-              <text style={{ fg: showPreview ? "#d4a800" : "gray", dim: !showPreview }}>
-                {showPreview ? " [preview]" : " [Alt+P preview]"}
-              </text>
-            )}
+          {isDirty && (
+            <text style={{ fg: "black", bg: "yellow", attributes: TextAttributes.BOLD }}> ● </text>
+          )}
+          <box style={{ flexShrink: 1 }}>
+            <Breadcrumbs filePath={filePath} rootPath={rootPath} />
           </box>
+          {langIndicator && (
+            <text style={{ fg: "#d4a800", attributes: TextAttributes.DIM }}>
+              {" "}
+              [{langIndicator}]
+            </text>
+          )}
         </box>
         <text style={{ fg: "gray", flexShrink: 0 }}>
-          Ln {cursorLine + 1}:{cursorColumn + 1}/{content.length}
+          Ln {cursorLine + 1}:{cursorColumn + 1}/{lineCount}
         </text>
       </box>
 
-      {/* Separator line */}
-      <box style={{ height: 1, borderTop: true, borderColor: "gray", dim: true }} />
-      {/* Show markdown preview or code view */}
-      {showPreview && isMarkdown ? (
-        <MarkdownPreview
-          filePath={filePath}
-          focused={focused}
-          rootPath={rootPath}
-        />
-      ) : (
-        <box
-          style={{ flexDirection: "row", flexGrow: 1, position: "relative" }}
-          onMouse={handleMouseScroll}
-          onMouseScroll={handleMouseScroll}
-        >
-          <box style={{ flexDirection: "column", paddingLeft: 1, paddingRight: 1, flexGrow: 1, height: viewHeight, overflow: "hidden" }} onMouse={handleMouseScroll} onMouseScroll={handleMouseScroll}>
-            {/* Sticky Scroll Context - shows parent function/class headers */}
-            {filePath && stickyScrollContext.length > 0 && (
-              <box style={{ flexDirection: "column", bg: "#1e1e2e", borderBottom: true, borderColor: "gray" }}>
-                {stickyScrollContext.map((ctx, idx) => {
-                  const indent = "  ".repeat(idx);
-                  const kindColor = ctx.kind === "class" ? "#4ec9b0" : ctx.kind === "function" || ctx.kind === "method" ? "#dcdcaa" : "#9cdcfe";
-                  return (
-                    <box key={`${ctx.line}-${idx}`} style={{ flexDirection: "row", paddingX: 1, bg: "#252530" }}>
-                      <text style={{ fg: "gray", dim: true }}>{String(ctx.line + 1).padStart(lineNumWidth, " ")}  </text>
-                      <text style={{ fg: "gray", dim: true }}>{indent}</text>
-                      <text style={{ fg: kindColor as any }}>{ctx.text}</text>
-                    </box>
-                  );
-                })}
-              </box>
-            )}
-            {filePath ? (
-              visibleLines.map((line, index) => {
-                const lineNum = scrollOffset + index + 1;
-                const actualLineNum = scrollOffset + index;
-                const isCurrentLine = actualLineNum === cursorLine;
+      {/* Separator */}
+      <box style={{ height: 1, border: ["top"], borderColor: "gray" }} />
 
-                // Check if this line is in the selection range
-                let isSelected = false;
-                if (selectionStart !== null) {
-                  const selStart = Math.min(selectionStart, selectionEnd ?? cursorLine);
-                  const selEnd = Math.max(selectionStart, selectionEnd ?? cursorLine);
-                  isSelected = actualLineNum >= selStart && actualLineNum <= selEnd;
-                }
-
-                const lineNumFg = isCurrentLine ? "yellow" : isSelected ? "cyan" : "gray";
-                const lineBg = isSelected ? "#2a2a4a" : (isCurrentLine && focused ? "#1a1a1a" : undefined);
-
-                // Check if line is inside a folded region (skip rendering)
-                const isInsideFold = Array.from(foldedRegions).some((startLine) => {
-                  const region = foldableRegions.find((r) => r.startLine === startLine);
-                  return region && actualLineNum > startLine && actualLineNum <= region.endLine;
-                });
-                if (isInsideFold) return null;
-
-                // Get fold marker for this line
-                const foldMarker = getFoldMarker(actualLineNum, foldableRegions, foldedRegions);
-                const foldIndicator = foldMarker === "collapsed" ? "▶" : foldMarker === "expanded" ? "▼" : " ";
-                const foldColor = foldMarker !== "none" ? "cyan" : "gray";
-
-                // Determine bracket highlight for this line
-                let bracketHighlightCol: number | undefined;
-                if (bracketMatch) {
-                  if (actualLineNum === bracketMatch.openLine) {
-                    bracketHighlightCol = bracketMatch.openColumn;
-                  } else if (actualLineNum === bracketMatch.closeLine) {
-                    bracketHighlightCol = bracketMatch.closeColumn;
-                  }
-                }
-
-                // Get word highlight occurrences for this line
-                const lineWordOccurrences = highlightedWord
-                  ? wordOccurrences
-                    .filter(occ => occ.line === actualLineNum)
-                    .map(occ => occ.column)
-                  : [];
-                const currentOccurrence = wordOccurrences[currentOccurrenceIndex];
-                const currentOccurrenceCol = currentOccurrence && currentOccurrence.line === actualLineNum
-                  ? currentOccurrence.column
-                  : null;
-
-                // Handle word wrap
-                if (wordWrap && line.length > wrapWidth) {
-                  const wrappedLines = wrapLine(line, wrapWidth);
-                  // Calculate display line number for relative mode
-                  const wrapDisplayNum = relativeLineNumbers && !isCurrentLine
-                    ? Math.abs(actualLineNum - cursorLine)
-                    : lineNum;
-                  return (
-                    <box key={index} style={{ flexDirection: "column", overflow: "hidden" }}>
-                      {wrappedLines.map((wrappedLine, wrapIdx) => (
-                        <box key={wrapIdx} style={{ flexDirection: "row", bg: lineBg as any, overflow: "hidden" }}>
-                          {showLineNumbers && (
-                            <text style={{ fg: lineNumFg as any, bold: isCurrentLine && wrapIdx === 0, flexShrink: 0 }}>
-                              {wrapIdx === 0
-                                ? `${String(wrapDisplayNum).padStart(lineNumWidth, " ")}${isCurrentLine ? " ▸ " : "   "}`
-                                : `${" ".repeat(lineNumWidth)}   ↪ `}
-                            </text>
-                          )}
-                          <box style={{ flexGrow: 1, flexShrink: 1, width: 0, flexDirection: "row", overflow: "hidden" }}>
-                            <HighlightedLine
-                              line={wrappedLine}
-                              lang={language}
-                              showGuides={showIndentGuides}
-                              tabSize={tabSize}
-                              bracketHighlight={bracketHighlightCol}
-                              wordHighlight={highlightedWord}
-                              wordHighlightOccurrences={lineWordOccurrences}
-                              currentWordOccurrence={currentOccurrenceCol}
-                            />
-                          </box>
-                        </box>
-                      ))}
-                    </box>
-                  );
-                }
-
-                // Show fold count for collapsed lines
-                const foldInfo = foldMarker === "collapsed" ?
-                  foldableRegions.find((r) => r.startLine === actualLineNum) : null;
-                const foldedCount = foldInfo ? foldInfo.endLine - foldInfo.startLine : 0;
-
-                // Get blame info for this line
-                const blameLine = showBlame && blameData[actualLineNum];
-                const blameAnnotation = blameLine ? getBlameAnnotation(blameLine) : "";
-                const blameColor = blameLine ? getBlameColor(blameLine.date) : "gray";
-
-                // Calculate display line number (absolute or relative)
-                const displayLineNum = relativeLineNumbers && !isCurrentLine
-                  ? Math.abs(actualLineNum - cursorLine)
-                  : lineNum;
-
-                // Get git gutter indicator for this line (1-indexed)
-                const lineDiff = lineDiffs.get(lineNum);
-                const gutterIndicator = lineDiff ? getLineDiffIndicator(lineDiff.status) : null;
-
-                return (
-                  <box key={index} style={{ flexDirection: "row", bg: lineBg as any, overflow: "hidden" }}>
-                    {/* Git gutter indicator */}
-                    {showGitGutter && (
-                      <text style={{ fg: gutterIndicator?.color as any || "transparent", flexShrink: 0 }}>
-                        {gutterIndicator?.char || " "}
-                      </text>
-                    )}
-                    <text style={{ fg: foldColor as any, flexShrink: 0 }}>{foldIndicator}</text>
-                    {showBlame && (
-                      <text style={{ fg: blameColor as any, dim: true, flexShrink: 0 }}>
-                        {blameAnnotation ? blameAnnotation.padEnd(12) : "            "}
-                      </text>
-                    )}
-                    {showLineNumbers && (
-                      <text style={{ fg: lineNumFg as any, bold: isCurrentLine, flexShrink: 0 }}>
-                        {String(displayLineNum).padStart(lineNumWidth, " ")}{isCurrentLine ? " ▸ " : "   "}
-                      </text>
-                    )}
-                    <box style={{ flexGrow: 1, flexShrink: 1, width: 0, flexDirection: "row", overflow: "hidden", paddingRight: 1 }}>
-                      <HighlightedLine
-                        line={line}
-                        lang={language}
-                        showGuides={showIndentGuides}
-                        tabSize={tabSize}
-                        bracketHighlight={bracketHighlightCol}
-                        wordHighlight={highlightedWord}
-                        wordHighlightOccurrences={lineWordOccurrences}
-                        currentWordOccurrence={currentOccurrenceCol}
-                      />
-                      {foldMarker === "collapsed" && (
-                        <text style={{ fg: "gray", dim: true }}> ⋯ ({foldedCount} lines)</text>
-                      )}
-                    </box>
-                  </box>
-                );
-              })
-            ) : (
-              <box style={{ flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1 }}>
-                <text style={{ fg: "gray" }}>Select a file from the explorer</text>
-                <text style={{ fg: "gray", dim: true }}>Use j/k to navigate, Enter to open</text>
-              </box>
-            )}
+      {/* Inline search bar (Ctrl+F): Enter / Shift+Enter cycle, Esc closes */}
+      {searchOpen && (
+        <box style={{ height: 1, paddingX: 1, flexDirection: "row", backgroundColor: "#1a1a1a", justifyContent: "space-between" }}>
+          <box style={{ flexDirection: "row" }}>
+            <text style={{ fg: "green", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>/ </text>
+            <text style={{ fg: "white", bg: "#1a1a1a" }}>{searchQuery}</text>
+            <text style={{ fg: "green", attributes: TextAttributes.BLINK, bg: "#1a1a1a" }}>▌</text>
           </box>
-
-          {/* Scrollbar */}
-          {content.length > viewHeight && (
-            <box style={{ width: 1, height: viewHeight, flexDirection: "column", bg: "#050505", borderLeft: true, borderColor: "gray", dim: true }} onMouse={handleMouseScroll} onMouseScroll={handleMouseScroll}>
-              {(() => {
-                const scrollPercentage = scrollOffset / (content.length - viewHeight);
-                const thumbHeight = Math.max(1, Math.floor((viewHeight / content.length) * viewHeight));
-                const thumbPos = Math.floor(scrollPercentage * (viewHeight - thumbHeight));
-
-                return Array.from({ length: viewHeight }).map((_, i) => {
-                  const isThumb = i >= thumbPos && i < thumbPos + thumbHeight;
-                  return (
-                    <text key={i} style={{ fg: isThumb ? "cyan" : "gray", dim: !isThumb }}>
-                      {isThumb ? "█" : "│"}
-                    </text>
-                  );
-                });
-              })()}
-            </box>
-          )}
-
-          {/* Minimap */}
-          {showMinimap && filePath && content.length > 0 && !showPreview && (
-            <Minimap
-              content={content}
-              scrollOffset={scrollOffset}
-              viewHeight={viewHeight}
-              cursorLine={cursorLine}
-              height={minimapHeight}
-              width={10}
-            />
-          )}
+          <text style={{ fg: searchMatches.length > 0 ? "green" : "gray", bg: "#1a1a1a" }}>
+            {searchMatches.length > 0
+              ? `${searchIndex + 1}/${searchMatches.length}  Enter:next  Shift+Enter:prev  Esc:close`
+              : searchQuery
+                ? "no matches  Esc:close"
+                : "type to search  Esc:close"}
+          </text>
         </box>
       )}
 
-      {/* Search Bar - Docked */}
-      <SearchBar
-        isOpen={showSearch}
-        onClose={() => setShowSearch(false)}
-        content={content}
-        onJumpToLine={handleJumpToLine}
-        mode={searchMode}
-      />
+      {/* Editor + minimap row */}
+      <box style={{ flexDirection: "row", flexGrow: 1 }}>
+        <line-number
+          ref={lineNumberRef}
+          fg="gray"
+          bg="#0b0b0b"
+          minWidth={4}
+          paddingRight={1}
+          showLineNumbers
+          style={{ flexGrow: 1, height: "100%" }}
+        >
+          <textarea
+            ref={textareaRef}
+            focused={focused && !showSymbolPicker}
+            initialValue={initialContent}
+            syntaxStyle={syntaxStyle}
+            onContentChange={handleContentChange}
+            onCursorChange={handleCursorChange}
+            style={{ width: "100%", flexGrow: 1, backgroundColor: "#050505" }}
+          />
+        </line-number>
+        {/* Minimap on the right edge — only when the file is wide enough to
+            spare 12 columns. The component reads from initialContent (after
+            load) plus tracks edits via lineCount; for live edits we'd need to
+            poll plainText, but the legacy minimap was also coarse. */}
+        {height > 8 && lineCount > 0 && (
+          <Minimap
+            content={initialContent.split("\n")}
+            scrollOffset={Math.max(0, cursorLine - Math.floor(height / 2))}
+            viewHeight={Math.max(8, height - 4)}
+            cursorLine={cursorLine}
+            height={Math.max(8, height - 4)}
+            width={12}
+          />
+        )}
+      </box>
 
-      {/* Find & Replace Modal */}
-      <FindReplace
-        isOpen={showFindReplace}
-        onClose={() => setShowFindReplace(false)}
-        content={content.join("\n")}
-        onReplace={handleReplaceContent}
-        filePath={filePath}
-      />
-
-      {/* Symbol Picker (Ctrl+Shift+O or @) */}
       <SymbolPicker
         symbols={fileSymbols}
         isOpen={showSymbolPicker}
         onClose={() => setShowSymbolPicker(false)}
-        onSelect={handleSymbolSelect}
+        onSelect={(sym) => {
+          setShowSymbolPicker(false);
+          // SymbolLocation.line is 1-indexed in the legacy library, gotoLine is 0-indexed.
+          try {
+            textareaRef.current?.gotoLine(Math.max(0, sym.line - 1));
+          } catch {
+            // ignore
+          }
+        }}
       />
     </box>
   );
 }
+
+export default FileViewer;

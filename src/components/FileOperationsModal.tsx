@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -170,7 +171,7 @@ export function FileOperationsModal({
           flexDirection: "column",
           border: true,
           borderColor: operation === "delete" ? "red" : "cyan",
-          bg: "#050505",
+          backgroundColor: "#050505",
           position: "relative",
         }}
       >
@@ -182,7 +183,7 @@ export function FileOperationsModal({
             left: 0,
             width: "100%",
             height: "100%",
-            bg: "#050505",
+            backgroundColor: "#050505",
             flexDirection: "column",
           }}
         >
@@ -192,26 +193,26 @@ export function FileOperationsModal({
         </box>
 
         {/* Header */}
-        <box style={{ paddingX: 1, borderBottom: true, borderColor: "gray", bg: "#1a1a1a" }}>
-          <text style={{ fg: operation === "delete" ? "red" : "cyan", bold: true, bg: "#1a1a1a" }}>
+        <box style={{ paddingX: 1, border: ["bottom"], borderColor: "gray", backgroundColor: "#1a1a1a" }}>
+          <text style={{ fg: operation === "delete" ? "red" : "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>
             {getTitle()}
           </text>
         </box>
 
         {/* Content */}
-        <box style={{ paddingX: 2, paddingY: 1, flexDirection: "column", bg: "#050505" }}>
+        <box style={{ paddingX: 2, paddingY: 1, flexDirection: "column", backgroundColor: "#050505" }}>
           <text style={{ fg: "white", bg: "#050505" }}>{getPrompt()}</text>
 
           {isDeleteConfirm ? (
-            <box style={{ marginTop: 1, flexDirection: "row", bg: "#050505" }}>
+            <box style={{ marginTop: 1, flexDirection: "row", backgroundColor: "#050505" }}>
               <text style={{ fg: "gray", bg: "#050505" }}>Press </text>
-              <text style={{ fg: "red", bold: true, bg: "#050505" }}>Enter</text>
+              <text style={{ fg: "red", attributes: TextAttributes.BOLD, bg: "#050505" }}>Enter</text>
               <text style={{ fg: "gray", bg: "#050505" }}> to confirm or </text>
-              <text style={{ fg: "cyan", bold: true, bg: "#050505" }}>Esc</text>
+              <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#050505" }}>Esc</text>
               <text style={{ fg: "gray", bg: "#050505" }}> to cancel</text>
             </box>
           ) : (
-            <box style={{ marginTop: 1, flexDirection: "row", bg: "#050505" }}>
+            <box style={{ marginTop: 1, flexDirection: "row", backgroundColor: "#050505" }}>
               <text style={{ fg: "white", bg: "#050505" }}>{inputValue}</text>
               <text style={{ fg: "cyan", bg: "#050505" }}>▌</text>
             </box>
@@ -219,8 +220,8 @@ export function FileOperationsModal({
         </box>
 
         {/* Footer */}
-        <box style={{ paddingX: 1, borderTop: true, borderColor: "gray", bg: "#0b0b0b" }}>
-          <text style={{ fg: "gray", dim: true, bg: "#0b0b0b" }}>
+        <box style={{ paddingX: 1, border: ["top"], borderColor: "gray", backgroundColor: "#0b0b0b" }}>
+          <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#0b0b0b" }}>
             {isDeleteConfirm ? "⚠️ This action cannot be undone" : "Enter: confirm | Esc: cancel"}
           </text>
         </box>

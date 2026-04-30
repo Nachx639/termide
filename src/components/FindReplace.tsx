@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 
 interface Match {
   line: number;
@@ -210,24 +211,7 @@ export function FindReplace({ isOpen, onClose, content, onReplace, filePath }: F
       return;
     }
 
-    // Text input
-    if (event.name === "backspace") {
-      if (activeField === "search") {
-        setSearchTerm(prev => prev.slice(0, -1));
-      } else {
-        setReplaceTerm(prev => prev.slice(0, -1));
-      }
-      return;
-    }
-
-    // Regular characters
-    if (event.name && event.name.length === 1 && !event.ctrl && !event.meta) {
-      if (activeField === "search") {
-        setSearchTerm(prev => prev + event.name);
-      } else {
-        setReplaceTerm(prev => prev + event.name);
-      }
-    }
+    // Typing/backspace handled by the focused <input> below.
   });
 
   if (!isOpen) return null;
@@ -253,45 +237,52 @@ export function FindReplace({ isOpen, onClose, content, onReplace, filePath }: F
           flexDirection: "column",
           border: true,
           borderColor: "cyan",
-          bg: "#050505",
+          backgroundColor: "#050505",
         }}
       >
         {/* Header */}
-        <box style={{ paddingX: 1, height: 1, bg: "#1a1a1a", flexDirection: "row", justifyContent: "space-between" }}>
-          <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a" }}>Find & Replace</text>
+        <box style={{ paddingX: 1, height: 1, backgroundColor: "#1a1a1a", flexDirection: "row", justifyContent: "space-between" }}>
+          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>Find & Replace</text>
           <text style={{ fg: "gray", bg: "#1a1a1a" }}>{fileName}</text>
         </box>
 
         {/* Search Field */}
-        <box style={{ paddingX: 1, height: 1, flexDirection: "row", bg: activeField === "search" ? "#1a1a1a" : "#050505" }}>
+        <box style={{ paddingX: 1, height: 1, flexDirection: "row", backgroundColor: activeField === "search" ? "#1a1a1a" : "#050505" }}>
           <text style={{ fg: "yellow", bg: activeField === "search" ? "#1a1a1a" : "#050505" }}>Find: </text>
-          <text style={{ fg: "white", bg: activeField === "search" ? "#1a1a1a" : "#050505" }}>{searchTerm}</text>
-          {activeField === "search" && <text style={{ fg: "cyan", bg: "#1a1a1a" }}>|</text>}
-          <box style={{ flexGrow: 1 }} />
+          <input
+            focused={isOpen && activeField === "search"}
+            value={searchTerm}
+            onInput={(value: string) => setSearchTerm(value)}
+            style={{ flexGrow: 1, backgroundColor: activeField === "search" ? "#1a1a1a" : "#050505", textColor: "white", cursorColor: "cyan" }}
+          />
           <text style={{ fg: matches.length > 0 ? "green" : "gray", bg: activeField === "search" ? "#1a1a1a" : "#050505" }}>
-            {matches.length} found
+            {" "}{matches.length} found
           </text>
         </box>
 
         {/* Replace Field */}
-        <box style={{ paddingX: 1, height: 1, flexDirection: "row", bg: activeField === "replace" ? "#1a1a1a" : "#050505" }}>
+        <box style={{ paddingX: 1, height: 1, flexDirection: "row", backgroundColor: activeField === "replace" ? "#1a1a1a" : "#050505" }}>
           <text style={{ fg: "magenta", bg: activeField === "replace" ? "#1a1a1a" : "#050505" }}>Replace: </text>
-          <text style={{ fg: "white", bg: activeField === "replace" ? "#1a1a1a" : "#050505" }}>{replaceTerm}</text>
-          {activeField === "replace" && <text style={{ fg: "cyan", bg: "#1a1a1a" }}>|</text>}
+          <input
+            focused={isOpen && activeField === "replace"}
+            value={replaceTerm}
+            onInput={(value: string) => setReplaceTerm(value)}
+            style={{ flexGrow: 1, backgroundColor: activeField === "replace" ? "#1a1a1a" : "#050505", textColor: "white", cursorColor: "cyan" }}
+          />
         </box>
 
         {/* Options */}
-        <box style={{ paddingX: 1, height: 1, flexDirection: "row", bg: "#0b0b0b" }}>
+        <box style={{ paddingX: 1, height: 1, flexDirection: "row", backgroundColor: "#0b0b0b" }}>
           <text style={{ fg: caseSensitive ? "cyan" : "gray", bg: "#0b0b0b" }}>[{caseSensitive ? "x" : " "}] Case </text>
           <text style={{ fg: useRegex ? "cyan" : "gray", bg: "#0b0b0b" }}>[{useRegex ? "x" : " "}] Regex</text>
           <box style={{ flexGrow: 1 }} />
-          <text style={{ fg: "gray", dim: true, bg: "#0b0b0b" }}>Tab:switch</text>
+          <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#0b0b0b" }}>Tab:switch</text>
         </box>
 
         {/* Results List */}
-        <box style={{ flexGrow: 1, flexDirection: "column", paddingX: 1, bg: "#050505" }}>
+        <box style={{ flexGrow: 1, flexDirection: "column", paddingX: 1, backgroundColor: "#050505" }}>
           {matches.length === 0 && searchTerm && (
-            <text style={{ fg: "gray", italic: true }}>No matches found</text>
+            <text style={{ fg: "gray", attributes: TextAttributes.ITALIC }}>No matches found</text>
           )}
           {matches.slice(scrollTop, scrollTop + listHeight).map((match, index) => {
             const actualIndex = index + scrollTop;
@@ -301,7 +292,7 @@ export function FindReplace({ isOpen, onClose, content, onReplace, filePath }: F
                 key={`${match.line}-${match.column}`}
                 style={{
                   flexDirection: "row",
-                  bg: isSelected ? "blue" : undefined,
+                  backgroundColor: isSelected ? "blue" : undefined,
                   paddingX: 1,
                 }}
               >
@@ -320,8 +311,8 @@ export function FindReplace({ isOpen, onClose, content, onReplace, filePath }: F
         </box>
 
         {/* Footer with shortcuts */}
-        <box style={{ paddingX: 1, height: 1, borderTop: true, borderColor: "gray", bg: "#0b0b0b" }}>
-          <text style={{ fg: "gray", dim: true, bg: "#0b0b0b" }}>
+        <box style={{ paddingX: 1, height: 1, border: ["top"], borderColor: "gray", backgroundColor: "#0b0b0b" }}>
+          <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#0b0b0b" }}>
             Ctrl+R:replace | Ctrl+Shift+R:all | Esc:close
           </text>
         </box>

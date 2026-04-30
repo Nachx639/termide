@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 import { THEMES, Theme } from "../lib/ThemeSystem";
 
 interface ThemePickerProps {
@@ -71,7 +72,7 @@ export function ThemePicker({ isOpen, onClose, currentTheme, onSelect }: ThemePi
           flexDirection: "column",
           border: true,
           borderColor: "yellow",
-          bg: "#0b0b0b",
+          backgroundColor: "#0b0b0b",
           position: "relative",
         }}
       >
@@ -83,7 +84,7 @@ export function ThemePicker({ isOpen, onClose, currentTheme, onSelect }: ThemePi
             left: 0,
             width: "100%",
             height: "100%",
-            bg: "#1a1a1a",
+            backgroundColor: "#1a1a1a",
             flexDirection: "column",
           }}
         >
@@ -93,12 +94,12 @@ export function ThemePicker({ isOpen, onClose, currentTheme, onSelect }: ThemePi
         </box>
 
         {/* Header */}
-        <box style={{ paddingX: 1, borderBottom: true, borderColor: "gray", bg: "#1a1a1a" }}>
-          <text style={{ fg: "#d4a800", bold: true, bg: "#1a1a1a" }}>🎨 Select Theme</text>
+        <box style={{ paddingX: 1, border: ["bottom"], borderColor: "gray", backgroundColor: "#1a1a1a" }}>
+          <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>🎨 Select Theme</text>
         </box>
 
         {/* Theme list */}
-        <scrollbox style={{ flexDirection: "column", flexGrow: 1, bg: "#1a1a1a" }}>
+        <scrollbox style={{ flexDirection: "column", flexGrow: 1, backgroundColor: "#1a1a1a" }}>
           {THEMES.map((theme, index) => {
             const isSelected = index === selectedIndex;
             const isCurrent = theme.id === currentTheme.id;
@@ -109,12 +110,12 @@ export function ThemePicker({ isOpen, onClose, currentTheme, onSelect }: ThemePi
                 style={{
                   flexDirection: "row",
                   justifyContent: "space-between",
-                  bg: isSelected ? theme.accent : "#1a1a1a" as any,
+                  backgroundColor: isSelected ? theme.accent : "#1a1a1a" as any,
                   width: "100%",
                   paddingX: 1,
                 }}
               >
-                <box style={{ flexDirection: "row", bg: isSelected ? theme.accent : "#1a1a1a" as any }}>
+                <box style={{ flexDirection: "row", backgroundColor: isSelected ? theme.accent : "#1a1a1a" as any }}>
                   <text style={{ fg: isSelected ? "black" : "gray", bg: isSelected ? theme.accent : "#1a1a1a" as any }}>
                     {isSelected ? "▸ " : "  "}
                   </text>
@@ -122,7 +123,7 @@ export function ThemePicker({ isOpen, onClose, currentTheme, onSelect }: ThemePi
                     {theme.name}
                   </text>
                 </box>
-                <box style={{ flexDirection: "row", gap: 1, bg: isSelected ? theme.accent : "#1a1a1a" as any }}>
+                <box style={{ flexDirection: "row", gap: 1, backgroundColor: isSelected ? theme.accent : "#1a1a1a" as any }}>
                   {/* Color preview */}
                   <text style={{ fg: theme.syntax.keyword as any, bg: isSelected ? theme.accent : "#1a1a1a" as any }}>●</text>
                   <text style={{ fg: theme.syntax.string as any, bg: isSelected ? theme.accent : "#1a1a1a" as any }}>●</text>
@@ -136,14 +137,14 @@ export function ThemePicker({ isOpen, onClose, currentTheme, onSelect }: ThemePi
             );
           })}
           {/* Filler to ensure background opacity */}
-          <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
+          <box style={{ flexGrow: 1, backgroundColor: "#1a1a1a" }}>
             <text style={{ bg: "#1a1a1a" }}> </text>
           </box>
         </scrollbox>
 
         {/* Footer */}
-        <box style={{ paddingX: 1, borderTop: true, borderColor: "gray", bg: "#0b0b0b" }}>
-          <text style={{ fg: "gray", dim: true, bg: "#0b0b0b" }}>
+        <box style={{ paddingX: 1, border: ["top"], borderColor: "gray", backgroundColor: "#0b0b0b" }}>
+          <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#0b0b0b" }}>
             ↑↓ select | Enter apply | Esc cancel
           </text>
         </box>
