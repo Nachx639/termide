@@ -146,6 +146,13 @@ export function App({ rootPath }: AppProps) {
   const [leaderMode, setLeaderMode] = useState(false);
   const leaderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Native-terminal selection mode. Default OFF: clicks track everywhere in
+  // the IDE. When ON, the embedded Terminal disables mouse tracking so the
+  // host terminal handles drag-to-select / copy. Toggle with Ctrl+M.
+  // (In opentui 0.2.1 the disable sequence kills clicks app-wide, so this
+  // *must* be off most of the time.)
+  const [terminalSelectMode, setTerminalSelectMode] = useState(false);
+
   // Copy panel state
   const [showCopyPanel, setShowCopyPanel] = useState(false);
   const [copyPanelContent, setCopyPanelContent] = useState("");
@@ -925,6 +932,20 @@ export function App({ rootPath }: AppProps) {
       return;
     }
 
+    // Ctrl+M - Toggle native terminal selection mode. ON disables app mouse
+    // tracking so host terminal can drag-to-select text from the embedded
+    // shell; OFF (default) restores clicks across all panels.
+    if (event.ctrl && (event.name === "m" || event.name === "M")) {
+      setTerminalSelectMode((s) => !s);
+      success(
+        terminalSelectMode
+          ? "Mouse: TUI mode (clicks track)"
+          : "Mouse: native-select mode (drag to copy from terminal)",
+        1500
+      );
+      return;
+    }
+
     // Ctrl+Space - Toggle Agent
     // Depending on the terminal, this might come as name="space" + ctrl, or name=" " + ctrl
     if (event.ctrl && (event.name === "space" || event.name === " ")) {
@@ -1386,7 +1407,7 @@ export function App({ rootPath }: AppProps) {
                       onPasteReady={(pasteFn) => { terminalPasteRef.current = pasteFn; }}
                       onCopyReady={(copyFn) => { terminalCopyRef.current = copyFn; }}
                       height={currentTerminalHeight}
-                      selectMode={true}
+                      selectMode={terminalSelectMode}
                     />
                   </box>
                 )}
