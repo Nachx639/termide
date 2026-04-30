@@ -1,12 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { TextAttributes } from "@opentui/core";
 import type { TextareaRenderable, LineNumberRenderable } from "@opentui/core";
+import { useKeyboard } from "@opentui/react";
 import * as fs from "fs";
 import * as path from "path";
 import { detectLanguage } from "../lib/SyntaxHighlighter";
 import { getTermideSyntaxStyle } from "../lib/SyntaxStyles";
 import { getFileLineDiffs, type LineDiffStatus } from "../lib/GitIntegration";
 import { findMatchingBracket } from "../lib/BracketMatcher";
+import { getWordAtPosition, getAllSymbols, type SymbolLocation } from "../lib/SymbolFinder";
+import { getGitBlame, type BlameLine } from "../lib/GitBlame";
+import { SymbolPicker } from "./SymbolPicker";
+import { Minimap } from "./Minimap";
 
 interface FileViewerProps {
   filePath: string | null;
@@ -71,6 +76,26 @@ export function FileViewer({
   const [cursorLine, setCursorLine] = useState(0); // 0-indexed
   const [cursorColumn, setCursorColumn] = useState(0); // 0-indexed
   const [lineCount, setLineCount] = useState(0);
+  // Ctrl+D selects/highlights all instances of the word under the cursor.
+  const [wordHighlight, setWordHighlight] = useState<string | null>(null);
+  // Ctrl+G B toggles inline git blame in the line-number gutter.
+  const [showBlame, setShowBlame] = useState(false);
+  const [blameLines, setBlameLines] = useState<BlameLine[]>([]);
+  // Inline search (Ctrl+F): query, current match index, all match locations.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchMatches, setSearchMatches] = useState<Array<{ line: number; col: number }>>([]);
+  const [searchIndex, setSearchIndex] = useState(0);
+  // Symbol picker (Ctrl+Shift+O / @): list of symbols for the active file.
+  const [showSymbolPicker, setShowSymbolPicker] = useState(false);
+  const fileSymbols: SymbolLocation[] = useMemo(() => {
+    if (!filePath || !initialContent) return [];
+    try {
+      return getAllSymbols(initialContent, filePath);
+    } catch {
+      return [];
+    }
+  }, [filePath, initialContent]);
 
   const language = useMemo(() => (filePath ? detectLanguage(filePath) : null), [filePath]);
   const langIndicator = language ? language.toUpperCase() : "";
@@ -175,6 +200,203 @@ export function FileViewer({
       }
     };
   }, []);
+
+  // Editor-local keybindings — Ctrl+D word highlight, Ctrl+G git blame,
+  // Ctrl+F inline search. Esc clears the topmost overlay.
+  useKeyboard((event) => {
+    if (!focused) return;
+
+    // Search-mode capture: while the search bar is open, all printable keys
+    // type into the query, and Enter / arrows step through matches.
+    if (searchOpen) {
+      if (event.name === "escape") {
+        setSearchOpen(false);
+        setSearchQuery("");
+        setSearchMatches([]);
+        return;
+      }
+      if (event.name === "return") {
+        if (searchMatches.length > 0) {
+          const idx = event.shift
+            ? (searchIndex - 1 + searchMatches.length) % searchMatches.length
+            : (searchIndex + 1) % searchMatches.length;
+          setSearchIndex(idx);
+          const m = searchMatches[idx];
+          if (m) textareaRef.current?.gotoLine(m.line);
+        }
+        return;
+      }
+      if (event.name === "backspace") {
+        setSearchQuery((q) => q.slice(0, -1));
+        return;
+      }
+      if (event.name && event.name.length === 1 && !event.ctrl && !event.meta) {
+        setSearchQuery((q) => q + event.name);
+        return;
+      }
+      // Other keys fall through (so e.g. Ctrl+F still toggles).
+    }
+
+    if (event.ctrl && event.name === "d") {
+      const ta = textareaRef.current;
+      if (!ta) return;
+      const lines = (ta.plainText ?? "").split("\n");
+      const lineText = lines[cursorLine] ?? "";
+      const w = getWordAtPosition(lineText, cursorColumn);
+      if (w) setWordHighlight(w.word === wordHighlight ? null : w.word);
+      return;
+    }
+    if (event.ctrl && event.name === "g") {
+      setShowBlame((s) => !s);
+      return;
+    }
+    if (event.ctrl && event.name === "f") {
+      setSearchOpen((s) => !s);
+      setSearchQuery("");
+      return;
+    }
+    // @ opens the symbol picker.
+    if (event.name === "@" || (event.ctrl && event.shift && event.name === "o")) {
+      if (fileSymbols.length > 0) setShowSymbolPicker(true);
+      return;
+    }
+    if (event.name === "escape") {
+      if (wordHighlight) setWordHighlight(null);
+    }
+  });
+
+  // Compute search matches whenever the query or content changes.
+  useEffect(() => {
+    if (!searchOpen || !searchQuery) {
+      setSearchMatches([]);
+      return;
+    }
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const lines = (ta.plainText ?? "").split("\n");
+    const q = searchQuery.toLowerCase();
+    const out: Array<{ line: number; col: number }> = [];
+    for (let i = 0; i < lines.length; i++) {
+      const lower = (lines[i] ?? "").toLowerCase();
+      let from = 0;
+      while ((from = lower.indexOf(q, from)) !== -1) {
+        out.push({ line: i, col: from });
+        from += Math.max(1, q.length);
+      }
+    }
+    setSearchMatches(out);
+    setSearchIndex(0);
+    if (out.length > 0 && out[0]) {
+      textareaRef.current?.gotoLine(out[0].line);
+    }
+  }, [searchOpen, searchQuery, isDirty]);
+
+  // Apply searchMatch highlights for every hit; emphasise the active one
+  // with bracketMatch (yellow bg) so the user can see where Enter will jump.
+  const searchHlRefRef = useRef<number>(0);
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    if (searchHlRefRef.current) {
+      ta.removeHighlightsByRef(searchHlRefRef.current);
+      searchHlRefRef.current = 0;
+    }
+    if (!searchOpen || searchMatches.length === 0) return;
+    const matchStyle = syntaxStyle.getStyleId("searchMatch");
+    const activeStyle = syntaxStyle.getStyleId("bracketMatch");
+    if (matchStyle == null) return;
+    const ref = (Date.now() & 0x7fffffff) | 1; // unique-ish
+    searchHlRefRef.current = ref;
+    for (let i = 0; i < searchMatches.length; i++) {
+      const m = searchMatches[i];
+      if (!m) continue;
+      const style = i === searchIndex && activeStyle != null ? activeStyle : matchStyle;
+      ta.addHighlight(m.line, {
+        start: m.col,
+        end: m.col + searchQuery.length,
+        styleId: style,
+        hlRef: ref,
+      });
+    }
+  }, [searchOpen, searchMatches, searchIndex, searchQuery, syntaxStyle]);
+
+  // Apply word-highlight: scan every line for the active word and add a
+  // selectionMatch highlight at every occurrence. Wiped via hlRef on change.
+  const wordHlRefRef = useRef<number>(0);
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+
+    if (wordHlRefRef.current) {
+      ta.removeHighlightsByRef(wordHlRefRef.current);
+      wordHlRefRef.current = 0;
+    }
+    if (!wordHighlight) return;
+
+    const styleId = syntaxStyle.getStyleId("selectionMatch");
+    if (styleId == null) return;
+
+    const ref = (bracketHlRefRef.current + 1000) | 0; // separate ref space
+    wordHlRefRef.current = ref;
+
+    const lines = (ta.plainText ?? "").split("\n");
+    const word = wordHighlight;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i] ?? "";
+      let from = 0;
+      while ((from = line.indexOf(word, from)) !== -1) {
+        // Whole-word filter: neighbour chars must not be word-like.
+        const prev = line[from - 1] ?? "";
+        const next = line[from + word.length] ?? "";
+        const isWordChar = (c: string) => /[a-zA-Z0-9_$]/.test(c);
+        if (!isWordChar(prev) && !isWordChar(next)) {
+          ta.addHighlight(i, {
+            start: from,
+            end: from + word.length,
+            styleId,
+            hlRef: ref,
+          });
+        }
+        from += word.length;
+      }
+    }
+  }, [wordHighlight, syntaxStyle, isDirty]);
+
+  // Inline git blame — fetch when toggled on, then drive setLineSign so
+  // each line shows " · author" in the gutter.
+  useEffect(() => {
+    if (!showBlame || !filePath) {
+      setBlameLines([]);
+      return;
+    }
+    const lines = getGitBlame(filePath);
+    setBlameLines(lines);
+  }, [showBlame, filePath, isDirty]);
+
+  useEffect(() => {
+    const ln = lineNumberRef.current;
+    if (!ln) return;
+    if (!showBlame || blameLines.length === 0) return;
+
+    for (const bl of blameLines) {
+      const author = (bl.author || "?").slice(0, 12);
+      ln.setLineSign(bl.line, {
+        after: ` ${author}`,
+        afterColor: "#6e7681",
+      });
+    }
+    return () => {
+      const cur = lineNumberRef.current;
+      if (!cur) return;
+      // Clearing only the `after` portion — leave `before` (diff gutter).
+      // setLineSigns Map<number, LineSign> overrides whole signs, so we
+      // re-apply diff signs after blame is toggled off via the diff effect
+      // re-running on isDirty change.
+      for (const bl of blameLines) {
+        cur.clearLineSign(bl.line);
+      }
+    };
+  }, [showBlame, blameLines]);
 
   // Bracket matching — when the cursor sits on (or just after) a bracket,
   // highlight its mate using the textarea's per-line addHighlight. We track
@@ -361,26 +583,75 @@ export function FileViewer({
       {/* Separator */}
       <box style={{ height: 1, border: ["top"], borderColor: "gray" }} />
 
-      {/* Editor: line-number gutter wraps the textarea so it provides numbers. */}
-      <line-number
-        ref={lineNumberRef}
-        fg="gray"
-        bg="#0b0b0b"
-        minWidth={4}
-        paddingRight={1}
-        showLineNumbers
-        style={{ width: "100%", flexGrow: 1 }}
-      >
-        <textarea
-          ref={textareaRef}
-          focused={focused}
-          initialValue={initialContent}
-          syntaxStyle={syntaxStyle}
-          onContentChange={handleContentChange}
-          onCursorChange={handleCursorChange}
-          style={{ width: "100%", flexGrow: 1, backgroundColor: "#050505" }}
-        />
-      </line-number>
+      {/* Inline search bar (Ctrl+F): Enter / Shift+Enter cycle, Esc closes */}
+      {searchOpen && (
+        <box style={{ height: 1, paddingX: 1, flexDirection: "row", backgroundColor: "#1a1a1a", justifyContent: "space-between" }}>
+          <box style={{ flexDirection: "row" }}>
+            <text style={{ fg: "green", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>/ </text>
+            <text style={{ fg: "white", bg: "#1a1a1a" }}>{searchQuery}</text>
+            <text style={{ fg: "green", attributes: TextAttributes.BLINK, bg: "#1a1a1a" }}>▌</text>
+          </box>
+          <text style={{ fg: searchMatches.length > 0 ? "green" : "gray", bg: "#1a1a1a" }}>
+            {searchMatches.length > 0
+              ? `${searchIndex + 1}/${searchMatches.length}  Enter:next  Shift+Enter:prev  Esc:close`
+              : searchQuery
+                ? "no matches  Esc:close"
+                : "type to search  Esc:close"}
+          </text>
+        </box>
+      )}
+
+      {/* Editor + minimap row */}
+      <box style={{ flexDirection: "row", flexGrow: 1 }}>
+        <line-number
+          ref={lineNumberRef}
+          fg="gray"
+          bg="#0b0b0b"
+          minWidth={4}
+          paddingRight={1}
+          showLineNumbers
+          style={{ flexGrow: 1, height: "100%" }}
+        >
+          <textarea
+            ref={textareaRef}
+            focused={focused && !showSymbolPicker}
+            initialValue={initialContent}
+            syntaxStyle={syntaxStyle}
+            onContentChange={handleContentChange}
+            onCursorChange={handleCursorChange}
+            style={{ width: "100%", flexGrow: 1, backgroundColor: "#050505" }}
+          />
+        </line-number>
+        {/* Minimap on the right edge — only when the file is wide enough to
+            spare 12 columns. The component reads from initialContent (after
+            load) plus tracks edits via lineCount; for live edits we'd need to
+            poll plainText, but the legacy minimap was also coarse. */}
+        {height > 8 && lineCount > 0 && (
+          <Minimap
+            content={initialContent.split("\n")}
+            scrollOffset={Math.max(0, cursorLine - Math.floor(height / 2))}
+            viewHeight={Math.max(8, height - 4)}
+            cursorLine={cursorLine}
+            height={Math.max(8, height - 4)}
+            width={12}
+          />
+        )}
+      </box>
+
+      <SymbolPicker
+        symbols={fileSymbols}
+        isOpen={showSymbolPicker}
+        onClose={() => setShowSymbolPicker(false)}
+        onSelect={(sym) => {
+          setShowSymbolPicker(false);
+          // SymbolLocation.line is 1-indexed in the legacy library, gotoLine is 0-indexed.
+          try {
+            textareaRef.current?.gotoLine(Math.max(0, sym.line - 1));
+          } catch {
+            // ignore
+          }
+        }}
+      />
     </box>
   );
 }
