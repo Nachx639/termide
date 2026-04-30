@@ -201,6 +201,20 @@ export function FileViewer({
     };
   }, []);
 
+  // EditorTraits — declare which keys the textarea wants to swallow itself
+  // (Tab inserts indent, Esc only clears overlays; we don't want either to
+  // bubble up to the global App-level handler and trigger panel-level shortcuts).
+  // The `traits` getter/setter is on EditBufferRenderable.
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    try {
+      ta.traits = { capture: ["tab", "escape"] };
+    } catch {
+      // older runtimes may not have traits — non-fatal.
+    }
+  }, []);
+
   // Editor-local keybindings — Ctrl+D word highlight, Ctrl+G git blame,
   // Ctrl+F inline search. Esc clears the topmost overlay.
   useKeyboard((event) => {
@@ -303,7 +317,7 @@ export function FileViewer({
     }
     if (!searchOpen || searchMatches.length === 0) return;
     const matchStyle = syntaxStyle.getStyleId("searchMatch");
-    const activeStyle = syntaxStyle.getStyleId("bracketMatch");
+    const activeStyle = syntaxStyle.getStyleId("activeSearchMatch");
     if (matchStyle == null) return;
     const ref = (Date.now() & 0x7fffffff) | 1; // unique-ish
     searchHlRefRef.current = ref;
