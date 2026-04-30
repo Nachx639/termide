@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useKeyboard } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 import * as fs from "fs";
 import * as path from "path";
 import { getFileGitStatus, type FileGitStatus, getFileStatusColor, getFileStatusIcon } from "../lib/GitIntegration";
@@ -189,13 +190,13 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
   const borderColor = focused ? "cyan" : "gray";
 
   return (
-    <box style={{ flexDirection: "column", border: true, borderColor, height: "100%", bg: "#0b0b0b" }} onMouseDown={onFocus}>
-      <box style={{ paddingX: 1, height: 1, bg: "#1a1a1a", flexDirection: "row" }}>
-        {focused && <text style={{ fg: "black", bg: "cyan", bold: true }}> FOCUS </text>}
-        <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a" }}>Explorer</text>
+    <box style={{ flexDirection: "column", border: true, borderColor, height: "100%", backgroundColor: "#0b0b0b" }} onMouseDown={onFocus}>
+      <box style={{ paddingX: 1, height: 1, backgroundColor: "#1a1a1a", flexDirection: "row" }}>
+        {focused && <text style={{ fg: "black", bg: "cyan", attributes: TextAttributes.BOLD }}> FOCUS </text>}
+        <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>Explorer</text>
       </box>
       <box
-        style={{ flexDirection: "column", flexGrow: 1, bg: "#0b0b0b" }}
+        style={{ flexDirection: "column", flexGrow: 1, backgroundColor: "#0b0b0b" }}
         onMouse={(event: any) => {
           if (!focused) return;
           if (event.action === "wheel") {
@@ -216,7 +217,7 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
           }
         }}
       >
-        <scrollbox style={{ flexGrow: 1, paddingX: 1, bg: "#0b0b0b" }}>
+        <scrollbox style={{ flexGrow: 1, paddingX: 1, backgroundColor: "#0b0b0b" }}>
           {flatList.slice(scrollTop, scrollTop + 20).map((node, index) => {
             const actualIndex = index + scrollTop;
             const isSelected = actualIndex === selectedIndex && focused;
@@ -242,7 +243,7 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
             return (
               <box
                 key={node.path}
-                style={{ flexDirection: "row", bg: bg as any, paddingX: 1 }}
+                style={{ flexDirection: "row", backgroundColor: bg as any, paddingX: 1 }}
                 onMouseDown={() => {
                   // Select this item
                   setSelectedIndex(actualIndex);
@@ -281,7 +282,7 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
                 <text style={{ fg: isSelected ? "cyan" : (gitStatus ? getFileStatusColor(gitStatus) : "gray") as any }}>
                   {gitStatus ? (getFileStatusIcon(gitStatus).trim()[0] || " ") : " "}
                 </text>
-                <text style={{ fg: isSelected ? "cyan" : nameFg as any, bold: isSelected }}>
+                <text style={{ fg: isSelected ? "cyan" : nameFg as any, attributes: isSelected ? TextAttributes.BOLD : 0 }}>
                   {" "}{node.name}
                 </text>
               </box>

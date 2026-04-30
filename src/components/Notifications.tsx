@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { TextAttributes } from "@opentui/core";
 
 export type NotificationType = "info" | "success" | "warning" | "error";
 
@@ -63,7 +64,7 @@ export function Notifications({ notifications, onDismiss }: NotificationsProps) 
               paddingX: 1,
               border: true,
               borderColor: style.fg as any,
-              bg: "#0b0b0b",
+              backgroundColor: "#0b0b0b",
               position: "relative",
             }}
           >
@@ -75,18 +76,18 @@ export function Notifications({ notifications, onDismiss }: NotificationsProps) 
                 left: 0,
                 width: "100%",
                 height: "100%",
-                bg: "#1a1a1a",
+                backgroundColor: "#1a1a1a",
                 flexDirection: "column",
               }}
             >
               <text style={{ bg: "#1a1a1a" }}>{" ".repeat(200)}</text>
             </box>
 
-            <text style={{ fg: style.fg as any, bold: true, bg: "#1a1a1a" }}>
+            <text style={{ fg: style.fg as any, attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>
               {style.icon}{" "}
             </text>
             <text style={{ fg: "white", bg: "#1a1a1a" }}>{notification.message}</text>
-            <text style={{ fg: "gray", dim: true, bg: "#1a1a1a" }}> [x]</text>
+            <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#1a1a1a" }}> [x]</text>
           </box>
         );
       })}

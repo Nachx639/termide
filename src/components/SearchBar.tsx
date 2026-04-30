@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useKeyboard } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 
 interface SearchBarProps {
   isOpen: boolean;
@@ -131,21 +132,21 @@ export function SearchBar({ isOpen, onClose, content, onJumpToLine, mode }: Sear
       style={{
         height: 1,
         flexDirection: "column",
-        borderTop: true,
+        border: ["top"],
         borderColor: borderColor as any,
-        bg: "black",
+        backgroundColor: "black",
         paddingX: 1,
       }}
     >
       <box style={{ flexDirection: "row", justifyContent: "space-between" }}>
         <box style={{ flexDirection: "row" }}>
-          <text style={{ fg: borderColor as any, bold: true }}>{icon}</text>
+          <text style={{ fg: borderColor as any, attributes: TextAttributes.BOLD }}>{icon}</text>
           <text style={{ fg: "white" }}>{query}</text>
-          <text style={{ fg: borderColor as any, blink: true }}>▌</text>
+          <text style={{ fg: borderColor as any, attributes: TextAttributes.BLINK }}>▌</text>
         </box>
         <box style={{ flexDirection: "row" }}>
           {isGotoMode ? (
-            <text style={{ fg: "gray", dim: true }}>
+            <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
               Go to line (1-{content.length})
             </text>
           ) : (
