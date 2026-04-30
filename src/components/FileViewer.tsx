@@ -20,6 +20,12 @@ interface FileViewerProps {
   onSelectionChange?: (selectedText: string) => void;
   /** 1-indexed line to jump to when the file opens. */
   initialLine?: number;
+  /**
+   * Called when the user clicks anywhere inside this viewer. Lets the parent
+   * focus this pane — needed because the inner <textarea> captures mouse
+   * events and the wrapper in App.tsx never sees them.
+   */
+  onFocus?: () => void;
 }
 
 // Breadcrumbs subcomponent (copied from FileViewerLegacy for visual parity).
@@ -51,6 +57,7 @@ export function FileViewer({
   onCursorChange,
   onSelectionChange,
   initialLine,
+  onFocus,
 }: FileViewerProps) {
   const textareaRef = useRef<TextareaRenderable | null>(null);
   const lineNumberRef = useRef<LineNumberRenderable | null>(null);
@@ -313,6 +320,7 @@ export function FileViewer({
           justifyContent: "center",
           alignItems: "center",
         }}
+        onMouseDown={onFocus}
       >
         <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>Select a file to view</text>
       </box>
@@ -324,6 +332,7 @@ export function FileViewer({
       style={{ flexDirection: "column", border: true, borderColor, height: "100%" }}
       bottomTitle={bottomTitle}
       bottomTitleAlignment="right"
+      onMouseDown={onFocus}
     >
       {/* Header row: FOCUS badge, dirty dot, breadcrumbs, lang indicator */}
       <box style={{ height: 1, paddingX: 1, flexDirection: "row", justifyContent: "space-between" }}>
