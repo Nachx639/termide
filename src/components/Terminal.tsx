@@ -591,8 +591,16 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
     renderRows.push(segments);
   }
 
+  const shellName = (process.env.SHELL || "/bin/zsh").split("/").pop() || "zsh";
+  const cwdShort = cwd.replace(process.env.HOME || "", "~");
+  const bottomTitle = ` ${shellName} · ${cwdShort} `;
+
   return (
-    <box style={{ flexDirection: "column", border: true, borderColor, height: "100%" }}>
+    <box
+      style={{ flexDirection: "column", border: true, borderColor, height: "100%" }}
+      bottomTitle={bottomTitle}
+      bottomTitleAlignment="right"
+    >
       {/* Focus indicator header */}
       {focused && (
         <box style={{ paddingX: 1, height: 1, flexDirection: "row" }}>

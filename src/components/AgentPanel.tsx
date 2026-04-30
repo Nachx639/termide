@@ -246,8 +246,20 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
         }
     });
 
+    const bottomTitle =
+        status === "connected"
+            ? ` ${messages.length} msgs · connected `
+            : status === "connecting"
+            ? " connecting… "
+            : " disconnected ";
+
     return (
-        <box style={{ flexDirection: "column", height: "100%", border: true, borderColor: focused ? "cyan" : "gray" }} onMouseDown={onFocus}>
+        <box
+            style={{ flexDirection: "column", height: "100%", border: true, borderColor: focused ? "cyan" : "gray" }}
+            bottomTitle={bottomTitle}
+            bottomTitleAlignment="right"
+            onMouseDown={onFocus}
+        >
             {/* Header */}
             <box style={{ height: 1, paddingX: 1, flexDirection: "row", justifyContent: "space-between", marginBottom: 1 }}>
                 <box style={{ flexDirection: "row" }}>
