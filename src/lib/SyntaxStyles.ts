@@ -26,6 +26,9 @@ const themeStyles = {
   // matching, search matches, word-highlight, etc.)
   bracketMatch: { fg: RGBA.fromHex("#000000"), bg: RGBA.fromHex("#FFCB6B"), bold: true },
   searchMatch: { fg: RGBA.fromHex("#000000"), bg: RGBA.fromHex("#FFFF00") },
+  // Active search match (the one Enter jumps to) — orange so it stands out
+  // from the yellow used for all matches and the bracketMatch yellow.
+  activeSearchMatch: { fg: RGBA.fromHex("#000000"), bg: RGBA.fromHex("#FF8C42"), bold: true },
   selectionMatch: { fg: RGBA.fromHex("#FFFFFF"), bg: RGBA.fromHex("#3a3a3a") },
 };
 
