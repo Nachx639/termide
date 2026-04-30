@@ -3,6 +3,7 @@ import { useKeyboard } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 import * as fs from "fs";
 import * as path from "path";
+import { getTermideSyntaxStyle } from "../lib/SyntaxStyles";
 
 interface MarkdownPreviewProps {
   filePath: string | null;
@@ -78,8 +79,7 @@ export function MarkdownPreview({ filePath, focused, rootPath }: MarkdownPreview
         {content ? (
           <markdown
             content={content}
-            // TODO: opentui 0.2.1 SyntaxStyle migration
-            syntaxStyle={"monokai" as any}
+            syntaxStyle={getTermideSyntaxStyle()}
             conceal
             tableOptions={{
               widthMode: "full",
