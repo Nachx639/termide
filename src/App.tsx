@@ -1280,6 +1280,7 @@ export function App({ rootPath }: AppProps) {
                         treeWidth={responsiveTreeWidth}
                         height={currentViewerHeight}
                         onCursorChange={activeSplit === "left" ? handleCursorChange : undefined}
+                        onFocus={() => { setFocusedPanel("viewer"); setActiveSplit("left"); }}
                         onJumpToFile={(targetPath, line) => {
                           handleFileSelect(targetPath, line);
                         }}
@@ -1298,6 +1299,7 @@ export function App({ rootPath }: AppProps) {
                         treeWidth={responsiveTreeWidth}
                         height={currentViewerHeight}
                         onCursorChange={activeSplit === "right" ? handleCursorChange : undefined}
+                        onFocus={() => { setFocusedPanel("viewer"); setActiveSplit("right"); }}
                         onJumpToFile={(targetPath, line) => {
                           setSplitFile(targetPath);
                           setTargetLine(line);
@@ -1320,6 +1322,7 @@ export function App({ rootPath }: AppProps) {
                         treeWidth={responsiveTreeWidth}
                         height={Math.floor(currentViewerHeight / 2)}
                         onCursorChange={activeSplit === "left" ? handleCursorChange : undefined}
+                        onFocus={() => { setFocusedPanel("viewer"); setActiveSplit("left"); }}
                         onJumpToFile={(targetPath, line) => {
                           handleFileSelect(targetPath, line);
                         }}
@@ -1338,6 +1341,7 @@ export function App({ rootPath }: AppProps) {
                         treeWidth={responsiveTreeWidth}
                         height={Math.floor(currentViewerHeight / 2)}
                         onCursorChange={activeSplit === "right" ? handleCursorChange : undefined}
+                        onFocus={() => { setFocusedPanel("viewer"); setActiveSplit("right"); }}
                         onJumpToFile={(targetPath, line) => {
                           setSplitFile(targetPath);
                           setTargetLine(line);
@@ -1354,6 +1358,7 @@ export function App({ rootPath }: AppProps) {
                     treeWidth={responsiveTreeWidth}
                     height={currentViewerHeight}
                     onCursorChange={handleCursorChange}
+                    onFocus={() => setFocusedPanel("viewer")}
                     onJumpToFile={(targetPath, line) => {
                       handleFileSelect(targetPath, line);
                     }}
