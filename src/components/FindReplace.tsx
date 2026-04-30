@@ -211,24 +211,7 @@ export function FindReplace({ isOpen, onClose, content, onReplace, filePath }: F
       return;
     }
 
-    // Text input
-    if (event.name === "backspace") {
-      if (activeField === "search") {
-        setSearchTerm(prev => prev.slice(0, -1));
-      } else {
-        setReplaceTerm(prev => prev.slice(0, -1));
-      }
-      return;
-    }
-
-    // Regular characters
-    if (event.name && event.name.length === 1 && !event.ctrl && !event.meta) {
-      if (activeField === "search") {
-        setSearchTerm(prev => prev + event.name);
-      } else {
-        setReplaceTerm(prev => prev + event.name);
-      }
-    }
+    // Typing/backspace handled by the focused <input> below.
   });
 
   if (!isOpen) return null;
@@ -266,19 +249,26 @@ export function FindReplace({ isOpen, onClose, content, onReplace, filePath }: F
         {/* Search Field */}
         <box style={{ paddingX: 1, height: 1, flexDirection: "row", backgroundColor: activeField === "search" ? "#1a1a1a" : "#050505" }}>
           <text style={{ fg: "yellow", bg: activeField === "search" ? "#1a1a1a" : "#050505" }}>Find: </text>
-          <text style={{ fg: "white", bg: activeField === "search" ? "#1a1a1a" : "#050505" }}>{searchTerm}</text>
-          {activeField === "search" && <text style={{ fg: "cyan", bg: "#1a1a1a" }}>|</text>}
-          <box style={{ flexGrow: 1 }} />
+          <input
+            focused={isOpen && activeField === "search"}
+            value={searchTerm}
+            onInput={(value: string) => setSearchTerm(value)}
+            style={{ flexGrow: 1, backgroundColor: activeField === "search" ? "#1a1a1a" : "#050505", textColor: "white", cursorColor: "cyan" }}
+          />
           <text style={{ fg: matches.length > 0 ? "green" : "gray", bg: activeField === "search" ? "#1a1a1a" : "#050505" }}>
-            {matches.length} found
+            {" "}{matches.length} found
           </text>
         </box>
 
         {/* Replace Field */}
         <box style={{ paddingX: 1, height: 1, flexDirection: "row", backgroundColor: activeField === "replace" ? "#1a1a1a" : "#050505" }}>
           <text style={{ fg: "magenta", bg: activeField === "replace" ? "#1a1a1a" : "#050505" }}>Replace: </text>
-          <text style={{ fg: "white", bg: activeField === "replace" ? "#1a1a1a" : "#050505" }}>{replaceTerm}</text>
-          {activeField === "replace" && <text style={{ fg: "cyan", bg: "#1a1a1a" }}>|</text>}
+          <input
+            focused={isOpen && activeField === "replace"}
+            value={replaceTerm}
+            onInput={(value: string) => setReplaceTerm(value)}
+            style={{ flexGrow: 1, backgroundColor: activeField === "replace" ? "#1a1a1a" : "#050505", textColor: "white", cursorColor: "cyan" }}
+          />
         </box>
 
         {/* Options */}
