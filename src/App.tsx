@@ -8,6 +8,7 @@ const debugLog = (msg: string) => {
   fs.appendFileSync(DEBUG_LOG, `[${timestamp}] ${msg}\n`);
 };
 import { useKeyboard, useTerminalDimensions, useRenderer } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 import { FileTree } from "./components/FileTree";
 import { FileViewer } from "./components/FileViewer";
 import { Terminal } from "./components/Terminal";
@@ -871,7 +872,7 @@ export function App({ rootPath }: AppProps) {
     const isCopyShortcut =
       (event.ctrl && (event.name === "y" || event.name === "Y")) ||
       (event.ctrl && event.shift && (event.name === "c" || event.name === "C")) ||
-      (event.alt && (event.name === "c" || event.name === "C"));
+      (event.option && (event.name === "c" || event.name === "C"));
     if (isCopyShortcut) {
       try {
         if (focusedPanel === "viewer" && selectedFile) {
@@ -984,7 +985,7 @@ export function App({ rootPath }: AppProps) {
     }
 
     // Alt+Arrow to switch between splits (left/right for vertical, up/down for horizontal)
-    if (splitMode !== "none" && event.alt) {
+    if (splitMode !== "none" && event.option) {
       if (event.name === "left" || event.name === "h" || event.name === "up" || event.name === "k") {
         setActiveSplit("left"); // "left" = "top" in horizontal mode
         return;
@@ -1111,12 +1112,12 @@ export function App({ rootPath }: AppProps) {
   }
 
   return (
-    <box style={{ flexDirection: "column", width: "100%", height: "100%", bg: "#050505" }}>
+    <box style={{ flexDirection: "column", width: "100%", height: "100%", backgroundColor: "#050505" }}>
       {/* Top Header - Compact or Full (hidden in Zen Mode) */}
       {!zenMode && (isCompactMode ? (
         <CompactHeader rootPath={rootPath} width={dimensions.width || 80} />
       ) : (
-      <box style={{ height: 5, borderBottom: true, borderColor: "cyan", flexDirection: "column", bg: "#0b0b0b" }}>
+      <box style={{ height: 5, border: ["bottom"], borderColor: "cyan", flexDirection: "column", backgroundColor: "#0b0b0b" }}>
         {(() => {
           const logoWidth = 30;
           const terminalWidth = dimensions.width || 80;
@@ -1140,27 +1141,27 @@ export function App({ rootPath }: AppProps) {
           return (
             <>
               {/* Row 1 */}
-              <box style={{ paddingX: 1, flexDirection: "row", bg: "#1a1a1a" }}>
-                <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a", width: logoWidth }}>  ▀█▀ █▀▀ █▀▄ █▄▀▄█ █ █▀▄ █▀▀</text>
-                <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
+              <box style={{ paddingX: 1, flexDirection: "row", backgroundColor: "#1a1a1a" }}>
+                <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a", width: logoWidth }}>  ▀█▀ █▀▀ █▀▄ █▄▀▄█ █ █▀▄ █▀▀</text>
+                <box style={{ flexGrow: 1, backgroundColor: "#1a1a1a" }}>
                   <text style={{ fg: "cyan" }}>{antLines[0]}</text>
                 </box>
                 <text style={{ fg: "gray", bg: "#1a1a1a" }}>{pathText}</text>
               </box>
 
               {/* Row 2 */}
-              <box style={{ paddingX: 1, flexDirection: "row", bg: "#1a1a1a" }}>
-                <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a", width: logoWidth }}>   █  █▀▀ █▀▄ █ █ █ █ █ █ █▀▀</text>
-                <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
+              <box style={{ paddingX: 1, flexDirection: "row", backgroundColor: "#1a1a1a" }}>
+                <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a", width: logoWidth }}>   █  █▀▀ █▀▄ █ █ █ █ █ █ █▀▀</text>
+                <box style={{ flexGrow: 1, backgroundColor: "#1a1a1a" }}>
                   <text style={{ fg: "cyan" }}>{antLines[1]}</text>
                 </box>
                 <text style={{ fg: "#d4a800", bg: "#1a1a1a" }}>Ctrl+P: open | Ctrl+K: menu | Ctrl+F: focus</text>
               </box>
 
               {/* Row 3 */}
-              <box style={{ paddingX: 1, flexDirection: "row", bg: "#1a1a1a" }}>
-                <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a", width: logoWidth }}>   ▀  ▀▀▀ ▀ ▀ ▀   ▀ ▀ ▀▀  ▀▀▀</text>
-                <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
+              <box style={{ paddingX: 1, flexDirection: "row", backgroundColor: "#1a1a1a" }}>
+                <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a", width: logoWidth }}>   ▀  ▀▀▀ ▀ ▀ ▀   ▀ ▀ ▀▀  ▀▀▀</text>
+                <box style={{ flexGrow: 1, backgroundColor: "#1a1a1a" }}>
                   <text style={{ fg: "cyan" }}>{antLines[2]}</text>
                 </box>
                 <text style={{ fg: "#d4a800", bg: "#1a1a1a" }}>Ctrl+Space: agent | Ctrl+B: help | Ctrl+Q: zen</text>
@@ -1391,7 +1392,7 @@ export function App({ rootPath }: AppProps) {
       </box>
 
       {/* Status bar (hidden in Zen Mode) */}
-      {!zenMode && <box style={{ height: 1, paddingX: 1, bg: "black", flexDirection: "row" }}>
+      {!zenMode && <box style={{ height: 1, paddingX: 1, backgroundColor: "black", flexDirection: "row" }}>
         <box style={{ flexDirection: "row", flexShrink: 1 }}>
           {/* Git branch */}
           {gitStatus?.isRepo && (
@@ -1413,7 +1414,7 @@ export function App({ rootPath }: AppProps) {
           {fileStats && (
             <box style={{ flexDirection: "row", flexShrink: 0 }}>
               <text style={{ fg: "gray" }}> │ </text>
-              <text style={{ fg: "gray", dim: true }}>
+              <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
                 {fileStats.lineCount} lines, {formatFileSize(fileStats.size)}
               </text>
             </box>
@@ -1422,17 +1423,17 @@ export function App({ rootPath }: AppProps) {
           {fileInfo && !isCompactMode && (
             <box style={{ flexDirection: "row", flexShrink: 0 }}>
               <text style={{ fg: "gray" }}> │ </text>
-              <text style={{ fg: "gray", dim: true }}>
+              <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
                 {formatEncoding(fileInfo)}
               </text>
               <text style={{ fg: "gray" }}> </text>
-              <text style={{ fg: "gray", dim: true }}>
+              <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
                 {formatLineEnding(fileInfo.lineEnding)}
               </text>
               {formatIndent(fileInfo) && (
                 <>
                   <text style={{ fg: "gray" }}> </text>
-                  <text style={{ fg: "gray", dim: true }}>
+                  <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
                     {formatIndent(fileInfo)}
                   </text>
                 </>
@@ -1458,19 +1459,19 @@ export function App({ rootPath }: AppProps) {
             </text>
           )}
           {/* Screen size indicator */}
-          <text style={{ fg: isCompactMode ? "yellow" : "gray", dim: !isCompactMode }}>
+          <text style={{ fg: isCompactMode ? "yellow" : "gray", attributes: !isCompactMode ? TextAttributes.DIM : 0 }}>
             {getScreenSizeLabel(layoutConfig.screenSize)}
           </text>
           {/* Clock - hidden in compact */}
           {!isCompactMode && (
-            <text style={{ fg: "gray", dim: true }}>
+            <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
               {currentTime.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" })}
             </text>
           )}
           {/* Panel indicator */}
           <box style={{ flexDirection: "row" }}>
             <text style={{ fg: "gray" }}>[</text>
-            <text style={{ fg: "cyan", bold: true }}>
+            <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>
               {(() => {
                 switch (focusedPanel) {
                   case "tree": return isCompactMode ? "EXP" : "EXPLORER";
@@ -1491,7 +1492,7 @@ export function App({ rootPath }: AppProps) {
       {/* Zen Mode indicator */}
       {zenMode && (
         <box style={{ position: "absolute", top: 0, right: 2, height: 1 }}>
-          <text style={{ fg: "cyan", dim: true }}>ZEN (Ctrl+Q to exit)</text>
+          <text style={{ fg: "cyan", attributes: TextAttributes.DIM }}>ZEN (Ctrl+Q to exit)</text>
         </box>
       )}
 
@@ -1593,7 +1594,7 @@ export function App({ rootPath }: AppProps) {
 
       {/* Diff Viewer - Native OpenTUI DiffRenderable */}
       {showDiffViewer && (
-        <box style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", bg: "#0b0b0b" }}>
+        <box style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", backgroundColor: "#0b0b0b" }}>
           <DiffViewer
             diff={diffContent}
             filePath={diffFilePath}

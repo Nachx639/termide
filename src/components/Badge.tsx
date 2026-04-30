@@ -1,4 +1,5 @@
 import React from "react";
+import { TextAttributes } from "@opentui/core";
 
 type BadgeVariant = "default" | "success" | "warning" | "error" | "info";
 
@@ -60,8 +61,8 @@ export function Badge({
         style={{
           fg: finalFg as React.CSSProperties["color"],
           bg: finalBg as React.CSSProperties["color"],
-          bold,
-          dim,
+          attributes:
+            (bold ? TextAttributes.BOLD : 0) | (dim ? TextAttributes.DIM : 0),
         }}
       >
         {children}
@@ -74,7 +75,7 @@ export function Badge({
       <box
         style={{
           flexDirection: "row",
-          borderStyle: "round",
+          borderStyle: "rounded",
           borderColor: finalFg as React.CSSProperties["color"],
           paddingX: 1,
         }}
@@ -168,7 +169,7 @@ export function CountBadge({
   const displayCount = count > max ? `${max}+` : String(count);
 
   return (
-    <text style={{ fg: color as React.CSSProperties["color"], bold: true }}>
+    <text style={{ fg: color as React.CSSProperties["color"], attributes: TextAttributes.BOLD }}>
       [{displayCount}]
     </text>
   );
@@ -192,7 +193,7 @@ interface KeyBadgeProps {
  */
 export function KeyBadge({ keys, color = "cyan" }: KeyBadgeProps) {
   return (
-    <text style={{ fg: color as React.CSSProperties["color"], bold: true }}>
+    <text style={{ fg: color as React.CSSProperties["color"], attributes: TextAttributes.BOLD }}>
       {keys}
     </text>
   );

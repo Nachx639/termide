@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useKeyboard, useTerminalDimensions, useRenderer } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 import { VirtualTerminal } from "../lib/VirtualTerminal";
 
 interface TerminalProps {
@@ -489,7 +490,7 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
     return (
       <box style={{ flexDirection: "column", border: true, borderColor: "red", height: "100%" }}>
         <box style={{ paddingX: 1 }}>
-          <text style={{ fg: "red", bold: true }}>Terminal Error</text>
+          <text style={{ fg: "red", attributes: TextAttributes.BOLD }}>Terminal Error</text>
         </box>
         <box style={{ flexGrow: 1, justifyContent: "center", alignItems: "center" }}>
           <text style={{ fg: "red" }}>{error}</text>
@@ -502,7 +503,7 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
     return (
       <box style={{ flexDirection: "column", border: true, borderColor, height: "100%" }}>
         <box style={{ paddingX: 1, justifyContent: "space-between" }}>
-          <text style={{ fg: "cyan", bold: true }}>Terminal</text>
+          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Terminal</text>
           <text style={{ fg: "gray" }}>Initializing...</text>
         </box>
         <box style={{ flexGrow: 1, justifyContent: "center", alignItems: "center" }}>
@@ -595,8 +596,8 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
       {/* Focus indicator header */}
       {focused && (
         <box style={{ paddingX: 1, height: 1, flexDirection: "row" }}>
-          <text style={{ fg: "black", bg: "cyan", bold: true }}> FOCUS </text>
-          <text style={{ fg: "cyan", bold: true }}> Terminal</text>
+          <text style={{ fg: "black", bg: "cyan", attributes: TextAttributes.BOLD }}> FOCUS </text>
+          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}> Terminal</text>
         </box>
       )}
       <box style={{ flexDirection: "column", flexGrow: 1, overflow: "hidden", paddingX: 1 }}>
@@ -608,8 +609,9 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
                 style={{
                   fg: seg.fg as any,
                   bg: seg.bg === "transparent" ? undefined : (seg.bg as any),
-                  dim: seg.dim,
-                  bold: seg.bold
+                  attributes:
+                    (seg.dim ? TextAttributes.DIM : 0) |
+                    (seg.bold ? TextAttributes.BOLD : 0),
                 }}
               >
                 {seg.text}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useKeyboard, useRenderer } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 import * as fs from "fs";
 import * as path from "path";
 import { tokenizeLine, detectLanguage, getTokenColor, type Token, DARK_THEME } from "../lib/SyntaxHighlighter";
@@ -37,10 +38,10 @@ function Breadcrumbs({ filePath, rootPath }: { filePath: string; rootPath?: stri
       {parts.map((part, idx) => (
         <box key={idx} style={{ flexDirection: "row" }}>
           <text style={{ fg: "gray" }}>{part}</text>
-          <text style={{ fg: "gray", dim: true }}> › </text>
+          <text style={{ fg: "gray", attributes: TextAttributes.DIM }}> › </text>
         </box>
       ))}
-      <text style={{ fg: "cyan", bold: true }}>{fileName}</text>
+      <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>{fileName}</text>
     </box>
   );
 }
@@ -167,7 +168,7 @@ function HighlightedLine({ line, lang, showGuides = false, tabSize = 2, bracketH
           );
         }
         result.push(
-          <text key={`${idx}-hl`} style={{ fg: "black", bg: "yellow", bold: true }}>
+          <text key={`${idx}-hl`} style={{ fg: "black", bg: "yellow", attributes: TextAttributes.BOLD }}>
             {highlighted}
           </text>
         );
@@ -206,7 +207,7 @@ function HighlightedLine({ line, lang, showGuides = false, tabSize = 2, bracketH
                     style={{
                       fg: currentHighlight.isCurrent ? "black" : getTokenColor(token.type) as any,
                       bg: currentHighlight.isCurrent ? "#569cd6" : "#3a3d41",
-                      bold: currentHighlight.isCurrent,
+                      attributes: currentHighlight.isCurrent ? TextAttributes.BOLD : 0,
                     }}
                   >
                     {segmentText}
@@ -246,7 +247,7 @@ function HighlightedLine({ line, lang, showGuides = false, tabSize = 2, bracketH
         <>
           {/* Render indent guides */}
           {Array.from({ length: indentLevel }).map((_, i) => (
-            <text key={`guide-${i}`} style={{ fg: "gray", dim: true }}>
+            <text key={`guide-${i}`} style={{ fg: "gray", attributes: TextAttributes.DIM }}>
               │{" ".repeat(tabSize - 1)}
             </text>
           ))}
@@ -962,7 +963,7 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
       return;
     }
 
-    if (event.alt && event.name === "f") {
+    if (event.option && event.name === "f") {
       setSearchMode("search");
       setShowSearch(true);
       return;
@@ -1122,7 +1123,7 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
     }
 
     // Alt+Shift+D = Duplicate line(s)
-    if (event.alt && event.shift && (event.name === "d" || event.name === "D")) {
+    if (event.option && event.shift && (event.name === "d" || event.name === "D")) {
       duplicateLines();
       return;
     }
@@ -1281,28 +1282,28 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
       {/* Header with Breadcrumbs and status indicators */}
       <box style={{ height: 1, paddingX: 1, flexDirection: "row", justifyContent: "space-between" }}>
         <box style={{ flexDirection: "row", gap: 1, flexShrink: 1 }}>
-          {focused && <text style={{ fg: "black", bg: "cyan", bold: true }}> EDIT </text>}
-          {isDirty && <text style={{ fg: "black", bg: "yellow", bold: true }}> ● </text>}
-          {selectionStart !== null && <text style={{ fg: "black", bg: "yellow", bold: true }}> VISUAL </text>}
+          {focused && <text style={{ fg: "black", bg: "cyan", attributes: TextAttributes.BOLD }}> EDIT </text>}
+          {isDirty && <text style={{ fg: "black", bg: "yellow", attributes: TextAttributes.BOLD }}> ● </text>}
+          {selectionStart !== null && <text style={{ fg: "black", bg: "yellow", attributes: TextAttributes.BOLD }}> VISUAL </text>}
           {filePath ? (
             <box style={{ flexShrink: 1 }}><Breadcrumbs filePath={filePath} rootPath={rootPath} /></box>
           ) : (
-            <text style={{ fg: "cyan", bold: true }}>{fileName}</text>
+            <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>{fileName}</text>
           )}
           <box style={{ flexDirection: "row", flexShrink: 0 }}>
-            {langIndicator && <text style={{ fg: "#d4a800", dim: true }}> [{langIndicator}]</text>}
-            {wordWrap && <text style={{ fg: "#d4a800", dim: true }}> [wrap]</text>}
-            {showIndentGuides && <text style={{ fg: "gray", dim: true }}> [guides]</text>}
-            {showMinimap && <text style={{ fg: "#90EE90", dim: true }}> [map]</text>}
-            {relativeLineNumbers && <text style={{ fg: "yellow", dim: true }}> [rel]</text>}
-            {!showLineNumbers && <text style={{ fg: "gray", dim: true }}> [noln]</text>}
-            {foldedRegions.size > 0 && <text style={{ fg: "cyan", dim: true }}> [{foldedRegions.size} folded]</text>}
-            {showBlame && <text style={{ fg: "magenta", dim: true }}> [blame]</text>}
-            {showGitGutter && lineDiffs.size > 0 && <text style={{ fg: "#4ec9b0", dim: true }}> [git]</text>}
-            {showStickyScroll && <text style={{ fg: "#c586c0", dim: true }}> [sticky]</text>}
-            {highlightedWord && <text style={{ fg: "#569cd6", dim: false }}> [{currentOccurrenceIndex + 1}/{wordOccurrences.length}]</text>}
+            {langIndicator && <text style={{ fg: "#d4a800", attributes: TextAttributes.DIM }}> [{langIndicator}]</text>}
+            {wordWrap && <text style={{ fg: "#d4a800", attributes: TextAttributes.DIM }}> [wrap]</text>}
+            {showIndentGuides && <text style={{ fg: "gray", attributes: TextAttributes.DIM }}> [guides]</text>}
+            {showMinimap && <text style={{ fg: "#90EE90", attributes: TextAttributes.DIM }}> [map]</text>}
+            {relativeLineNumbers && <text style={{ fg: "yellow", attributes: TextAttributes.DIM }}> [rel]</text>}
+            {!showLineNumbers && <text style={{ fg: "gray", attributes: TextAttributes.DIM }}> [noln]</text>}
+            {foldedRegions.size > 0 && <text style={{ fg: "cyan", attributes: TextAttributes.DIM }}> [{foldedRegions.size} folded]</text>}
+            {showBlame && <text style={{ fg: "magenta", attributes: TextAttributes.DIM }}> [blame]</text>}
+            {showGitGutter && lineDiffs.size > 0 && <text style={{ fg: "#4ec9b0", attributes: TextAttributes.DIM }}> [git]</text>}
+            {showStickyScroll && <text style={{ fg: "#c586c0", attributes: TextAttributes.DIM }}> [sticky]</text>}
+            {highlightedWord && <text style={{ fg: "#569cd6" }}> [{currentOccurrenceIndex + 1}/{wordOccurrences.length}]</text>}
             {isMarkdown && (
-              <text style={{ fg: showPreview ? "#d4a800" : "gray", dim: !showPreview }}>
+              <text style={{ fg: showPreview ? "#d4a800" : "gray", attributes: !showPreview ? TextAttributes.DIM : 0 }}>
                 {showPreview ? " [preview]" : " [Alt+P preview]"}
               </text>
             )}
@@ -1314,7 +1315,7 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
       </box>
 
       {/* Separator line */}
-      <box style={{ height: 1, borderTop: true, borderColor: "gray", dim: true }} />
+      <box style={{ height: 1, border: ["top"], borderColor: "gray" }} />
       {/* Show markdown preview or code view */}
       {showPreview && isMarkdown ? (
         <MarkdownPreview
@@ -1331,14 +1332,14 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
           <box style={{ flexDirection: "column", paddingLeft: 1, paddingRight: 1, flexGrow: 1, height: viewHeight, overflow: "hidden" }} onMouse={handleMouseScroll} onMouseScroll={handleMouseScroll}>
             {/* Sticky Scroll Context - shows parent function/class headers */}
             {filePath && stickyScrollContext.length > 0 && (
-              <box style={{ flexDirection: "column", bg: "#1e1e2e", borderBottom: true, borderColor: "gray" }}>
+              <box style={{ flexDirection: "column", backgroundColor: "#1e1e2e", border: ["bottom"], borderColor: "gray" }}>
                 {stickyScrollContext.map((ctx, idx) => {
                   const indent = "  ".repeat(idx);
                   const kindColor = ctx.kind === "class" ? "#4ec9b0" : ctx.kind === "function" || ctx.kind === "method" ? "#dcdcaa" : "#9cdcfe";
                   return (
-                    <box key={`${ctx.line}-${idx}`} style={{ flexDirection: "row", paddingX: 1, bg: "#252530" }}>
-                      <text style={{ fg: "gray", dim: true }}>{String(ctx.line + 1).padStart(lineNumWidth, " ")}  </text>
-                      <text style={{ fg: "gray", dim: true }}>{indent}</text>
+                    <box key={`${ctx.line}-${idx}`} style={{ flexDirection: "row", paddingX: 1, backgroundColor: "#252530" }}>
+                      <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>{String(ctx.line + 1).padStart(lineNumWidth, " ")}  </text>
+                      <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>{indent}</text>
                       <text style={{ fg: kindColor as any }}>{ctx.text}</text>
                     </box>
                   );
@@ -1405,9 +1406,9 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
                   return (
                     <box key={index} style={{ flexDirection: "column", overflow: "hidden" }}>
                       {wrappedLines.map((wrappedLine, wrapIdx) => (
-                        <box key={wrapIdx} style={{ flexDirection: "row", bg: lineBg as any, overflow: "hidden" }}>
+                        <box key={wrapIdx} style={{ flexDirection: "row", backgroundColor: lineBg as any, overflow: "hidden" }}>
                           {showLineNumbers && (
-                            <text style={{ fg: lineNumFg as any, bold: isCurrentLine && wrapIdx === 0, flexShrink: 0 }}>
+                            <text style={{ fg: lineNumFg as any, attributes: (isCurrentLine && wrapIdx === 0) ? TextAttributes.BOLD : 0, flexShrink: 0 }}>
                               {wrapIdx === 0
                                 ? `${String(wrapDisplayNum).padStart(lineNumWidth, " ")}${isCurrentLine ? " ▸ " : "   "}`
                                 : `${" ".repeat(lineNumWidth)}   ↪ `}
@@ -1451,7 +1452,7 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
                 const gutterIndicator = lineDiff ? getLineDiffIndicator(lineDiff.status) : null;
 
                 return (
-                  <box key={index} style={{ flexDirection: "row", bg: lineBg as any, overflow: "hidden" }} onMouseDown={(e: any) => handleLineClick(index, e)}>
+                  <box key={index} style={{ flexDirection: "row", backgroundColor: lineBg as any, overflow: "hidden" }} onMouseDown={(e: any) => handleLineClick(index, e)}>
                     {/* Git gutter indicator */}
                     {showGitGutter && (
                       <text style={{ fg: gutterIndicator?.color as any || "transparent", flexShrink: 0 }}>
@@ -1460,12 +1461,12 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
                     )}
                     <text style={{ fg: foldColor as any, flexShrink: 0 }}>{foldIndicator}</text>
                     {showBlame && (
-                      <text style={{ fg: blameColor as any, dim: true, flexShrink: 0 }}>
+                      <text style={{ fg: blameColor as any, attributes: TextAttributes.DIM, flexShrink: 0 }}>
                         {blameAnnotation ? blameAnnotation.padEnd(12) : "            "}
                       </text>
                     )}
                     {showLineNumbers && (
-                      <text style={{ fg: lineNumFg as any, bold: isCurrentLine, flexShrink: 0 }}>
+                      <text style={{ fg: lineNumFg as any, attributes: isCurrentLine ? TextAttributes.BOLD : 0, flexShrink: 0 }}>
                         {String(displayLineNum).padStart(lineNumWidth, " ")}{isCurrentLine ? " ▸ " : "   "}
                       </text>
                     )}
@@ -1478,7 +1479,7 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
                         return (
                           <>
                             <HighlightedLine line={beforeCursor} lang={language} showGuides={showIndentGuides} tabSize={tabSize} bracketHighlight={bracketHighlightCol} wordHighlight={highlightedWord} wordHighlightOccurrences={lineWordOccurrences} currentWordOccurrence={currentOccurrenceCol} />
-                            <text style={{ fg: cursorVisible ? "black" : "#d4a800", bg: cursorVisible ? "#d4a800" : "transparent", bold: true }}>{cursorChar}</text>
+                            <text style={{ fg: cursorVisible ? "black" : "#d4a800", bg: cursorVisible ? "#d4a800" : "transparent", attributes: TextAttributes.BOLD }}>{cursorChar}</text>
                             <HighlightedLine line={afterCursor} lang={language} />
                           </>
                         );
@@ -1494,7 +1495,7 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
                         currentWordOccurrence={currentOccurrenceCol}
                       />}
                       {foldMarker === "collapsed" && (
-                        <text style={{ fg: "gray", dim: true }}> ⋯ ({foldedCount} lines)</text>
+                        <text style={{ fg: "gray", attributes: TextAttributes.DIM }}> ⋯ ({foldedCount} lines)</text>
                       )}
                     </box>
                   </box>
@@ -1503,14 +1504,14 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
             ) : (
               <box style={{ flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1 }}>
                 <text style={{ fg: "gray" }}>Select a file from the explorer</text>
-                <text style={{ fg: "gray", dim: true }}>Use j/k to navigate, Enter to open</text>
+                <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>Use j/k to navigate, Enter to open</text>
               </box>
             )}
           </box>
 
           {/* Scrollbar */}
           {content.length > viewHeight && (
-            <box style={{ width: 1, height: viewHeight, flexDirection: "column", bg: "#050505", borderLeft: true, borderColor: "gray", dim: true }} onMouse={handleMouseScroll} onMouseScroll={handleMouseScroll}>
+            <box style={{ width: 1, height: viewHeight, flexDirection: "column", backgroundColor: "#050505", border: ["left"], borderColor: "gray" }} onMouse={handleMouseScroll} onMouseScroll={handleMouseScroll}>
               {(() => {
                 const scrollPercentage = scrollOffset / (content.length - viewHeight);
                 const thumbHeight = Math.max(1, Math.floor((viewHeight / content.length) * viewHeight));
@@ -1519,7 +1520,7 @@ export function FileViewer({ filePath, focused, rootPath, height, treeWidth = 30
                 return Array.from({ length: viewHeight }).map((_, i) => {
                   const isThumb = i >= thumbPos && i < thumbPos + thumbHeight;
                   return (
-                    <text key={i} style={{ fg: isThumb ? "cyan" : "gray", dim: !isThumb }}>
+                    <text key={i} style={{ fg: isThumb ? "cyan" : "gray", attributes: !isThumb ? TextAttributes.DIM : 0 }}>
                       {isThumb ? "█" : "│"}
                     </text>
                   );

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useKeyboard } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -64,8 +65,8 @@ export function MarkdownPreview({ filePath, focused, rootPath }: MarkdownPreview
     <box style={{ flexDirection: "column", border: true, borderColor, height: "100%" }}>
       <box style={{ paddingX: 1, justifyContent: "space-between" }}>
         <box style={{ flexDirection: "row", gap: 1 }}>
-          <text style={{ fg: "#d4a800", bold: true }}>📖 Markdown Preview</text>
-          <text style={{ fg: "gray", dim: true }}>- {fileName}</text>
+          <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD }}>📖 Markdown Preview</text>
+          <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>- {fileName}</text>
         </box>
       </box>
       <scrollbox
@@ -77,7 +78,8 @@ export function MarkdownPreview({ filePath, focused, rootPath }: MarkdownPreview
         {content ? (
           <markdown
             content={content}
-            syntaxStyle="monokai"
+            // TODO: opentui 0.2.1 SyntaxStyle migration
+            syntaxStyle={"monokai" as any}
             conceal
             tableOptions={{
               widthMode: "full",
@@ -88,7 +90,7 @@ export function MarkdownPreview({ filePath, focused, rootPath }: MarkdownPreview
             }}
           />
         ) : (
-          <text style={{ fg: "gray", dim: true }}>No content to preview</text>
+          <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>No content to preview</text>
         )}
       </scrollbox>
     </box>

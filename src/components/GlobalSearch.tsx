@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -205,7 +206,7 @@ export function GlobalSearch({ rootPath, isOpen, onClose, onSelect }: GlobalSear
           flexDirection: "column",
           border: true,
           borderColor: "green",
-          bg: "#0b0b0b",
+          backgroundColor: "#0b0b0b",
           position: "relative",
         }}
       >
@@ -217,7 +218,7 @@ export function GlobalSearch({ rootPath, isOpen, onClose, onSelect }: GlobalSear
             left: 0,
             width: "100%",
             height: "100%",
-            bg: "#1a1a1a",
+            backgroundColor: "#1a1a1a",
             flexDirection: "column",
           }}
         >
@@ -227,16 +228,16 @@ export function GlobalSearch({ rootPath, isOpen, onClose, onSelect }: GlobalSear
         </box>
 
         {/* Search input */}
-        <box style={{ paddingX: 1, borderBottom: true, borderColor: "gray", bg: "#1a1a1a" }}>
+        <box style={{ paddingX: 1, border: ["bottom"], borderColor: "gray", backgroundColor: "#1a1a1a" }}>
           <text style={{ fg: "green", bg: "#1a1a1a" }}>🔎 </text>
           <text style={{ fg: "white", bg: "#1a1a1a" }}>{query}</text>
-          <text style={{ fg: "green", blink: true, bg: "#1a1a1a" }}>▌</text>
+          <text style={{ fg: "green", attributes: TextAttributes.BLINK, bg: "#1a1a1a" }}>▌</text>
           {isSearching && <text style={{ fg: "#d4a800", bg: "#1a1a1a" }}> Searching...</text>}
         </box>
 
         {/* Results */}
         <scrollbox
-          style={{ flexDirection: "column", flexGrow: 1, bg: "#1a1a1a" }}
+          style={{ flexDirection: "column", flexGrow: 1, backgroundColor: "#1a1a1a" }}
           onMouse={(event: any) => {
             if (event.action === "wheel") {
               if (event.direction === "up") {
@@ -249,9 +250,9 @@ export function GlobalSearch({ rootPath, isOpen, onClose, onSelect }: GlobalSear
         >
 
           {query.length < 2 ? (
-            <text style={{ fg: "gray", dim: true, bg: "#1a1a1a", paddingX: 1 }}>Type at least 2 characters to search</text>
+            <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#1a1a1a", paddingX: 1 } as any}>Type at least 2 characters to search</text>
           ) : results.length === 0 && !isSearching ? (
-            <text style={{ fg: "gray", dim: true, bg: "#1a1a1a", paddingX: 1 }}>No results found</text>
+            <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#1a1a1a", paddingX: 1 } as any}>No results found</text>
           ) : (
             visibleResults.map((result, index) => {
               const isSelected = index === selectedIndex;
@@ -261,12 +262,12 @@ export function GlobalSearch({ rootPath, isOpen, onClose, onSelect }: GlobalSear
                   key={`${result.filePath}-${result.lineNumber}`}
                   style={{
                     flexDirection: "column",
-                    bg: isSelected ? "green" : "#1a1a1a" as any,
+                    backgroundColor: isSelected ? "green" : "#1a1a1a" as any,
                     width: "100%",
                     paddingX: 1,
                   }}
                 >
-                  <box style={{ flexDirection: "row", bg: isSelected ? "green" : "#1a1a1a" as any }}>
+                  <box style={{ flexDirection: "row", backgroundColor: isSelected ? "green" : "#1a1a1a" as any }}>
                     <text style={{ fg: isSelected ? "black" : "gray", bg: isSelected ? "green" : "#1a1a1a" as any }}>
                       {isSelected ? "▸ " : "  "}
                     </text>
@@ -277,8 +278,8 @@ export function GlobalSearch({ rootPath, isOpen, onClose, onSelect }: GlobalSear
                       :{result.lineNumber}
                     </text>
                   </box>
-                  <box style={{ paddingLeft: 4, bg: isSelected ? "green" : "#1a1a1a" as any }}>
-                    <text style={{ fg: isSelected ? "black" : "gray", dim: !isSelected, bg: isSelected ? "green" : "#1a1a1a" as any }}>
+                  <box style={{ paddingLeft: 4, backgroundColor: isSelected ? "green" : "#1a1a1a" as any }}>
+                    <text style={{ fg: isSelected ? "black" : "gray", attributes: !isSelected ? TextAttributes.DIM : 0, bg: isSelected ? "green" : "#1a1a1a" as any }}>
                       {result.lineContent.slice(0, 70)}
                       {result.lineContent.length > 70 ? "..." : ""}
                     </text>
@@ -288,14 +289,14 @@ export function GlobalSearch({ rootPath, isOpen, onClose, onSelect }: GlobalSear
             })
           )}
           {/* Filler to ensure background opacity */}
-          <box style={{ flexGrow: 1, bg: "#1a1a1a" }}>
+          <box style={{ flexGrow: 1, backgroundColor: "#1a1a1a" }}>
             <text style={{ bg: "#1a1a1a" }}> </text>
           </box>
         </scrollbox>
 
         {/* Footer */}
-        <box style={{ paddingX: 1, borderTop: true, borderColor: "gray", bg: "#0b0b0b" }}>
-          <text style={{ fg: "gray", dim: true, bg: "#0b0b0b" }}>
+        <box style={{ paddingX: 1, border: ["top"], borderColor: "gray", backgroundColor: "#0b0b0b" }}>
+          <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#0b0b0b" }}>
             {results.length} results | ↑↓ select | Enter open | Esc close
           </text>
         </box>

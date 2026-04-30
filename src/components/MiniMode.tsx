@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 import { Terminal } from "./Terminal";
 import { FileTree } from "./FileTree";
 import { FileViewer } from "./FileViewer";
@@ -78,9 +79,9 @@ export function MiniMode({
   const contentHeight = height - 2; // 1 for panel bar, 1 for status
 
   return (
-    <box style={{ flexDirection: "column", width: "100%", height: "100%", bg: "#050505" }}>
+    <box style={{ flexDirection: "column", width: "100%", height: "100%", backgroundColor: "#050505" }}>
       {/* Panel Switcher Bar */}
-      <box style={{ height: 1, flexDirection: "row", bg: "#1a1a1a", paddingX: 1 }}>
+      <box style={{ height: 1, flexDirection: "row", backgroundColor: "#1a1a1a", paddingX: 1 }}>
         {panels.map((panel, index) => {
           const isActive = activePanel === panel;
           return (
@@ -89,14 +90,14 @@ export function MiniMode({
               style={{
                 flexDirection: "row",
                 marginRight: 1,
-                bg: isActive ? "cyan" : "#1a1a1a"
+                backgroundColor: isActive ? "cyan" : "#1a1a1a"
               }}
               onMouseDown={() => setActivePanel(panel)}
             >
               <text style={{
                 fg: isActive ? "black" : "gray",
                 bg: isActive ? "cyan" : "#1a1a1a",
-                bold: isActive
+                attributes: isActive ? TextAttributes.BOLD : 0
               }}>
                 {` ${index + 1}:${getMiniModePanelIcon(panel)} `}
               </text>
@@ -149,12 +150,12 @@ export function MiniMode({
       </box>
 
       {/* Mini Status Bar */}
-      <box style={{ height: 1, bg: "black", paddingX: 1, flexDirection: "row" }}>
+      <box style={{ height: 1, backgroundColor: "black", paddingX: 1, flexDirection: "row" }}>
         <text style={{ fg: "cyan" }}>
           {getMiniModePanelIcon(activePanel)} {activePanel.toUpperCase()}
         </text>
         <box style={{ flexGrow: 1 }} />
-        <text style={{ fg: "gray", dim: true }}>
+        <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
           Tab:switch │ Ctrl+Space:AI
         </text>
       </box>
