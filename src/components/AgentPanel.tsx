@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useKeyboard } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 import { useACP } from "../hooks/useACP";
+import { getTermideSyntaxStyle } from "../lib/SyntaxStyles";
 
 // Agent configuration with optional environment variables
 interface AgentConfig {
@@ -362,8 +363,7 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
                                             <markdown
                                                 key={idx}
                                                 content={msg.content}
-                                                // TODO: opentui 0.2.1 SyntaxStyle migration
-                                                syntaxStyle={"monokai" as any}
+                                                syntaxStyle={getTermideSyntaxStyle()}
                                                 conceal
                                                 streaming={idx === messages.length - 1 && status === 'connected'}
                                                 tableOptions={{

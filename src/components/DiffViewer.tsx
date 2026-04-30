@@ -1,6 +1,7 @@
 import React, { useRef } from "react";
 import { useKeyboard } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
+import { getTermideSyntaxStyle } from "../lib/SyntaxStyles";
 
 interface DiffViewerProps {
   diff: string;
@@ -88,8 +89,7 @@ export function DiffViewer({ diff, filePath, focused, onClose, onFocus }: DiffVi
           view={viewMode}
           syncScroll
           filetype={filetype}
-          // TODO: opentui 0.2.1 SyntaxStyle migration
-          syntaxStyle={"monokai" as any}
+          syntaxStyle={getTermideSyntaxStyle()}
           conceal
           showLineNumbers
           wrapMode="word"
