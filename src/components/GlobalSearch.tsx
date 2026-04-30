@@ -138,21 +138,12 @@ export function GlobalSearch({ rootPath, isOpen, onClose, onSelect }: GlobalSear
     return () => clearTimeout(timeoutId);
   }, [query, allFiles, rootPath]);
 
-  // Handle keyboard
+  // Navigation + close (input handles typing/backspace/paste natively)
   useKeyboard((event) => {
     if (!isOpen) return;
 
     if (event.name === "escape") {
       onClose();
-      return;
-    }
-
-    if (event.name === "return") {
-      if (results[selectedIndex]) {
-        const result = results[selectedIndex];
-        onSelect(result.filePath, result.lineNumber);
-        onClose();
-      }
       return;
     }
 
@@ -164,18 +155,6 @@ export function GlobalSearch({ rootPath, isOpen, onClose, onSelect }: GlobalSear
     if (event.name === "down" || (event.ctrl && event.name === "n")) {
       setSelectedIndex((i) => Math.min(results.length - 1, i + 1));
       return;
-    }
-
-    if (event.name === "backspace") {
-      setQuery((q) => q.slice(0, -1));
-      setSelectedIndex(0);
-      return;
-    }
-
-    // Regular characters
-    if (event.name && event.name.length === 1 && !event.ctrl && !event.meta) {
-      setQuery((q) => q + event.name);
-      setSelectedIndex(0);
     }
   });
 
@@ -227,11 +206,23 @@ export function GlobalSearch({ rootPath, isOpen, onClose, onSelect }: GlobalSear
           ))}
         </box>
 
-        {/* Search input */}
-        <box style={{ paddingX: 1, border: ["bottom"], borderColor: "gray", backgroundColor: "#1a1a1a" }}>
+        {/* Search input (native <input>) */}
+        <box style={{ paddingX: 1, border: ["bottom"], borderColor: "gray", backgroundColor: "#1a1a1a", flexDirection: "row" }}>
           <text style={{ fg: "green", bg: "#1a1a1a" }}>🔎 </text>
-          <text style={{ fg: "white", bg: "#1a1a1a" }}>{query}</text>
-          <text style={{ fg: "green", attributes: TextAttributes.BLINK, bg: "#1a1a1a" }}>▌</text>
+          <input
+            focused={isOpen}
+            value={query}
+            placeholder="Search across all files (min 2 chars)"
+            onInput={(value: string) => { setQuery(value); setSelectedIndex(0); }}
+            onSubmit={() => {
+              if (results[selectedIndex]) {
+                const result = results[selectedIndex];
+                onSelect(result.filePath, result.lineNumber);
+                onClose();
+              }
+            }}
+            style={{ flexGrow: 1, backgroundColor: "#1a1a1a", textColor: "white", placeholderColor: "gray", cursorColor: "green" }}
+          />
           {isSearching && <text style={{ fg: "#d4a800", bg: "#1a1a1a" }}> Searching...</text>}
         </box>
 

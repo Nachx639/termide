@@ -55,20 +55,12 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
     setScrollTop(0);
   }, [isOpen, query]);
 
-  // Handle keyboard events exclusively when open
+  // Navigation + close (input handles typing/backspace/paste natively)
   useKeyboard((event) => {
     if (!isOpen) return;
 
     if (event.name === "escape") {
       onClose();
-      return;
-    }
-
-    if (event.name === "return") {
-      if (filteredCommands[selectedIndex]) {
-        filteredCommands[selectedIndex].action();
-        onClose();
-      }
       return;
     }
 
@@ -80,18 +72,6 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
     if (event.name === "down" || (event.ctrl && event.name === "n")) {
       setSelectedIndex((i) => Math.min(filteredCommands.length - 1, i + 1));
       return;
-    }
-
-    if (event.name === "backspace") {
-      setQuery((q) => q.slice(0, -1));
-      setSelectedIndex(0);
-      return;
-    }
-
-    // Regular characters
-    if (event.name && event.name.length === 1 && !event.ctrl && !event.meta) {
-      setQuery((q) => q + event.name);
-      setSelectedIndex(0);
     }
   });
 
@@ -191,11 +171,22 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
           ))}
         </box>
 
-        {/* Row 1: Search Input */}
+        {/* Row 1: Search Input (native <input>, gives us paste/word-motion/undo) */}
         <box style={{ paddingX: 2, height: 1, backgroundColor: "#050505", flexDirection: "row" }}>
           <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD, bg: "#050505" }}> › </text>
-          <text style={{ fg: "white", bg: "#050505" }}>{query}</text>
-          <text style={{ fg: "#d4a800", bg: "#050505" }}>█</text>
+          <input
+            focused={isOpen}
+            value={query}
+            placeholder="Type a command…"
+            onInput={(value: string) => { setQuery(value); setSelectedIndex(0); }}
+            onSubmit={() => {
+              if (filteredCommands[selectedIndex]) {
+                filteredCommands[selectedIndex].action();
+                onClose();
+              }
+            }}
+            style={{ flexGrow: 1, backgroundColor: "#050505", textColor: "white", placeholderColor: "gray", cursorColor: "#d4a800" }}
+          />
         </box>
 
         {/* Row 2: Top Divider */}
