@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { TextAttributes } from "@opentui/core";
 
 type TooltipPosition = "top" | "bottom" | "left" | "right";
 
@@ -43,9 +44,9 @@ export function Tooltip({
   const tooltipElement = (
     <box
       style={{
-        bg: bg as React.CSSProperties["color"],
+        backgroundColor: bg as React.CSSProperties["color"],
         paddingX: 1,
-        borderStyle: "round",
+        borderStyle: "rounded",
         borderColor: "gray",
       }}
     >
@@ -122,7 +123,7 @@ export function HintText({
   return (
     <box style={{ flexDirection: "row", gap: 1 }}>
       <text style={{ fg: fg as React.CSSProperties["color"] }}>{children}</text>
-      <text style={{ fg: hintFg as React.CSSProperties["color"], dim: dimHint }}>
+      <text style={{ fg: hintFg as React.CSSProperties["color"], attributes: dimHint ? TextAttributes.DIM : 0 }}>
         ({hint})
       </text>
     </box>
@@ -162,7 +163,7 @@ export function ShortcutHint({
     <box style={{ flexDirection: "row" }}>
       <text style={{ fg: actionFg as React.CSSProperties["color"] }}>{action}</text>
       <text>{separator}</text>
-      <text style={{ fg: shortcutFg as React.CSSProperties["color"], bold: true }}>
+      <text style={{ fg: shortcutFg as React.CSSProperties["color"], attributes: TextAttributes.BOLD }}>
         {shortcut}
       </text>
     </box>
@@ -209,7 +210,7 @@ export function InfoBox({
     <box
       style={{
         flexDirection: "column",
-        borderStyle: bordered ? "round" : undefined,
+        borderStyle: bordered ? "rounded" : undefined,
         borderColor: bordered ? (colors.border as React.CSSProperties["color"]) : undefined,
         padding: 1,
       }}
@@ -219,7 +220,7 @@ export function InfoBox({
           <text style={{ fg: colors.title as React.CSSProperties["color"] }}>
             {colors.icon}
           </text>
-          <text style={{ fg: colors.title as React.CSSProperties["color"], bold: true }}>
+          <text style={{ fg: colors.title as React.CSSProperties["color"], attributes: TextAttributes.BOLD }}>
             {title}
           </text>
         </box>

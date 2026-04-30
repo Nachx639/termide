@@ -1,4 +1,5 @@
 import React, { Component, type ReactNode } from "react";
+import { TextAttributes } from "@opentui/core";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -61,11 +62,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           style={{
             flexDirection: "column",
             padding: 2,
-            borderStyle: "round",
+            borderStyle: "rounded",
             borderColor: "red",
           }}
         >
-          <text style={{ fg: "red", bold: true }}>
+          <text style={{ fg: "red", attributes: TextAttributes.BOLD }}>
             Something went wrong
           </text>
           <text style={{ fg: "gray", marginTop: 1 }}>
@@ -148,7 +149,7 @@ export class PanelErrorBoundary extends Component<PanelErrorBoundaryProps, Error
           <text style={{ fg: "red" }}>
             {this.props.panelName} error
           </text>
-          <text style={{ fg: "gray", dim: true }}>
+          <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
             {this.state.error?.message?.slice(0, 50) || "Unknown"}
           </text>
         </box>

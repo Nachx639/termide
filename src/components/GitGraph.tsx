@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 import { getGitLog } from "../lib/GitIntegration";
 
 interface GitGraphProps {
@@ -219,17 +220,24 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
         }
     });
 
+    const bottomTitle = entries.length > 0 ? ` ${entries.length} commits ` : "";
+
     return (
-        <box style={{ flexDirection: "column", border: true, borderColor, height: "100%", bg: "#0b0b0b" }} onMouseDown={onFocus}>
-            <box style={{ paddingX: 1, height: 1, bg: "#1a1a1a", flexDirection: "row" }}>
-                {focused && <text style={{ fg: "black", bg: "cyan", bold: true }}> FOCUS </text>}
-                <text style={{ fg: "#d4a800", bold: true, bg: "#1a1a1a" }}>Git Graph</text>
-                {focused && <text style={{ fg: "gray", dim: true, bg: "#1a1a1a" }}> j/k:move e:expand</text>}
+        <box
+            style={{ flexDirection: "column", border: true, borderColor, height: "100%", backgroundColor: "#0b0b0b" }}
+            bottomTitle={bottomTitle}
+            bottomTitleAlignment="right"
+            onMouseDown={onFocus}
+        >
+            <box style={{ paddingX: 1, height: 1, backgroundColor: "#1a1a1a", flexDirection: "row" }}>
+                {focused && <text style={{ fg: "black", bg: "cyan", attributes: TextAttributes.BOLD }}> FOCUS </text>}
+                <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>Git Graph</text>
+                {focused && <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#1a1a1a" }}> j/k:move e:expand</text>}
             </box>
-            <box style={{ flexDirection: "column", flexGrow: 1, bg: "#0b0b0b" }}>
-                <scrollbox style={{ flexGrow: 1, paddingX: 1, bg: "#0b0b0b" }}>
+            <box style={{ flexDirection: "column", flexGrow: 1, backgroundColor: "#0b0b0b" }}>
+                <scrollbox style={{ flexGrow: 1, paddingX: 1, backgroundColor: "#0b0b0b" }}>
                     {entries.length === 0 ? (
-                        <text style={{ fg: "gray", dim: true, padding: 1 }}>No history found</text>
+                        <text style={{ fg: "gray", attributes: TextAttributes.DIM, padding: 1 } as any}>No history found</text>
                     ) : (
                         entries.map((entry, idx) => {
                             const isSelected = idx === selectedIndex;
@@ -243,14 +251,14 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
                                 <box key={idx} style={{ flexDirection: "column" }}>
                                     <box style={{ flexDirection: "row" }}>
                                         <text style={{ fg: "cyan", bg: selectionBg }}>{graphDisplay}</text>
-                                        {entry.hasHead && <text style={{ fg: "#4ec9b0", bg: selectionBg, bold: true }}> *</text>}
-                                        {entry.hash && <text style={{ fg: "#d4a800", bg: selectionBg, bold: true }}> {entry.hash}</text>}
-                                        {entry.timeRelative && <text style={{ fg: "gray", bg: selectionBg, dim: true }}> - {entry.timeRelative}</text>}
+                                        {entry.hasHead && <text style={{ fg: "#4ec9b0", bg: selectionBg, attributes: TextAttributes.BOLD }}> *</text>}
+                                        {entry.hash && <text style={{ fg: "#d4a800", bg: selectionBg, attributes: TextAttributes.BOLD }}> {entry.hash}</text>}
+                                        {entry.timeRelative && <text style={{ fg: "gray", bg: selectionBg, attributes: TextAttributes.DIM }}> - {entry.timeRelative}</text>}
                                     </box>
                                     {showRefs && (
                                         <box style={{ flexDirection: "row" }}>
                                             <text style={{ fg: "cyan", bg: selectionBg }}>{indent}</text>
-                                            <text style={{ fg: "#4ec9b0", bg: selectionBg, dim: true }}> {entry.refs}</text>
+                                            <text style={{ fg: "#4ec9b0", bg: selectionBg, attributes: TextAttributes.DIM }}> {entry.refs}</text>
                                         </box>
                                     )}
                                     {subjectText && (
@@ -265,15 +273,15 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
                     )}
                 </scrollbox>
                 {entries[selectedIndex] && (
-                    <box style={{ height: 1, paddingX: 1, bg: "#0b0b0b", flexShrink: 0 }}>
+                    <box style={{ height: 1, paddingX: 1, backgroundColor: "#0b0b0b", flexShrink: 0 }}>
                         <text style={{ fg: "#2a2a2a" }}>
                             {"─".repeat(Math.max(1, panelWidth - 2))}
                         </text>
                     </box>
                 )}
                 {entries[selectedIndex] && (
-                    <box style={{ flexDirection: "column", height: 4, paddingX: 1, bg: "#111111", flexShrink: 0 }}>
-                        <text style={{ fg: focused ? "#d4a800" : "gray", bold: true }}>
+                    <box style={{ flexDirection: "column", height: 4, paddingX: 1, backgroundColor: "#111111", flexShrink: 0 }}>
+                        <text style={{ fg: focused ? "#d4a800" : "gray", attributes: TextAttributes.BOLD }}>
                             {truncateDetail(
                                 `${entries[selectedIndex].hash}${entries[selectedIndex].author ? ` - ${entries[selectedIndex].author}` : ""}`
                             )}
@@ -281,7 +289,7 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
                         <text style={{ fg: focused ? "white" : "gray" }}>
                             {truncateDetail(entries[selectedIndex].subject || "No commit message")}
                         </text>
-                        <text style={{ fg: "gray", dim: true }}>
+                        <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
                             {(() => {
                                 const absolute = formatAbsoluteTime(entries[selectedIndex].timeRaw);
                                 let timeText = entries[selectedIndex].timeRelative || "unknown";
@@ -291,7 +299,7 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
                                 return truncateDetail(`Time: ${timeText}`);
                             })()}
                         </text>
-                        <text style={{ fg: "#4ec9b0", dim: true }}>
+                        <text style={{ fg: "#4ec9b0", attributes: TextAttributes.DIM }}>
                             {focused && entries[selectedIndex].refs ? truncateDetail(`Refs: ${entries[selectedIndex].refs}`) : ""}
                         </text>
                     </box>

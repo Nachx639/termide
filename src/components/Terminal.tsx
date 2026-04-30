@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { useKeyboard, useTerminalDimensions, useRenderer } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 import { VirtualTerminal } from "../lib/VirtualTerminal";
 
 interface TerminalProps {
@@ -19,6 +20,7 @@ interface TerminalRef {
 
 export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteReady, onCopyReady, selectMode = false }: TerminalProps) {
   const dimensions = useTerminalDimensions();
+  const renderer = useRenderer();
   const [renderCount, setRenderCount] = useState(0);
   const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -249,6 +251,35 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
 
   }, [cwd, scheduleUpdate, onPasteReady, onCopyReady]);
 
+  // Listen for native PasteEvent from OpenTUI renderer (bracketed paste via Cmd+V)
+  useEffect(() => {
+    if (!renderer || !focused) return;
+
+    const handlePaste = (event: any) => {
+      if (!focused || !terminalRef.current) return;
+      try {
+        // Decode paste bytes to text
+        let text: string;
+        if (event.bytes instanceof Uint8Array) {
+          text = new TextDecoder().decode(event.bytes);
+        } else {
+          text = String(event.bytes || '');
+        }
+        if (text) {
+          terminalRef.current.write(text);
+          setScrollOffset(0);
+        }
+      } catch (err) {
+        // Fallback: ignore decode errors
+      }
+    };
+
+    renderer.keyInput.on('paste', handlePaste);
+    return () => {
+      renderer.keyInput.off('paste', handlePaste);
+    };
+  }, [renderer, focused]);
+
   // Handle selectMode changes - enable/disable mouse tracking
   useEffect(() => {
     if (!initialized) return;
@@ -352,6 +383,21 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
 
 
 
+    // Handle Cmd+V paste via pbpaste fallback (in case bracketed paste didn't fire)
+    if (event.meta && event.name === "v") {
+      (async () => {
+        try {
+          const proc = Bun.spawn(["pbpaste"], { stdout: "pipe" });
+          const text = await new Response(proc.stdout).text();
+          if (text && terminalRef.current) {
+            terminalRef.current.write(text);
+            setScrollOffset(0);
+          }
+        } catch {}
+      })();
+      return;
+    }
+
     if (event.meta) return;
 
     if (event.shift && event.name === "tab") return;
@@ -444,7 +490,7 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
     return (
       <box style={{ flexDirection: "column", border: true, borderColor: "red", height: "100%" }}>
         <box style={{ paddingX: 1 }}>
-          <text style={{ fg: "red", bold: true }}>Terminal Error</text>
+          <text style={{ fg: "red", attributes: TextAttributes.BOLD }}>Terminal Error</text>
         </box>
         <box style={{ flexGrow: 1, justifyContent: "center", alignItems: "center" }}>
           <text style={{ fg: "red" }}>{error}</text>
@@ -457,7 +503,7 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
     return (
       <box style={{ flexDirection: "column", border: true, borderColor, height: "100%" }}>
         <box style={{ paddingX: 1, justifyContent: "space-between" }}>
-          <text style={{ fg: "cyan", bold: true }}>Terminal</text>
+          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Terminal</text>
           <text style={{ fg: "gray" }}>Initializing...</text>
         </box>
         <box style={{ flexGrow: 1, justifyContent: "center", alignItems: "center" }}>
@@ -545,13 +591,21 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
     renderRows.push(segments);
   }
 
+  const shellName = (process.env.SHELL || "/bin/zsh").split("/").pop() || "zsh";
+  const cwdShort = cwd.replace(process.env.HOME || "", "~");
+  const bottomTitle = ` ${shellName} · ${cwdShort} `;
+
   return (
-    <box style={{ flexDirection: "column", border: true, borderColor, height: "100%" }}>
+    <box
+      style={{ flexDirection: "column", border: true, borderColor, height: "100%" }}
+      bottomTitle={bottomTitle}
+      bottomTitleAlignment="right"
+    >
       {/* Focus indicator header */}
       {focused && (
         <box style={{ paddingX: 1, height: 1, flexDirection: "row" }}>
-          <text style={{ fg: "black", bg: "cyan", bold: true }}> FOCUS </text>
-          <text style={{ fg: "cyan", bold: true }}> Terminal</text>
+          <text style={{ fg: "black", bg: "cyan", attributes: TextAttributes.BOLD }}> FOCUS </text>
+          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}> Terminal</text>
         </box>
       )}
       <box style={{ flexDirection: "column", flexGrow: 1, overflow: "hidden", paddingX: 1 }}>
@@ -563,8 +617,9 @@ export function Terminal({ cwd, focused, onFocusRequest, height = 30, onPasteRea
                 style={{
                   fg: seg.fg as any,
                   bg: seg.bg === "transparent" ? undefined : (seg.bg as any),
-                  dim: seg.dim,
-                  bold: seg.bold
+                  attributes:
+                    (seg.dim ? TextAttributes.DIM : 0) |
+                    (seg.bold ? TextAttributes.BOLD : 0),
                 }}
               >
                 {seg.text}

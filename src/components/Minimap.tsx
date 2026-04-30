@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { TextAttributes } from "@opentui/core";
 
 interface MinimapProps {
   content: string[];
@@ -99,9 +100,9 @@ export function Minimap({
       style={{
         flexDirection: "column",
         width: width + 1,
-        borderLeft: true,
+        border: ["left"],
         borderColor: "gray",
-        bg: "black",
+        backgroundColor: "black",
       }}
     >
       {minimapData.map((row, idx) => {
@@ -111,7 +112,7 @@ export function Minimap({
         return (
           <box key={idx} style={{ flexDirection: "row" }}>
             {/* Viewport indicator */}
-            <text style={{ fg: isInViewport ? "cyan" : "gray", dim: !isInViewport }}>
+            <text style={{ fg: isInViewport ? "cyan" : "gray", attributes: !isInViewport ? TextAttributes.DIM : 0 }}>
               {isCursor ? "▸" : isInViewport ? "│" : " "}
             </text>
             {/* Compressed line content */}
@@ -119,7 +120,7 @@ export function Minimap({
               style={{
                 fg: (isCursor ? "yellow" : row.color) as any,
                 bg: isInViewport ? "gray" : undefined,
-                dim: !isInViewport,
+                attributes: !isInViewport ? TextAttributes.DIM : 0,
               }}
             >
               {row.text.padEnd(width, " ").slice(0, width)}

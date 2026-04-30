@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 
 interface ShortcutCategory {
   name: string;
@@ -137,7 +138,7 @@ export function KeyboardShortcuts({ isOpen, onClose }: KeyboardShortcutsProps) {
           flexDirection: "column",
           border: true,
           borderColor: "cyan",
-          bg: "#050505",
+          backgroundColor: "#050505",
         }}
       >
         {/* Header */}
@@ -145,12 +146,12 @@ export function KeyboardShortcuts({ isOpen, onClose }: KeyboardShortcutsProps) {
           style={{
             paddingX: 1,
             height: 1,
-            bg: "#1a1a1a",
+            backgroundColor: "#1a1a1a",
             flexDirection: "row",
             justifyContent: "space-between",
           }}
         >
-          <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a" }}>
+          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>
             ⌨ Keyboard Shortcuts
           </text>
           <text style={{ fg: "gray", bg: "#1a1a1a" }}>Esc/q: close</text>
@@ -162,7 +163,7 @@ export function KeyboardShortcuts({ isOpen, onClose }: KeyboardShortcutsProps) {
             height: 1,
             flexDirection: "row",
             paddingX: 1,
-            borderBottom: true,
+            border: ["bottom"],
             borderColor: "gray",
             gap: 1,
           }}
@@ -172,8 +173,9 @@ export function KeyboardShortcuts({ isOpen, onClose }: KeyboardShortcutsProps) {
               key={cat.name}
               style={{
                 fg: index === selectedCategory ? "cyan" : "gray",
-                bold: index === selectedCategory,
-                dim: index !== selectedCategory,
+                attributes:
+                  (index === selectedCategory ? TextAttributes.BOLD : 0) |
+                  (index !== selectedCategory ? TextAttributes.DIM : 0),
               }}
             >
               {cat.name}
@@ -192,7 +194,7 @@ export function KeyboardShortcuts({ isOpen, onClose }: KeyboardShortcutsProps) {
                 paddingY: 0,
               }}
             >
-              <text style={{ fg: "#d4a800", bold: true }}>{shortcut.keys}</text>
+              <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD }}>{shortcut.keys}</text>
               <text style={{ fg: "gray" }}>{shortcut.description}</text>
             </box>
           ))}
@@ -203,12 +205,12 @@ export function KeyboardShortcuts({ isOpen, onClose }: KeyboardShortcutsProps) {
           style={{
             paddingX: 1,
             height: 1,
-            borderTop: true,
+            border: ["top"],
             borderColor: "gray",
-            bg: "#0b0b0b",
+            backgroundColor: "#0b0b0b",
           }}
         >
-          <text style={{ fg: "gray", dim: true, bg: "#0b0b0b" }}>
+          <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#0b0b0b" }}>
             Tab/←/→: switch category | Esc: close
           </text>
         </box>

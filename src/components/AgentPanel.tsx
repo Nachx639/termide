@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useKeyboard } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 import { useACP } from "../hooks/useACP";
+import { getTermideSyntaxStyle } from "../lib/SyntaxStyles";
 
 // Agent configuration with optional environment variables
 interface AgentConfig {
@@ -245,13 +247,25 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
         }
     });
 
+    const bottomTitle =
+        status === "connected"
+            ? ` ${messages.length} msgs · connected `
+            : status === "connecting"
+            ? " connecting… "
+            : " disconnected ";
+
     return (
-        <box style={{ flexDirection: "column", height: "100%", border: true, borderColor: focused ? "cyan" : "gray" }} onMouseDown={onFocus}>
+        <box
+            style={{ flexDirection: "column", height: "100%", border: true, borderColor: focused ? "cyan" : "gray" }}
+            bottomTitle={bottomTitle}
+            bottomTitleAlignment="right"
+            onMouseDown={onFocus}
+        >
             {/* Header */}
             <box style={{ height: 1, paddingX: 1, flexDirection: "row", justifyContent: "space-between", marginBottom: 1 }}>
                 <box style={{ flexDirection: "row" }}>
-                    {focused && <text style={{ fg: "black", bg: "cyan", bold: true }}> FOCUS </text>}
-                    <text style={{ fg: "cyan", bold: true }}>AI Agent </text>
+                    {focused && <text style={{ fg: "black", bg: "cyan", attributes: TextAttributes.BOLD }}> FOCUS </text>}
+                    <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>AI Agent </text>
                     <text style={{ fg: status === 'connected' ? 'green' : (status === 'connecting' ? 'yellow' : 'red') }}>({status})</text>
                 </box>
                 <text style={{ fg: "gray" }}>Esc Esc: disconnect</text>
@@ -262,7 +276,7 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
                 {status === 'connecting' ? (
                     // Show loading screen when connecting
                     <box style={{ flexGrow: 1, justifyContent: "center", alignItems: "center", flexDirection: "column" }}>
-                        <text style={{ fg: "yellow", bold: true, marginBottom: 1 }}>Starting agent...</text>
+                        <text style={{ fg: "yellow", attributes: TextAttributes.BOLD, marginBottom: 1 }}>Starting agent...</text>
                         <text style={{ fg: "gray" }}>Please wait while the AI agent initializes</text>
                         <text style={{ fg: "gray", marginTop: 1 }}>Press Esc Esc to cancel</text>
                     </box>
@@ -276,7 +290,7 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
                                 {ANTIGRAVITY_MODELS.map((model, index) => {
                                     const isSelected = index === selectedModelIndex;
                                     return (
-                                        <box key={model.id} style={{ flexDirection: "row", paddingY: 0, bg: isSelected ? "#1a2a35" : undefined }}>
+                                        <box key={model.id} style={{ flexDirection: "row", paddingY: 0, backgroundColor: isSelected ? "#1a2a35" : undefined }}>
                                             <text style={{ fg: isSelected ? "cyan" : "white" }}>
                                                 {isSelected ? "▸ " : "  "}{model.icon} {model.name}
                                             </text>
@@ -294,11 +308,11 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
                                 {AGENTS.map((agent, index) => {
                                     const isSelected = index === selectedAgentIndex;
                                     return (
-                                        <box key={agent.id} style={{ flexDirection: "row", paddingY: 0, bg: isSelected ? "#1a2a35" : undefined }}>
+                                        <box key={agent.id} style={{ flexDirection: "row", paddingY: 0, backgroundColor: isSelected ? "#1a2a35" : undefined }}>
                                             <text style={{ fg: isSelected ? "cyan" : "white" }}>
                                                 {isSelected ? "▸ " : "  "}{agent.icon} {agent.name}
                                             </text>
-                                            <text style={{ fg: "gray", dim: true }}> - {agent.description}</text>
+                                            <text style={{ fg: "gray", attributes: TextAttributes.DIM }}> - {agent.description}</text>
                                         </box>
                                     );
                                 })}
@@ -319,26 +333,49 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
                     </box>
                 ) : (
                     <box style={{ flexDirection: "column", flexGrow: 1, justifyContent: "space-between" }}>
-                        {/* Chat History */}
+                        {/* Chat History with native Markdown rendering */}
                         <scrollbox ref={scrollBoxRef} style={{ flexGrow: 1 }} stickyScroll stickyStart="bottom">
-                            <text style={{ fg: "white" as any }}>
+                            <box style={{ flexDirection: "column", gap: 1 }}>
                                 {messages
                                     .filter(msg => {
-                                        // Filter out ALL system messages except errors
                                         if (msg.role === 'system') {
                                             return msg.content.startsWith('Error:');
                                         }
                                         return true;
                                     })
-                                    .slice(-20) // Show last 20 messages
-                                    .map(msg => {
-                                        const prefix = msg.role === 'user' ? '> ' : '';
-                                        const content = `${prefix}${msg.content}`;
-                                        return content;
-                                    })
-                                    .join('\n\n') // Separate messages with blank line
-                                }
-                            </text>
+                                    .slice(-20)
+                                    .map((msg, idx) => {
+                                        if (msg.role === 'user') {
+                                            return (
+                                                <box key={idx} style={{ flexDirection: "row" }}>
+                                                    <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>{'> '}</text>
+                                                    <text style={{ fg: "cyan" }}>{msg.content}</text>
+                                                </box>
+                                            );
+                                        }
+                                        if (msg.role === 'system') {
+                                            return (
+                                                <text key={idx} style={{ fg: "red" }}>{msg.content}</text>
+                                            );
+                                        }
+                                        // Assistant messages: full native markdown with streaming
+                                        return (
+                                            <markdown
+                                                key={idx}
+                                                content={msg.content}
+                                                syntaxStyle={getTermideSyntaxStyle()}
+                                                conceal
+                                                streaming={idx === messages.length - 1 && status === 'connected'}
+                                                tableOptions={{
+                                                    widthMode: "content",
+                                                    borders: true,
+                                                    borderStyle: "rounded",
+                                                    selectable: true,
+                                                }}
+                                            />
+                                        );
+                                    })}
+                            </box>
                         </scrollbox>
 
                         {/* Input Area - at bottom */}

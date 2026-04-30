@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -172,20 +173,12 @@ export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles =
     return results.slice(0, 50);
   }, [query, allFiles, rootPath]);
 
-  // Handle keyboard
+  // Navigation + close (input handles typing/backspace/paste natively)
   useKeyboard((event) => {
     if (!isOpen) return;
 
     if (event.name === "escape") {
       onClose();
-      return;
-    }
-
-    if (event.name === "return") {
-      if (matches[selectedIndex]) {
-        onSelect(matches[selectedIndex].path);
-        onClose();
-      }
       return;
     }
 
@@ -197,18 +190,6 @@ export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles =
     if (event.name === "down" || (event.ctrl && event.name === "n")) {
       setSelectedIndex((i) => Math.min(matches.length - 1, i + 1));
       return;
-    }
-
-    if (event.name === "backspace") {
-      setQuery((q) => q.slice(0, -1));
-      setSelectedIndex(0);
-      return;
-    }
-
-    // Regular characters
-    if (event.name && event.name.length === 1 && !event.ctrl && !event.meta) {
-      setQuery((q) => q + event.name);
-      setSelectedIndex(0);
     }
   });
 
@@ -239,7 +220,7 @@ export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles =
           flexDirection: "column",
           border: true,
           borderColor: "cyan",
-          bg: "#0b0b0b",
+          backgroundColor: "#0b0b0b",
           position: "relative",
         }}
       >
@@ -251,7 +232,7 @@ export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles =
             left: 0,
             width: "100%",
             height: "100%",
-            bg: "#1a1a1a",
+            backgroundColor: "#1a1a1a",
             flexDirection: "column",
           }}
         >
@@ -260,17 +241,28 @@ export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles =
           ))}
         </box>
 
-        {/* Search input */}
-        <box style={{ paddingX: 1, borderBottom: true, borderColor: "gray", bg: "#1a1a1a" }}>
+        {/* Search input (native <input>) */}
+        <box style={{ paddingX: 1, border: ["bottom"], borderColor: "gray", backgroundColor: "#1a1a1a", flexDirection: "row" }}>
           <text style={{ fg: "cyan", bg: "#1a1a1a" }}>🔍 </text>
-          <text style={{ fg: "white", bg: "#1a1a1a" }}>{query}</text>
-          <text style={{ fg: "cyan", bg: "#1a1a1a" }}>▌</text>
+          <input
+            focused={isOpen}
+            value={query}
+            placeholder="Type to search files…"
+            onInput={(value: string) => { setQuery(value); setSelectedIndex(0); }}
+            onSubmit={() => {
+              if (matches[selectedIndex]) {
+                onSelect(matches[selectedIndex].path);
+                onClose();
+              }
+            }}
+            style={{ flexGrow: 1, backgroundColor: "#1a1a1a", textColor: "white", placeholderColor: "gray", cursorColor: "cyan" }}
+          />
         </box>
 
 
         {/* Results */}
         <scrollbox
-          style={{ flexDirection: "column", flexGrow: 1, bg: "#1a1a1a" }}
+          style={{ flexDirection: "column", flexGrow: 1, backgroundColor: "#1a1a1a" }}
           onMouse={(event: any) => {
             if (event.action === "wheel") {
               if (event.direction === "up") {
@@ -283,7 +275,7 @@ export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles =
         >
 
           {visibleMatches.length === 0 ? (
-            <text style={{ fg: "gray", dim: true, bg: "#1a1a1a", paddingX: 1 }}>No files found</text>
+            <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#1a1a1a", paddingX: 1 } as any}>No files found</text>
           ) : (
             visibleMatches.map((match, index) => {
               const isSelected = index === selectedIndex;
@@ -308,12 +300,12 @@ export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles =
                   style={{
                     flexDirection: "row",
                     justifyContent: "space-between",
-                    bg: isSelected ? "cyan" : "#1a1a1a" as any,
+                    backgroundColor: isSelected ? "cyan" : "#1a1a1a" as any,
                     width: "100%",
                     paddingX: 1,
                   }}
                 >
-                  <box style={{ flexDirection: "row", bg: isSelected ? "cyan" : "#1a1a1a" as any }}>
+                  <box style={{ flexDirection: "row", backgroundColor: isSelected ? "cyan" : "#1a1a1a" as any }}>
                     <text style={{ fg: isSelected ? "black" : "gray", bg: isSelected ? "cyan" : "#1a1a1a" as any }}>
                       {isSelected ? "▸ " : "  "}
                     </text>
@@ -328,7 +320,7 @@ export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles =
                                 ? "yellow"
                                 : "white",
                             bg: isSelected ? "cyan" : "#1a1a1a" as any,
-                            bold: part.highlight,
+                            attributes: part.highlight ? TextAttributes.BOLD : 0,
                           }}
                         >
                           {part.text}
@@ -341,7 +333,7 @@ export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles =
                     )}
                   </box>
                   {match.isRecent && (
-                    <text style={{ fg: isSelected ? "black" : "#d4a800", bg: isSelected ? "cyan" : "#1a1a1a" as any, dim: !isSelected }}>
+                    <text style={{ fg: isSelected ? "black" : "#d4a800", bg: isSelected ? "cyan" : "#1a1a1a" as any, attributes: !isSelected ? TextAttributes.DIM : 0 }}>
                       ★ recent
                     </text>
                   )}
@@ -350,14 +342,14 @@ export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles =
             })
           )}
           {/* Filler to ensure background opacity */}
-          <box style={{ flexGrow: 1, bg: "#0b0b0b" }}>
+          <box style={{ flexGrow: 1, backgroundColor: "#0b0b0b" }}>
             <text style={{ bg: "#0b0b0b" }}> </text>
           </box>
         </scrollbox>
 
         {/* Footer */}
-        <box style={{ paddingX: 1, borderTop: true, borderColor: "gray", bg: "#0b0b0b" }}>
-          <text style={{ fg: "gray", dim: true, bg: "#0b0b0b" }}>
+        <box style={{ paddingX: 1, border: ["top"], borderColor: "gray", backgroundColor: "#0b0b0b" }}>
+          <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#0b0b0b" }}>
             {matches.length} files | ↑↓ select | Enter open | Esc close
           </text>
         </box>

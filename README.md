@@ -1,11 +1,11 @@
 <p align="center">
   <img src="assets/termide-banner-v2.png" width="100%" />
 </p>
-
-<h3 align="center">🐜 Terminal-First IDE for AI Coding Agents</h3>
-
-<p align="center">
-  <strong>Fast. Elegant. Keyboard-driven.</strong>
+hola qe
+<h3 align="center">🐜 Termal-First IDE for iedoediting andholaI eding Agents</h3> dddeeadedehola quetalda
+hola holaaue hola que ta l
+< p align="center">
+  <strong>Fast. Elegant. Keyboard-driven.</strhola que tal todo laa ong>
 </p>
 
 <p align="center">

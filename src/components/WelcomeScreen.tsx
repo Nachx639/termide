@@ -1,4 +1,5 @@
 import React from "react";
+import { TextAttributes } from "@opentui/core";
 
 interface WelcomeScreenProps {
   height: number;
@@ -37,10 +38,10 @@ export function WelcomeScreen({
           height,
           justifyContent: "center",
           alignItems: "center",
-          bg: "#0b0b0b",
+          backgroundColor: "#0b0b0b",
         }}
       >
-        <text style={{ fg: "cyan", bold: true }}>TERMIDE</text>
+        <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>TERMIDE</text>
         <text style={{ fg: "gray", marginTop: 1 }}>Ctrl+P: Open</text>
         <text style={{ fg: "gray" }}>Ctrl+K: Commands</text>
       </box>
@@ -54,12 +55,12 @@ export function WelcomeScreen({
         height,
         paddingX: 2,
         paddingY: 1,
-        bg: "#0b0b0b",
+        backgroundColor: "#0b0b0b",
       }}
     >
       {/* Logo */}
       <box style={{ flexDirection: "column", alignItems: "center", marginBottom: 1, height: 5 }}>
-        <text style={{ fg: "cyan", bold: true }}>
+        <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>
           {` _____ _____ ____  __  __ ___ ____  _____
 |_   _| ____|  _ \\|  \\/  |_ _|  _ \\| ____|
   | | |  _| | |_) | |\\/| || || | | |  _|
@@ -72,53 +73,53 @@ export function WelcomeScreen({
 
       {/* Project Info */}
       <box style={{ flexDirection: "row", justifyContent: "center" }}>
-        <text style={{ fg: "white", bold: true }}>{projectName}</text>
+        <text style={{ fg: "white", attributes: TextAttributes.BOLD }}>{projectName}</text>
       </box>
 
       <box style={{ height: 1 }} />
 
       {/* Quick Actions */}
       <box style={{ flexDirection: "column", paddingX: 2 }}>
-        <text style={{ fg: "yellow", bold: true }}>Quick Start</text>
+        <text style={{ fg: "yellow", attributes: TextAttributes.BOLD }}>Quick Start</text>
         <box style={{ height: 1 }} />
 
         <box style={{ flexDirection: "row" }}>
-          <text style={{ fg: "cyan", bold: true }}>Ctrl+P</text>
+          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Ctrl+P</text>
           <text style={{ fg: "gray" }}> - Open file...</text>
         </box>
 
         <box style={{ flexDirection: "row" }}>
-          <text style={{ fg: "cyan", bold: true }}>Ctrl+K</text>
+          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Ctrl+K</text>
           <text style={{ fg: "gray" }}> - Command palette</text>
         </box>
 
         <box style={{ flexDirection: "row" }}>
-          <text style={{ fg: "cyan", bold: true }}>Ctrl+B</text>
+          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Ctrl+B</text>
           <text style={{ fg: "gray" }}> - Show help</text>
         </box>
 
         <box style={{ flexDirection: "row" }}>
-          <text style={{ fg: "cyan", bold: true }}>Ctrl+Q</text>
+          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Ctrl+Q</text>
           <text style={{ fg: "gray" }}> - Zen mode (full screen)</text>
         </box>
 
         <box style={{ flexDirection: "row" }}>
-          <text style={{ fg: "cyan", bold: true }}>Ctrl+Space</text>
+          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Ctrl+Space</text>
           <text style={{ fg: "gray" }}> - Toggle AI agent</text>
         </box>
 
         <box style={{ flexDirection: "row" }}>
-          <text style={{ fg: "cyan", bold: true }}>Ctrl+Shift+G</text>
+          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Ctrl+Shift+G</text>
           <text style={{ fg: "gray" }}> - Go to definition</text>
         </box>
 
         <box style={{ flexDirection: "row" }}>
-          <text style={{ fg: "cyan", bold: true }}>Ctrl+\</text>
+          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Ctrl+\</text>
           <text style={{ fg: "gray" }}> - Toggle split view</text>
         </box>
 
         <box style={{ flexDirection: "row" }}>
-          <text style={{ fg: "cyan", bold: true }}>Tab/Shift+Tab</text>
+          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Tab/Shift+Tab</text>
           <text style={{ fg: "gray" }}> - Navigate panels</text>
         </box>
       </box>
@@ -128,7 +129,7 @@ export function WelcomeScreen({
       {/* Recent Files */}
       {recentFiles.length > 0 && (
         <box style={{ flexDirection: "column", paddingX: 2, flexGrow: 1 }}>
-          <text style={{ fg: "yellow", bold: true }}>Recent Files</text>
+          <text style={{ fg: "yellow", attributes: TextAttributes.BOLD }}>Recent Files</text>
           <box style={{ height: 1 }} />
 
           {recentFiles.slice(0, 5).map((file, index) => (
@@ -142,10 +143,10 @@ export function WelcomeScreen({
 
       {/* Footer */}
       <box style={{ flexDirection: "column", marginTop: 1, alignItems: "center" }}>
-        <text style={{ fg: "gray", dim: true }}>
+        <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
           Terminal IDE for the AI era
         </text>
-        <text style={{ fg: "gray", dim: true }}>
+        <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
           Built with OpenTUI
         </text>
       </box>

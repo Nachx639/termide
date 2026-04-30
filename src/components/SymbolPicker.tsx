@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useKeyboard } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 import { type SymbolLocation, getSymbolIcon, getSymbolColor } from "../lib/SymbolFinder";
 
 interface SymbolPickerProps {
@@ -140,27 +141,27 @@ export function SymbolPicker({ symbols, isOpen, onClose, onSelect }: SymbolPicke
                 flexDirection: "column",
                 border: true,
                 borderColor: "cyan",
-                bg: "#1e1e1e",
+                backgroundColor: "#1e1e1e",
                 zIndex: 100,
             }}
         >
             {/* Header */}
-            <box style={{ paddingX: 1, height: 1, bg: "#2a2a2a", flexDirection: "row" }}>
-                <text style={{ fg: "cyan", bold: true }}>@ Go to Symbol</text>
-                <text style={{ fg: "gray", dim: true }}> ({filteredSymbols.length} symbols)</text>
+            <box style={{ paddingX: 1, height: 1, backgroundColor: "#2a2a2a", flexDirection: "row" }}>
+                <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>@ Go to Symbol</text>
+                <text style={{ fg: "gray", attributes: TextAttributes.DIM }}> ({filteredSymbols.length} symbols)</text>
             </box>
 
             {/* Search input */}
-            <box style={{ paddingX: 1, height: 1, bg: "#252526", flexDirection: "row" }}>
+            <box style={{ paddingX: 1, height: 1, backgroundColor: "#252526", flexDirection: "row" }}>
                 <text style={{ fg: "cyan" }}>@</text>
                 <text style={{ fg: "white" }}>{query}</text>
-                <text style={{ fg: "cyan", bold: true }}>│</text>
+                <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>│</text>
             </box>
 
             {/* Results */}
             <box style={{ flexDirection: "column", maxHeight: maxVisible, paddingX: 1 }}>
                 {filteredSymbols.length === 0 ? (
-                    <text style={{ fg: "gray", dim: true, padding: 1 }}>No symbols found</text>
+                    <text style={{ fg: "gray", attributes: TextAttributes.DIM, padding: 1 } as any}>No symbols found</text>
                 ) : (
                     visibleSymbols.map((symbol, idx) => {
                         const actualIndex = startIndex + idx;
@@ -173,16 +174,16 @@ export function SymbolPicker({ symbols, isOpen, onClose, onSelect }: SymbolPicke
                                 key={`${symbol.symbolName}-${symbol.line}`}
                                 style={{
                                     flexDirection: "row",
-                                    bg: isSelected ? "#094771" : undefined as any,
+                                    backgroundColor: isSelected ? "#094771" : undefined as any,
                                     paddingX: 1,
                                 }}
                             >
-                                <text style={{ fg: iconColor as any, bold: true }}>{icon} </text>
-                                <text style={{ fg: isSelected ? "white" : "#cccccc" as any, bold: isSelected }}>
+                                <text style={{ fg: iconColor as any, attributes: TextAttributes.BOLD }}>{icon} </text>
+                                <text style={{ fg: isSelected ? "white" : "#cccccc" as any, attributes: isSelected ? TextAttributes.BOLD : 0 }}>
                                     {symbol.symbolName}
                                 </text>
-                                <text style={{ fg: "gray", dim: true }}> :{symbol.line + 1}</text>
-                                <text style={{ fg: "#6a6a6a", dim: true }}> ({symbol.kind})</text>
+                                <text style={{ fg: "gray", attributes: TextAttributes.DIM }}> :{symbol.line + 1}</text>
+                                <text style={{ fg: "#6a6a6a", attributes: TextAttributes.DIM }}> ({symbol.kind})</text>
                             </box>
                         );
                     })
@@ -190,8 +191,8 @@ export function SymbolPicker({ symbols, isOpen, onClose, onSelect }: SymbolPicke
             </box>
 
             {/* Footer */}
-            <box style={{ paddingX: 1, height: 1, bg: "#252526", flexDirection: "row" }}>
-                <text style={{ fg: "gray", dim: true }}>↑↓ navigate • Enter select • Esc close</text>
+            <box style={{ paddingX: 1, height: 1, backgroundColor: "#252526", flexDirection: "row" }}>
+                <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>↑↓ navigate • Enter select • Esc close</text>
             </box>
         </box>
     );

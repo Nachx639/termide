@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { TextAttributes } from "@opentui/core";
 import { THEMES } from "../lib/ThemeSystem";
 import type { Theme } from "../lib/ThemeSystem";
 
@@ -129,7 +130,7 @@ export function QuickSettings({
 
     if (setting.type === "toggle") {
       return (
-        <text style={{ fg: value ? "green" : "red", bold: true }}>
+        <text style={{ fg: value ? "green" : "red", attributes: TextAttributes.BOLD }}>
           {value ? "ON" : "OFF"}
         </text>
       );
@@ -165,7 +166,7 @@ export function QuickSettings({
           flexDirection: "column",
           border: true,
           borderColor: "cyan",
-          bg: "#050505",
+          backgroundColor: "#050505",
         }}
       >
         {/* Header */}
@@ -173,12 +174,12 @@ export function QuickSettings({
           style={{
             paddingX: 1,
             height: 1,
-            bg: "#1a1a1a",
+            backgroundColor: "#1a1a1a",
             flexDirection: "row",
             justifyContent: "space-between",
           }}
         >
-          <text style={{ fg: "cyan", bold: true, bg: "#1a1a1a" }}>
+          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>
             Quick Settings
           </text>
           <text style={{ fg: "gray", bg: "#1a1a1a" }}>Esc: close</text>
@@ -196,14 +197,14 @@ export function QuickSettings({
                     key={theme.name}
                     style={{
                       flexDirection: "row",
-                      bg: isSelected ? "blue" : undefined,
+                      backgroundColor: isSelected ? "blue" : undefined,
                       paddingX: 1,
                     }}
                   >
                     <text
                       style={{
                         fg: isSelected ? "white" : "gray",
-                        bold: isSelected,
+                        attributes: isSelected ? TextAttributes.BOLD : 0,
                       }}
                     >
                       {isSelected ? ">" : " "} {theme.name}
@@ -223,19 +224,19 @@ export function QuickSettings({
                   style={{
                     flexDirection: "row",
                     justifyContent: "space-between",
-                    bg: isSelected ? "blue" : undefined,
+                    backgroundColor: isSelected ? "blue" : undefined,
                     paddingX: 1,
                   }}
                 >
                   <text
                     style={{
                       fg: isSelected ? "white" : "gray",
-                      bold: isSelected,
+                      attributes: isSelected ? TextAttributes.BOLD : 0,
                     }}
                   >
                     {setting.label}
                   </text>
-                  <box style={{ bg: isSelected ? "blue" : undefined }}>
+                  <box style={{ backgroundColor: isSelected ? "blue" : undefined }}>
                     {renderSettingValue(setting)}
                   </box>
                 </box>
@@ -247,7 +248,7 @@ export function QuickSettings({
               style={{
                 flexDirection: "row",
                 justifyContent: "space-between",
-                bg: selectedIndex === SETTINGS_LIST.length ? "blue" : undefined,
+                backgroundColor: selectedIndex === SETTINGS_LIST.length ? "blue" : undefined,
                 paddingX: 1,
                 marginTop: 1,
               }}
@@ -255,7 +256,7 @@ export function QuickSettings({
               <text
                 style={{
                   fg: selectedIndex === SETTINGS_LIST.length ? "white" : "gray",
-                  bold: selectedIndex === SETTINGS_LIST.length,
+                  attributes: selectedIndex === SETTINGS_LIST.length ? TextAttributes.BOLD : 0,
                 }}
               >
                 Theme
@@ -270,12 +271,12 @@ export function QuickSettings({
           style={{
             paddingX: 1,
             height: 1,
-            borderTop: true,
+            border: ["top"],
             borderColor: "gray",
-            bg: "#0b0b0b",
+            backgroundColor: "#0b0b0b",
           }}
         >
-          <text style={{ fg: "gray", dim: true, bg: "#0b0b0b" }}>
+          <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#0b0b0b" }}>
             {editingTheme
               ? "j/k: navigate | Enter: select"
               : "j/k: navigate | Enter/Space: toggle"}
