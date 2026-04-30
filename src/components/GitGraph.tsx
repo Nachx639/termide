@@ -220,8 +220,15 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
         }
     });
 
+    const bottomTitle = entries.length > 0 ? ` ${entries.length} commits ` : "";
+
     return (
-        <box style={{ flexDirection: "column", border: true, borderColor, height: "100%", backgroundColor: "#0b0b0b" }} onMouseDown={onFocus}>
+        <box
+            style={{ flexDirection: "column", border: true, borderColor, height: "100%", backgroundColor: "#0b0b0b" }}
+            bottomTitle={bottomTitle}
+            bottomTitleAlignment="right"
+            onMouseDown={onFocus}
+        >
             <box style={{ paddingX: 1, height: 1, backgroundColor: "#1a1a1a", flexDirection: "row" }}>
                 {focused && <text style={{ fg: "black", bg: "cyan", attributes: TextAttributes.BOLD }}> FOCUS </text>}
                 <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>Git Graph</text>
