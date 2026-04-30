@@ -34,3 +34,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .DS_Store
 # Antigravity local config (not tracked)
 .claude-antigravity-home/
+
+
+# claude-mem auto-generated context (per-user, not for the repo)
+**/CLAUDE.md
+
