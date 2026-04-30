@@ -173,20 +173,12 @@ export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles =
     return results.slice(0, 50);
   }, [query, allFiles, rootPath]);
 
-  // Handle keyboard
+  // Navigation + close (input handles typing/backspace/paste natively)
   useKeyboard((event) => {
     if (!isOpen) return;
 
     if (event.name === "escape") {
       onClose();
-      return;
-    }
-
-    if (event.name === "return") {
-      if (matches[selectedIndex]) {
-        onSelect(matches[selectedIndex].path);
-        onClose();
-      }
       return;
     }
 
@@ -198,18 +190,6 @@ export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles =
     if (event.name === "down" || (event.ctrl && event.name === "n")) {
       setSelectedIndex((i) => Math.min(matches.length - 1, i + 1));
       return;
-    }
-
-    if (event.name === "backspace") {
-      setQuery((q) => q.slice(0, -1));
-      setSelectedIndex(0);
-      return;
-    }
-
-    // Regular characters
-    if (event.name && event.name.length === 1 && !event.ctrl && !event.meta) {
-      setQuery((q) => q + event.name);
-      setSelectedIndex(0);
     }
   });
 
@@ -261,11 +241,22 @@ export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles =
           ))}
         </box>
 
-        {/* Search input */}
-        <box style={{ paddingX: 1, border: ["bottom"], borderColor: "gray", backgroundColor: "#1a1a1a" }}>
+        {/* Search input (native <input>) */}
+        <box style={{ paddingX: 1, border: ["bottom"], borderColor: "gray", backgroundColor: "#1a1a1a", flexDirection: "row" }}>
           <text style={{ fg: "cyan", bg: "#1a1a1a" }}>🔍 </text>
-          <text style={{ fg: "white", bg: "#1a1a1a" }}>{query}</text>
-          <text style={{ fg: "cyan", bg: "#1a1a1a" }}>▌</text>
+          <input
+            focused={isOpen}
+            value={query}
+            placeholder="Type to search files…"
+            onInput={(value: string) => { setQuery(value); setSelectedIndex(0); }}
+            onSubmit={() => {
+              if (matches[selectedIndex]) {
+                onSelect(matches[selectedIndex].path);
+                onClose();
+              }
+            }}
+            style={{ flexGrow: 1, backgroundColor: "#1a1a1a", textColor: "white", placeholderColor: "gray", cursorColor: "cyan" }}
+          />
         </box>
 
 
