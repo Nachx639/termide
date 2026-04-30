@@ -5,6 +5,8 @@ import * as fs from "fs";
 import * as path from "path";
 import { detectLanguage } from "../lib/SyntaxHighlighter";
 import { getTermideSyntaxStyle } from "../lib/SyntaxStyles";
+import { getFileLineDiffs, type LineDiffStatus } from "../lib/GitIntegration";
+import { findMatchingBracket } from "../lib/BracketMatcher";
 
 interface FileViewerProps {
   filePath: string | null;
@@ -166,6 +168,81 @@ export function FileViewer({
       }
     };
   }, []);
+
+  // Bracket matching — when the cursor sits on (or just after) a bracket,
+  // highlight its mate using the textarea's per-line addHighlight. We track
+  // a per-buffer hlRef so we can wipe the previous match cleanly.
+  const bracketHlRefRef = useRef<number>(0);
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+
+    if (bracketHlRefRef.current) {
+      ta.removeHighlightsByRef(bracketHlRefRef.current);
+    }
+
+    if (cursorLine < 0 || cursorColumn < 0) return;
+    const styleId = syntaxStyle.getStyleId("bracketMatch");
+    if (styleId == null) return;
+
+    const lines = (ta.plainText ?? "").split("\n");
+    const match =
+      findMatchingBracket(lines, cursorLine, cursorColumn) ??
+      (cursorColumn > 0 ? findMatchingBracket(lines, cursorLine, cursorColumn - 1) : null);
+    if (!match) return;
+
+    const ref = bracketHlRefRef.current + 1;
+    bracketHlRefRef.current = ref;
+    ta.addHighlight(match.openLine, {
+      start: match.openColumn,
+      end: match.openColumn + 1,
+      styleId,
+      hlRef: ref,
+    });
+    ta.addHighlight(match.closeLine, {
+      start: match.closeColumn,
+      end: match.closeColumn + 1,
+      styleId,
+      hlRef: ref,
+    });
+  }, [cursorLine, cursorColumn, syntaxStyle]);
+
+  // Git diff gutter — fetch line statuses for the current file and feed them
+  // into the line-number's setLineSign so changed lines get a colored bar.
+  useEffect(() => {
+    if (!filePath || !rootPath) return;
+    const ln = lineNumberRef.current;
+    if (!ln) return;
+
+    let cancelled = false;
+    ln.clearAllLineSigns();
+
+    const colors: Record<Exclude<LineDiffStatus, null>, { char: string; color: string }> = {
+      added: { char: "┃", color: "#4ec9b0" },
+      modified: { char: "┃", color: "#569cd6" },
+      deleted: { char: "▼", color: "#f14c4c" },
+    };
+
+    getFileLineDiffs(filePath, rootPath)
+      .then((diffs) => {
+        if (cancelled) return;
+        const cur = lineNumberRef.current;
+        if (!cur) return;
+        for (const d of diffs) {
+          if (!d.status) continue;
+          const c = colors[d.status];
+          // line-number is 1-indexed (matches getFileLineDiffs output).
+          cur.setLineSign(d.lineNumber, { before: c.char, beforeColor: c.color });
+        }
+      })
+      .catch(() => {
+        // Non-fatal: leave the gutter empty if git is unavailable.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filePath, rootPath, isDirty]);
 
   const handleContentChange = useCallback(() => {
     // Track line count for the bottomTitle / status row.
