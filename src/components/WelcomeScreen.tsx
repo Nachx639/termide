@@ -58,7 +58,7 @@ export function WelcomeScreen({
     ["Tab/Shift+Tab", "Navigate panels (Ctrl+X Tab from the terminal)"],
     ["Ctrl+Q", "Zen mode (full screen)"],
     ["Ctrl+\\", "Toggle split view"],
-    ["Ctrl+Shift+G", "Go to definition"],
+    ["F12", "Go to definition"],
   ];
   const keyWidth = Math.max(...shortcuts.map(([k]) => k.length)) + 2;
   let budget = height - 2; // paddingY

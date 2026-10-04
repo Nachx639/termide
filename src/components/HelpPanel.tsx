@@ -44,6 +44,7 @@ export const SHORTCUTS: ShortcutCategory[] = [
       { keys: "Ctrl+F", description: "Find in file (Enter / Shift+Enter)" },
       { keys: "Ctrl+D", description: "Highlight word under cursor" },
       { keys: "Ctrl+G", description: "Toggle inline git blame" },
+      { keys: "F12", description: "Go to definition" },
       { keys: "Ctrl+Shift+O", description: "Go to symbol" },
       { keys: "Ctrl+S", description: "Save now" },
       { keys: "Ctrl+R", description: "Load disk version (on conflict)" },

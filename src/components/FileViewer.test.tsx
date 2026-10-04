@@ -126,3 +126,30 @@ test("opening a file does not rewrite it", async () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("F12 jumps to the definition in the imported file", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "termide-gotodef-"));
+  fs.writeFileSync(path.join(dir, "b.ts"), "// util\n\nexport function helper() {\n  return 1;\n}\n");
+  fs.writeFileSync(path.join(dir, "a.ts"), 'import { helper } from "./b";\nhelper();\n');
+  let jumped: [string, number | undefined] | null = null;
+  const setup = await testRender(
+    <box style={{ width: 80, height: 16 }}>
+      <FileViewer filePath={path.join(dir, "a.ts")} focused={true} rootPath={dir} height={16} onJumpToFile={(f, l) => (jumped = [f, l])} />
+    </box>,
+    { width: 80, height: 16 },
+  );
+  try {
+    await waitForFrame(setup, (f) => f.includes("helper();"));
+    setup.mockInput.pressArrow("down");
+    await waitForFrame(setup, (f) => f.includes("Ln 2:1"));
+    setup.mockInput.pressKey("\x1b[24~" as any); // F12
+    for (let i = 0; i < 50 && !jumped; i++) {
+      await setup.renderOnce();
+      await Bun.sleep(20);
+    }
+    expect(jumped).toEqual([path.join(dir, "b.ts"), 3] as any);
+  } finally {
+    setup.renderer.destroy();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}, 15000);
