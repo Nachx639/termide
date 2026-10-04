@@ -157,7 +157,6 @@ export function App({ rootPath }: AppProps) {
   const [zenMode, setZenMode] = useState(false);
   const [fileOpsOperation, setFileOpsOperation] = useState<FileOperation>("create-file");
   const [fileOpsTarget, setFileOpsTarget] = useState("");
-  const [treeRefreshKey, setTreeRefreshKey] = useState(0);
 
   // Leader key mode (Ctrl+X prefix like vim/OpenCode)
   const [leaderMode, setLeaderMode] = useState(false);
@@ -1048,7 +1047,7 @@ export function App({ rootPath }: AppProps) {
   // Refresh file tree after successful operation
   const handleFileOpsSuccess = (newPath?: string) => {
     setShowFileOps(false);
-    setTreeRefreshKey(k => k + 1); // Force FileTree refresh
+    // FileTree follows the file system itself (fs.watch).
     invalidateGitCache(); // Refresh git status
 
     // Show success notification
@@ -1206,7 +1205,6 @@ export function App({ rootPath }: AppProps) {
             <box style={{ flexGrow: isCompactMode ? 1 : 4 }}>
               <PanelErrorBoundary panelName="Explorer">
                 <FileTree
-                  key={treeRefreshKey}
                   rootPath={rootPath}
                   onFileSelect={handleFileSelect}
                   focused={!isAnyModalOpen && !leaderMode && focusedPanel === "tree"}

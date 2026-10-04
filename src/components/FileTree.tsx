@@ -47,6 +47,21 @@ function buildTree(dirPath: string, level: number = 0): FileNode[] {
   }
 }
 
+/**
+ * Re-read a directory level, keeping which folders were expanded (recursively).
+ * Used when files change on disk — e.g. an agent in the terminal creating files.
+ */
+export function rescanTree(nodes: FileNode[], dirPath: string, level: number = 0): FileNode[] {
+  const previous = new Map(nodes.map((n) => [n.path, n]));
+  return buildTree(dirPath, level).map((n) => {
+    const old = previous.get(n.path);
+    if (n.isDirectory && old?.expanded) {
+      return { ...n, expanded: true, children: rescanTree(old.children ?? [], n.path, level + 1) };
+    }
+    return n;
+  });
+}
+
 function flattenTree(nodes: FileNode[]): FileNode[] {
   const result: FileNode[] = [];
   for (const node of nodes) {
@@ -87,6 +102,42 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
     updateGitStatuses(initialTree);
   }, [rootPath, updateGitStatuses]);
 
+  // Follow the file system: files created/removed/renamed by anything (the agent,
+  // git checkout, a build) show up without reopening the project.
+  const treeRef = React.useRef(tree);
+  treeRef.current = tree;
+  const selectedPathRef = React.useRef<string | null>(null);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const refresh = () => {
+      timer = null;
+      const next = rescanTree(treeRef.current, rootPath);
+      setTree(next);
+      const flat = flattenTree(next);
+      const idx = selectedPathRef.current ? flat.findIndex((n) => n.path === selectedPathRef.current) : -1;
+      setSelectedIndex((i) => (idx >= 0 ? idx : Math.min(i, Math.max(0, flat.length - 1))));
+      updateGitStatuses(next);
+    };
+    const schedule = (file?: string | null) => {
+      if (file && /(^|[\\/])(node_modules|\.git[\\/]objects)([\\/]|$)/.test(file)) return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(refresh, 200);
+    };
+    let watcher: fs.FSWatcher | null = null;
+    try {
+      watcher = fs.watch(rootPath, { recursive: true }, (_event, file) => schedule(file?.toString()));
+    } catch {
+      // No recursive watch on this platform: the periodic refresh below still catches up.
+    }
+    // Safety net for missed events (network drives, platforms without recursive watch).
+    const interval = setInterval(() => schedule(null), 15000);
+    return () => {
+      watcher?.close();
+      clearInterval(interval);
+      if (timer) clearTimeout(timer);
+    };
+  }, [rootPath, updateGitStatuses]);
+
   // Refresh git statuses periodically
   useEffect(() => {
     const interval = setInterval(() => {
@@ -96,6 +147,7 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
   }, [tree, updateGitStatuses]);
 
   const flatList = flattenTree(tree);
+  selectedPathRef.current = flatList[selectedIndex]?.path ?? null;
 
   useKeyboard((event) => {
     if (!focused) return;
