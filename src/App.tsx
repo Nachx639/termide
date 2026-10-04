@@ -1287,6 +1287,7 @@ export function App({ rootPath }: AppProps) {
                   rootPath={rootPath}
                   focused={!isAnyModalOpen && focusedPanel === "graph"}
                   onFocus={() => setFocusedPanel("graph")}
+                  width={currentTreeWidth}
                 />
               </box>
             )}
