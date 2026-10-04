@@ -95,9 +95,11 @@ interface AgentPanelProps {
     onFocus: () => void;
     /** Private agent session instead of the project's shared one (tests). */
     isolated?: boolean;
+    /** Click on a tool call's file or diff: open it in the editor. */
+    onOpenFile?: (filePath: string, line?: number) => void;
 }
 
-export function AgentPanel({ rootPath, focused, onFocus, isolated = false }: AgentPanelProps) {
+export function AgentPanel({ rootPath, focused, onFocus, isolated = false, onOpenFile }: AgentPanelProps) {
     const { state, connect, disconnect, prompt, cancel, respondPermission } = useACP(rootPath, isolated);
     const { status, timeline, busy, permission, plan, error } = state;
     const [inputValue, setInputValue] = useState("");
@@ -292,13 +294,22 @@ export function AgentPanel({ rootPath, focused, onFocus, isolated = false }: Age
                             <text style={{ fg: st.color, attributes: TextAttributes.BOLD }}>{`${st.icon} `}</text>
                             <text style={{ fg: "white", attributes: TextAttributes.BOLD }}>{entry.title}</text>
                             {where && !entry.title.includes(path.basename(where.path)) && (
-                                <text style={{ fg: "gray" }}>{`  ${path.relative(rootPath, where.path) || where.path}${where.line ? `:${where.line}` : ""}`}</text>
+                                <text
+                                    style={{ fg: "gray" }}
+                                    onMouseDown={() => onOpenFile?.(path.resolve(rootPath, where.path), where.line)}
+                                >
+                                    {`  ${path.relative(rootPath, where.path) || where.path}${where.line ? `:${where.line}` : ""}`}
+                                </text>
                             )}
                         </box>
                         {entry.diffs.map((d) => {
                             const { added, removed } = diffStats(d.oldText, d.newText);
                             return (
-                                <box key={d.path} style={{ flexDirection: "row", paddingLeft: 2 }}>
+                                <box
+                                    key={d.path}
+                                    style={{ flexDirection: "row", paddingLeft: 2 }}
+                                    onMouseDown={() => onOpenFile?.(path.resolve(rootPath, d.path))}
+                                >
                                     <text style={{ fg: "gray" }}>{`${path.relative(rootPath, path.resolve(rootPath, d.path))} `}</text>
                                     <text style={{ fg: "green" }}>{`+${added} `}</text>
                                     <text style={{ fg: "red" }}>{`-${removed}`}</text>

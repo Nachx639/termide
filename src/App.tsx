@@ -1412,6 +1412,7 @@ export function App({ rootPath }: AppProps) {
                   <PanelErrorBoundary panelName="AI Agent">
                     <AgentPanel
                       rootPath={rootPath}
+                      onOpenFile={(file, line) => handleFileSelect(file, line)}
                       focused={!isAnyModalOpen && !leaderMode && focusedPanel === "agent"}
                       onFocus={() => setFocusedPanel("agent")}
                     />
