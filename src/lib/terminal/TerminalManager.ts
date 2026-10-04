@@ -94,8 +94,10 @@ export class TerminalManager {
     return session;
   }
 
+  /** On screen while the terminal is watched: the active tab, or either pane of a split. */
   private isSeen(id: number) {
-    return this.watching && this.state.activeId === id;
+    const split = this.state.split;
+    return this.watching && (this.state.activeId === id || (!!split && (split.left === id || split.right === id)));
   }
 
   private patchTab(id: number, patch: Partial<Pick<TerminalTab, "activity" | "bell">>) {
@@ -105,7 +107,11 @@ export class TerminalManager {
   /** The terminal panel became visible+focused (or stopped being): clears the active tab's marks. */
   setWatching(watching: boolean) {
     this.watching = watching;
-    if (watching && this.state.activeId !== null) this.patchTab(this.state.activeId, { activity: false, bell: false });
+    if (!watching) return;
+    const split = this.state.split;
+    for (const id of split ? [split.left, split.right] : this.state.activeId !== null ? [this.state.activeId] : []) {
+      this.patchTab(id, { activity: false, bell: false });
+    }
   }
 
   /** Called when a tab rings the bell while nobody is looking at it. */

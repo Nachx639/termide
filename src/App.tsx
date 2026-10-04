@@ -529,13 +529,65 @@ export function App({ rootPath }: AppProps) {
         setGitStatus(status);
       },
     },
+    // Terminal
+    {
+      id: "terminal-new-tab",
+      label: "New Terminal Tab",
+      description: "Open another shell",
+      shortcut: "Ctrl+X T",
+      category: "Terminal",
+      action: () => {
+        getTerminalManager(rootPath).newTab();
+        setShowAgent(false);
+        setFocusedPanel("terminal");
+      },
+    },
+    {
+      id: "terminal-split",
+      label: "Split Terminal",
+      description: "Shells side by side (again to unsplit)",
+      shortcut: "Ctrl+X \\",
+      category: "Terminal",
+      action: () => {
+        getTerminalManager(rootPath).toggleSplit();
+        setShowAgent(false);
+        setFocusedPanel("terminal");
+      },
+    },
+    {
+      id: "terminal-search",
+      label: "Search Terminal Output",
+      description: "Find text in the scrollback",
+      shortcut: "Ctrl+X /",
+      category: "Terminal",
+      action: () => {
+        setShowAgent(false);
+        setFocusedPanel("terminal");
+        setTimeout(() => terminalSearchRef.current?.(), 0);
+      },
+    },
+    {
+      id: "terminal-close-tab",
+      label: "Close Terminal Tab",
+      description: "Kill the current shell",
+      shortcut: "Ctrl+X W",
+      category: "Terminal",
+      action: () => {
+        const tm = getTerminalManager(rootPath);
+        tm.closeActive();
+        tm.ensureTab();
+      },
+    },
     // View
     {
       id: "toggle-fullscreen-terminal",
       label: "Maximize Terminal",
       description: "Focus terminal panel",
       category: "View",
-      action: () => setFocusedPanel("terminal"),
+      action: () => {
+        setFocusedPanel("terminal");
+        setIsMaximized(true);
+      },
     },
     {
       id: "toggle-agent",
