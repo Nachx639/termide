@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# Least privilege for the workflow token.
+permissions:
+  contents: read
+
 jobs:
   test:
     strategy:
@@ -13,9 +17,16 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      # Actions pinned to commit SHAs (tags can be moved); Dependabot bumps them.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.2
       - run: bun install --frozen-lockfile
+      # Fail on known vulnerabilities in the dependency tree.
+      - run: bun audit
       - run: bunx tsc --noEmit -p .
       # --isolate: a fresh global per file (Bun 1.4.2 occasionally segfaulted
       # when renderers from many files shared one process).
