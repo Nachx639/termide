@@ -40,6 +40,10 @@ export interface ACPOptions {
   env?: Record<string, string>;
   onNotification?: NotificationHandler;
   onRequest?: RequestHandler;
+  /** Agent stderr (diagnostics; shown when the agent fails to start). */
+  onStderr?: (text: string) => void;
+  /** Agent process exited; pending requests have already been rejected. */
+  onExit?: (code: number | null) => void;
 }
 
 // Pending request handler type
@@ -49,7 +53,7 @@ interface PendingRequest {
 }
 
 export class ACPClient {
-  private proc: Subprocess<"pipe", "pipe", "ignore"> | null = null;
+  private proc: Subprocess<"pipe", "pipe", "pipe"> | null = null;
   private requestId = 0;
   private pendingRequests = new Map<number | string, PendingRequest>();
   private buffer = "";
@@ -70,27 +74,52 @@ export class ACPClient {
         cwd: this.options.cwd || process.cwd(),
         stdin: "pipe",
         stdout: "pipe",
-        stderr: "ignore", // Suppress agent debug output (e.g. "Spawning Claude Code...")
+        stderr: "pipe", // kept out of the UI, but surfaced if the agent dies
         env: spawnEnv,
       });
 
       this.isConnected = true;
       this.readLoop();
+      this.readStderr();
+      const proc = this.proc;
+      proc.exited.then((code) => {
+        if (this.proc !== proc) return;
+        this.isConnected = false;
+        this.rejectAll(new Error(`Agent exited${code !== null ? ` with code ${code}` : ""}`));
+        this.options.onExit?.(code);
+      });
     } catch (e) {
-      console.error("Failed to spawn ACP agent:", e);
+      // No console output here: it would be drawn over the TUI. Callers report it.
       throw e;
     }
+  }
+
+  private rejectAll(err: Error) {
+    for (const p of this.pendingRequests.values()) p.reject(err);
+    this.pendingRequests.clear();
+  }
+
+  private async readStderr(): Promise<void> {
+    if (!this.proc) return;
+    const dec = new TextDecoder();
+    try {
+      for await (const chunk of this.proc.stderr as ReadableStream<Uint8Array>) {
+        this.options.onStderr?.(dec.decode(chunk, { stream: true }));
+      }
+    } catch {}
   }
 
   private async readLoop(): Promise<void> {
     if (!this.proc) return;
     const reader = this.proc.stdout.getReader();
+    // One decoder for the stream so multi-byte characters split across chunks survive.
+    const decoder = new TextDecoder();
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = new TextDecoder().decode(value);
+        const chunk = decoder.decode(value, { stream: true });
         this.buffer += chunk;
 
         let newlineIndex;
@@ -108,8 +137,8 @@ export class ACPClient {
           }
         }
       }
-    } catch (e) {
-      console.error("ACP Read Error:", e);
+    } catch {
+      // Stream closed; onExit reports the reason.
     } finally {
       this.isConnected = false;
     }
@@ -137,7 +166,8 @@ export class ACPClient {
           this.sendResponse(request.id, result);
         } catch (err) {
           const message = err instanceof Error ? err.message : "Internal error";
-          this.sendError(request.id, -32603, message);
+          const code = typeof (err as any)?.code === "number" ? (err as any).code : -32603;
+          this.sendError(request.id, code, message);
         }
       } else {
         // Method not found/handled
@@ -194,8 +224,12 @@ export class ACPClient {
       params
     };
     const str = JSON.stringify(notif) + "\n";
-    this.proc.stdin.write(new TextEncoder().encode(str));
-    this.proc.stdin.flush();
+    try {
+      this.proc.stdin.write(new TextEncoder().encode(str));
+      this.proc.stdin.flush();
+    } catch {
+      // Agent gone; exit handling reports it.
+    }
   }
 
   private sendResponse(id: number | string, result: unknown): void {
@@ -206,8 +240,12 @@ export class ACPClient {
       result
     };
     const str = JSON.stringify(resp) + "\n";
-    this.proc.stdin.write(new TextEncoder().encode(str));
-    this.proc.stdin.flush();
+    try {
+      this.proc.stdin.write(new TextEncoder().encode(str));
+      this.proc.stdin.flush();
+    } catch {
+      // Agent gone; exit handling reports it.
+    }
   }
 
   private sendError(id: number | string, code: number, message: string): void {
@@ -218,14 +256,21 @@ export class ACPClient {
       error: { code, message }
     };
     const str = JSON.stringify(resp) + "\n";
-    this.proc.stdin.write(new TextEncoder().encode(str));
-    this.proc.stdin.flush();
+    try {
+      this.proc.stdin.write(new TextEncoder().encode(str));
+      this.proc.stdin.flush();
+    } catch {
+      // Agent gone; exit handling reports it.
+    }
   }
 
   kill() {
     if (this.proc) {
-      this.proc.kill();
+      const proc = this.proc;
+      this.proc = null;
       this.isConnected = false;
+      this.rejectAll(new Error("Disconnected"));
+      try { proc.kill(); } catch {}
     }
   }
 }
