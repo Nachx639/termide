@@ -12,6 +12,7 @@ import { TextAttributes } from "@opentui/core";
 import { FileTree } from "./components/FileTree";
 import { FileViewer } from "./components/FileViewer";
 import { Terminal } from "./components/Terminal";
+import { isTerminalHostKey } from "./lib/terminal/keyRouting";
 import { FuzzyFinder } from "./components/FuzzyFinder";
 import { CommandPalette } from "./components/CommandPalette";
 import type { Command } from "./components/CommandPalette";
@@ -409,6 +410,7 @@ export function App({ rootPath }: AppProps) {
     });
   };
   const terminalPasteRef = useRef<((text: string) => void) | null>(null);
+  const terminalWriteRef = useRef<((data: string) => void) | null>(null);
   const terminalCopyRef = useRef<(() => string) | null>(null);
 
   // Command palette commands
@@ -712,6 +714,10 @@ export function App({ rootPath }: AppProps) {
       process.exit(0);
     }
 
+    // Terminal focused: every key belongs to the shell except a few escape hatches
+    // (Ctrl+X leader, F1, Ctrl+Space, Ctrl+Shift+C/V). See lib/terminal/keyRouting.ts.
+    if (focusedPanel === "terminal" && !showAgent && !leaderMode && !isTerminalHostKey(event)) return;
+
     // === COPY SELECTION with Ctrl+Y ===
     // Try to copy OpenTUI selection when user presses Ctrl+Y
     if (event.ctrl && (event.name === "y" || event.name === "Y") && !event.shift) {
@@ -733,7 +739,7 @@ export function App({ rootPath }: AppProps) {
         setLeaderMode(false);
         notify("Leader mode cancelled", "info", 1000);
       }, 2000);
-      notify("Ctrl+X pressed - waiting for command...", "info", 2000);
+      notify("Ctrl+X → Tab panels · K palette · P files · H help · V copy · Q quit · X send ^X", "info", 2000);
       return;
     }
 
@@ -760,6 +766,35 @@ export function App({ rootPath }: AppProps) {
         } catch {
           error("Failed to copy", 2000);
         }
+        return;
+      }
+
+      // Tab / Shift+Tab = next / previous panel (the way out of the terminal)
+      if (event.name === "tab") {
+        const order: Panel[] = showAgent
+          ? ["tree", "source", "graph", "viewer", "agent"]
+          : ["tree", "source", "graph", "viewer", "terminal"];
+        setFocusedPanel((current) => {
+          const i = order.indexOf(current);
+          if (i === -1) return order[0] as Panel;
+          return order[(i + (event.shift ? order.length - 1 : 1)) % order.length] as Panel;
+        });
+        return;
+      }
+
+      // X = send a literal Ctrl+X to the terminal (Ctrl+X Ctrl+X also works)
+      if (event.name === "x" || event.name === "X") {
+        if (focusedPanel === "terminal") terminalWriteRef.current?.("\x18");
+        return;
+      }
+
+      // K = command palette, P = fuzzy finder (reachable from the terminal)
+      if (event.name === "k" || event.name === "K") {
+        setShowCommandPalette(true);
+        return;
+      }
+      if (event.name === "p" || event.name === "P") {
+        setShowFuzzyFinder(true);
         return;
       }
 
@@ -1402,10 +1437,11 @@ export function App({ rootPath }: AppProps) {
                   <box onMouseDown={() => setFocusedPanel("terminal")} style={{ height: "100%" }}>
                     <Terminal
                       cwd={rootPath}
-                      focused={!isAnyModalOpen && focusedPanel === "terminal"}
+                      focused={!isAnyModalOpen && focusedPanel === "terminal" && !leaderMode}
                       onFocusRequest={() => setFocusedPanel("terminal")}
                       onPasteReady={(pasteFn) => { terminalPasteRef.current = pasteFn; }}
                       onCopyReady={(copyFn) => { terminalCopyRef.current = copyFn; }}
+                      onWriteReady={(writeFn) => { terminalWriteRef.current = writeFn; }}
                       height={currentTerminalHeight}
                       selectMode={terminalSelectMode}
                     />
