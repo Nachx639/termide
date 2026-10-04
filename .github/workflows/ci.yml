@@ -17,6 +17,8 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bunx tsc --noEmit -p .
-      - run: bun test
+      # --isolate: a fresh global per file (Bun 1.4.2 occasionally segfaulted
+      # when renderers from many files shared one process).
+      - run: bun test --isolate
       # Every way of quitting must restore the terminal and keep the last edit.
       - run: bun scripts/exit-check.ts
