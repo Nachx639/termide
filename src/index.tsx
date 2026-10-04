@@ -3,6 +3,7 @@ import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
 import { App } from "./App";
 import { disposeAllTerminals } from "./lib/terminal/TerminalManager";
+import { quit } from "./lib/quit";
 import { disposeAllAgents } from "./hooks/useACP";
 import * as path from "path";
 import * as fs from "fs";
@@ -31,21 +32,9 @@ debugLog("🖱️ Renderer created with useMouse: true");
 const root = createRoot(renderer);
 root.render(<App rootPath={rootPath} />);
 
-// Handle graceful shutdown on SIGTERM (kill command)
-// Selection/copy is handled via onMouseUp in App.tsx
-const cleanExit = () => {
-    // Reset terminal modes before exit
-    process.stdout.write("\x1b[?1000l"); // Disable mouse tracking
-    process.stdout.write("\x1b[?1006l"); // Disable SGR mouse
-    process.stdout.write("\x1b[?25h");   // Show cursor
-    process.stdout.write("\x1b[?1049l"); // Exit alternate buffer if active
-
-    // Force exit without letting React try to unmount
-    process.exit(0);
-};
-
-// SIGTERM for clean exit
-process.on("SIGTERM", cleanExit);
+// SIGTERM / SIGHUP (terminal window closed): restore the terminal and exit.
+process.on("SIGTERM", () => quit(0));
+process.on("SIGHUP", () => quit(0));
 // Shells and the programs inside them go down with termide, whatever the exit path.
 process.on("exit", () => {
   disposeAllTerminals();

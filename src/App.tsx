@@ -16,6 +16,7 @@ import { PanelErrorBoundary } from "./components/ErrorBoundary";
 import { MascotLine, Clock, mascot } from "./components/Mascot";
 import { isTerminalHostKey, isEditorOwnedKey } from "./lib/terminal/keyRouting";
 import { getTerminalManager } from "./lib/terminal/TerminalManager";
+import { quit } from "./lib/quit";
 import { FuzzyFinder } from "./components/FuzzyFinder";
 import { CommandPalette } from "./components/CommandPalette";
 import type { Command } from "./components/CommandPalette";
@@ -629,7 +630,7 @@ export function App({ rootPath }: AppProps) {
       label: "Quit Application",
       shortcut: "Ctrl+Q",
       category: "Application",
-      action: () => process.exit(0),
+      action: () => quit(),
     },
   ];
 
@@ -656,7 +657,7 @@ export function App({ rootPath }: AppProps) {
     // When terminal is focused, Ctrl+C goes to PTY (handled in Terminal.tsx)
     // When any other panel is focused, Ctrl+C exits the app
     if (event.ctrl && event.name === "c" && focusedPanel !== "terminal") {
-      process.exit(0);
+      quit();
     }
 
     // Terminal focused: every key belongs to the shell except a few escape hatches
@@ -785,7 +786,7 @@ export function App({ rootPath }: AppProps) {
 
       // Q = Quit
       if (event.name === "q" || event.name === "Q") {
-        process.exit(0);
+        quit();
       }
 
       // H = Help
@@ -935,7 +936,7 @@ export function App({ rootPath }: AppProps) {
 
     // Global keybindings
     if (event.ctrl && event.name === "q") {
-      process.exit(0);
+      quit();
     }
 
     // Ctrl+F - Toggle Center Focus / Maximize
