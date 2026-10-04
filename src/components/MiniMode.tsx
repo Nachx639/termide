@@ -169,7 +169,7 @@ export function MiniMode({
           {getMiniModePanelIcon(activePanel)} {activePanel.toUpperCase()}
         </text>
         <box style={{ flexGrow: 1, minWidth: 1 }} />
-        <text wrapMode="none" style={{ fg: "gray", attributes: TextAttributes.DIM, flexShrink: 1 }}>
+        <text wrapMode="none" style={{ fg: "gray", attributes: TextAttributes.DIM, flexShrink: 1, marginLeft: 1 }}>
           {leader ? "1-3/Tab:panel T:term Q:quit" : activePanel === "explorer" ? "Tab/1-3:switch" : "Ctrl+X 1-3:switch"} │ Ctrl+Space:AI
         </text>
       </box>
