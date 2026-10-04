@@ -6,6 +6,8 @@ import * as fs from "fs";
 import * as path from "path";
 import { detectLanguage } from "../lib/SyntaxHighlighter";
 import { getTermideSyntaxStyle } from "../lib/SyntaxStyles";
+import { highlightRanges } from "../lib/editorHighlight";
+import type { Theme } from "../lib/ThemeSystem";
 import { getFileLineDiffs, type LineDiffStatus } from "../lib/GitIntegration";
 import { findMatchingBracket } from "../lib/BracketMatcher";
 import { getWordAtPosition, getAllSymbols, type SymbolLocation } from "../lib/SymbolFinder";
@@ -30,6 +32,8 @@ interface FileViewerProps {
   showMinimap?: boolean;
   /** Off: save with Ctrl+S, or when switching files / unmounting. */
   autoSave?: boolean;
+  /** Colour theme for syntax highlighting (default: Termide dark). */
+  syntaxTheme?: Theme;
   /**
    * Called when the user clicks anywhere inside this viewer. Lets the parent
    * focus this pane — needed because the inner <textarea> captures mouse
@@ -58,6 +62,8 @@ function Breadcrumbs({ filePath, rootPath }: { filePath: string; rootPath?: stri
 }
 
 const SAVE_DEBOUNCE_MS = 500;
+// Highlight ref for syntax colours (decorations use their own refs, priority 10).
+const SYNTAX_HL_REF = 0x51a7;
 
 export function FileViewer({
   filePath,
@@ -72,6 +78,7 @@ export function FileViewer({
   showLineNumbers = true,
   showMinimap = true,
   autoSave = true,
+  syntaxTheme,
 }: FileViewerProps) {
   const textareaRef = useRef<TextareaRenderable | null>(null);
   const lineNumberRef = useRef<LineNumberRenderable | null>(null);
@@ -123,7 +130,10 @@ export function FileViewer({
   const language = useMemo(() => (filePath ? detectLanguage(filePath) : null), [filePath]);
   const langIndicator = language ? language.toUpperCase() : "";
 
-  const syntaxStyle = useMemo(() => getTermideSyntaxStyle(), []);
+  const syntaxStyle = useMemo(() => getTermideSyntaxStyle(syntaxTheme), [syntaxTheme]);
+  const editorBg = syntaxTheme && syntaxTheme.id !== "dark" ? syntaxTheme.background : "#050505";
+  // Bumped on every edit; the syntax highlighter re-runs shortly after typing stops.
+  const [editVersion, setEditVersion] = useState(0);
 
   const fileName = useMemo(() => {
     if (!filePath) return "";
@@ -447,6 +457,7 @@ export function FileViewer({
         start: m.col,
         end: m.col + searchQuery.length,
         styleId: style,
+        priority: 10,
         hlRef: ref,
       });
     }
@@ -486,6 +497,7 @@ export function FileViewer({
             start: from,
             end: from + word.length,
             styleId,
+            priority: 10,
             hlRef: ref,
           });
         }
@@ -558,12 +570,14 @@ export function FileViewer({
       start: match.openColumn,
       end: match.openColumn + 1,
       styleId,
+      priority: 10,
       hlRef: ref,
     });
     ta.addHighlight(match.closeLine, {
       start: match.closeColumn,
       end: match.closeColumn + 1,
       styleId,
+      priority: 10,
       hlRef: ref,
     });
   }, [cursorLine, cursorColumn, syntaxStyle]);
@@ -605,6 +619,29 @@ export function FileViewer({
     };
   }, [filePath, rootPath, isDirty]);
 
+  // Syntax highlighting: the native textarea has no highlighter, so ranges from
+  // tree-sitter (or the regex tokenizer) are applied as textarea highlights.
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta || !filePath) return;
+    const text = ta.plainText;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const ranges = await highlightRanges(filePath, text);
+      // Skip stale results: a newer edit will schedule its own run.
+      if (cancelled || textareaRef.current !== ta || ta.plainText !== text) return;
+      ta.removeHighlightsByRef(SYNTAX_HL_REF);
+      for (const r of ranges) {
+        const styleId = syntaxStyle.getStyleId(r.name);
+        if (styleId != null) ta.addHighlight(r.line, { start: r.start, end: r.end, styleId, priority: 0, hlRef: SYNTAX_HL_REF });
+      }
+    }, editVersion === 0 ? 0 : 120);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [filePath, initialContent, editVersion, syntaxStyle]);
+
   const handleContentChange = useCallback(() => {
     // Track line count for the bottomTitle / status row.
     const ta = textareaRef.current;
@@ -612,6 +649,7 @@ export function FileViewer({
       setLineCount(ta.lineCount);
       latestTextRef.current = ta.plainText;
     }
+    setEditVersion((v) => v + 1);
 
     // If the change came from us programmatically loading a file, do not mark dirty.
     if (suppressDirtyRef.current) {
@@ -776,7 +814,7 @@ export function FileViewer({
             onContentChange={handleContentChange}
             onCursorChange={handleCursorChange}
             wrapMode={wordWrap ? "word" : "none"}
-            style={{ width: "100%", flexGrow: 1, backgroundColor: "#050505" }}
+            style={{ width: "100%", flexGrow: 1, backgroundColor: editorBg }}
           />
         </line-number>
         {/* Minimap on the right edge — only when the file is wide enough to

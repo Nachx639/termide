@@ -38,7 +38,8 @@ import { DiffViewer } from "./components/DiffViewer";
 import * as path from "path";
 import { getGitStatus, formatGitBranch, formatGitStatus, invalidateGitCache } from "./lib/GitIntegration";
 import type { GitStatus } from "./lib/GitIntegration";
-import { DARK_THEME, THEMES } from "./lib/ThemeSystem";
+import { THEMES, getTheme } from "./lib/ThemeSystem";
+import { loadPreferences, savePreferences } from "./lib/Preferences";
 import type { Theme } from "./lib/ThemeSystem";
 import { getLayoutConfig, getScreenSizeLabel } from "./lib/ResponsiveLayout";
 import type { LayoutConfig, ScreenSize } from "./lib/ResponsiveLayout";
@@ -107,19 +108,32 @@ export function App({ rootPath }: AppProps) {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [showQuickSettings, setShowQuickSettings] = useState(false);
-  const [theme, setTheme] = useState<Theme>(DARK_THEME);
-  const [quickSettings, setQuickSettings] = useState<QuickSettingsState>({
-    wordWrap: false,
-    minimap: true,
-    lineNumbers: true,
-    autoSave: true,
-    theme: DARK_THEME,
-  });
+  // Theme and editor toggles persist across runs (~/.termide/preferences.json).
+  const [initialPrefs] = useState(loadPreferences);
+  const [quickSettings, setQuickSettings] = useState<QuickSettingsState>(() => ({
+    wordWrap: initialPrefs.wordWrap,
+    minimap: initialPrefs.minimap,
+    lineNumbers: initialPrefs.lineNumbers,
+    autoSave: initialPrefs.autoSave,
+    theme: getTheme(initialPrefs.themeId),
+  }));
+  const theme = quickSettings.theme;
+  const setTheme = (t: Theme) => setQuickSettings((prev) => ({ ...prev, theme: t }));
+  useEffect(() => {
+    savePreferences({
+      themeId: quickSettings.theme.id,
+      wordWrap: quickSettings.wordWrap,
+      minimap: quickSettings.minimap,
+      lineNumbers: quickSettings.lineNumbers,
+      autoSave: quickSettings.autoSave,
+    });
+  }, [quickSettings]);
   const viewerSettings = {
     wordWrap: quickSettings.wordWrap,
     showLineNumbers: quickSettings.lineNumbers,
     showMinimap: quickSettings.minimap,
     autoSave: quickSettings.autoSave,
+    syntaxTheme: quickSettings.theme,
   };
   const dimensions = useTerminalDimensions();
   const [treeWidth, setTreeWidth] = useState(30);
@@ -1582,12 +1596,7 @@ export function App({ rootPath }: AppProps) {
           isOpen={showQuickSettings}
           onClose={() => setShowQuickSettings(false)}
           settings={quickSettings}
-          onSettingsChange={(changes) => {
-            setQuickSettings(prev => ({ ...prev, ...changes }));
-            if (changes.theme) {
-              setTheme(changes.theme);
-            }
-          }}
+          onSettingsChange={(changes) => setQuickSettings(prev => ({ ...prev, ...changes }))}
         />
       )}
 
