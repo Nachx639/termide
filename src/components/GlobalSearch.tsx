@@ -102,25 +102,9 @@ export function GlobalSearch({ rootPath, isOpen, onClose, onSelect }: GlobalSear
           position: "relative",
         }}
       >
-        {/* Absolute Backdrop of spaces to force terminal opacity */}
-        <box
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            backgroundColor: "#1a1a1a",
-            flexDirection: "column",
-          }}
-        >
-          {Array.from({ length: 22 }).map((_, i) => (
-            <text key={i} style={{ bg: "#1a1a1a" }}>{" ".repeat(200)}</text>
-          ))}
-        </box>
 
         {/* Search input (native <input>) */}
-        <box style={{ paddingX: 1, border: ["bottom"], borderColor: "gray", backgroundColor: "#1a1a1a", flexDirection: "row" }}>
+        <box style={{ paddingX: 1, height: 2, flexShrink: 0, border: ["bottom"], borderColor: "gray", backgroundColor: "#1a1a1a", flexDirection: "row" }}>
           <text style={{ fg: "green", bg: "#1a1a1a" }}>🔎 </text>
           <input
             focused={isOpen}
