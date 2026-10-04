@@ -56,7 +56,89 @@ export function DiffViewer({ diff, filePath, focused, onClose, onFocus }: DiffVi
   });
 
   const fileName = filePath.split("/").pop() || filePath;
-  // Detect filetype from extension
+  // A commit (git show) holds several files: render each with its own filetype.
+  const { preamble, files } = splitPatch(diff);
+
+  return (
+    <box
+      style={{ flexDirection: "column", border: true, borderColor: focused ? theme.borderFocused : theme.border, height: "100%", backgroundColor: "#0b0b0b" }}
+      onMouseDown={onFocus}
+    >
+      {/* Header */}
+      <box style={{ paddingX: 1, height: 1, backgroundColor: "#1a1a1a", flexDirection: "row", justifyContent: "space-between", flexShrink: 0 }}>
+        <box style={{ flexDirection: "row", gap: 1 }}>
+          {focused && <text style={{ fg: "black", bg: theme.accent, attributes: TextAttributes.BOLD }}> FOCUS </text>}
+          <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD }}>📊 Diff</text>
+          <text style={{ fg: "white" }}>{fileName}</text>
+          <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
+            ({viewMode}{files.length > 1 ? ` · ${files.length} files` : ""})
+          </text>
+        </box>
+        <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>v:toggle view | q/Esc:close</text>
+      </box>
+
+      <scrollbox ref={scrollBoxRef} focused={focused} style={{ flexGrow: 1 }} scrollY>
+        {preamble && (
+          <box style={{ flexDirection: "column", paddingX: 1, marginBottom: 1 }}>
+            {preamble.split("\n").map((l, i) => (
+              <text key={i} style={{ fg: i === 0 ? "#d4a800" : "white", attributes: i === 0 ? TextAttributes.BOLD : 0 }}>
+                {l || " "}
+              </text>
+            ))}
+          </box>
+        )}
+        {files.map((f, i) => (
+          <box key={`${f.path}-${i}`} style={{ flexDirection: "column", marginBottom: 1 }}>
+            {files.length > 1 && (
+              <box style={{ paddingX: 1, height: 1, backgroundColor: "#1a1a1a", flexShrink: 0 }}>
+                <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>{f.path}</text>
+              </box>
+            )}
+            <diff
+              diff={f.patch}
+              view={viewMode}
+              syncScroll
+              filetype={filetypeFor(f.path)}
+              syntaxStyle={getTermideSyntaxStyle()}
+              conceal
+              showLineNumbers
+              wrapMode="word"
+              style={{ width: "100%" }}
+              addedBg="#1e3a1e"
+              removedBg="#3a1e1e"
+              contextBg="#0b0b0b"
+              addedSignColor="#4ec9b0"
+              removedSignColor="#f14c4c"
+              lineNumberFg="#4a4a4a"
+              lineNumberBg="#111111"
+            />
+          </box>
+        ))}
+      </scrollbox>
+    </box>
+  );
+}
+
+/** Split a patch (possibly `git show` output) into its commit header and per-file diffs. */
+export function splitPatch(diff: string): { preamble: string; files: { path: string; patch: string }[] } {
+  const start = diff.search(/^diff --git /m);
+  if (start === -1) return { preamble: "", files: [{ path: "", patch: diff }] };
+  const preamble = diff.slice(0, start).trim();
+  const files = diff
+    .slice(start)
+    .split(/^(?=diff --git )/m)
+    .filter((chunk) => chunk.startsWith("diff --git "))
+    .map((patch) => {
+      const plus = patch.match(/^\+\+\+ (?:b\/)?(.+)$/m)?.[1];
+      const header = patch.match(/^diff --git a\/(.+?) b\/(.+)$/m);
+      const p = plus && plus !== "/dev/null" ? plus : header?.[2] ?? "";
+      return { path: p.trim(), patch };
+    });
+  return { preamble, files };
+}
+
+function filetypeFor(filePath: string): string {
+  const fileName = filePath.split("/").pop() || filePath;
   const ext = fileName.split(".").pop()?.toLowerCase() || "";
   const filetypeMap: Record<string, string> = {
     ts: "typescript", tsx: "typescript", js: "javascript", jsx: "javascript",
@@ -66,48 +148,5 @@ export function DiffViewer({ diff, filePath, focused, onClose, onFocus }: DiffVi
     swift: "swift", kt: "kotlin", java: "java", c: "c", cpp: "cpp",
     zig: "zig",
   };
-  const filetype = filetypeMap[ext] || ext;
-
-  return (
-    <box
-      style={{ flexDirection: "column", border: true, borderColor: focused ? theme.borderFocused : theme.border, height: "100%", backgroundColor: "#0b0b0b" }}
-      onMouseDown={onFocus}
-    >
-      {/* Header */}
-      <box style={{ paddingX: 1, height: 1, backgroundColor: "#1a1a1a", flexDirection: "row", justifyContent: "space-between" }}>
-        <box style={{ flexDirection: "row", gap: 1 }}>
-          {focused && <text style={{ fg: "black", bg: theme.accent, attributes: TextAttributes.BOLD }}> FOCUS </text>}
-          <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD }}>📊 Diff</text>
-          <text style={{ fg: "white" }}>{fileName}</text>
-          <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>({viewMode})</text>
-        </box>
-        <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>v:toggle view | q/Esc:close</text>
-      </box>
-
-      {/* Native Diff Renderable */}
-      <scrollbox ref={scrollBoxRef} focused={focused} style={{ flexGrow: 1 }} scrollY>
-        <diff
-          diff={diff}
-          view={viewMode}
-          syncScroll
-          filetype={filetype}
-          syntaxStyle={getTermideSyntaxStyle()}
-          conceal
-          showLineNumbers
-          wrapMode="word"
-          style={{
-            width: "100%",
-            flexGrow: 1,
-          }}
-          addedBg="#1e3a1e"
-          removedBg="#3a1e1e"
-          contextBg="#0b0b0b"
-          addedSignColor="#4ec9b0"
-          removedSignColor="#f14c4c"
-          lineNumberFg="#4a4a4a"
-          lineNumberBg="#111111"
-        />
-      </scrollbox>
-    </box>
-  );
+  return filetypeMap[ext] || ext;
 }
