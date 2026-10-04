@@ -24,6 +24,7 @@ export function FileOperationsModal({
   onError
 }: FileOperationsModalProps) {
   const [inputValue, setInputValue] = useState("");
+  const currentInput = inputValue;
   const dimensions = useTerminalDimensions();
 
   // Reset input when opened
@@ -45,23 +46,16 @@ export function FileOperationsModal({
       return;
     }
 
-    if (event.name === "return") {
+    // Name entry is the native <input> (submit via onSubmit); only the delete
+    // confirmation needs Enter here.
+    if (event.name === "return" && operation === "delete") {
       executeOperation();
-      return;
-    }
-
-    if (event.name === "backspace") {
-      setInputValue(prev => prev.slice(0, -1));
-      return;
-    }
-
-    // Regular characters
-    if (event.name && event.name.length === 1 && !event.ctrl && !event.meta) {
-      setInputValue(prev => prev + event.name);
     }
   });
 
-  const executeOperation = () => {
+  // The input hands over its value: state may lag a render behind fast typing.
+  const executeOperation = (submitted?: string) => {
+    const inputValue = submitted ?? currentInput;
     try {
       switch (operation) {
         case "create-file": {
@@ -152,6 +146,9 @@ export function FileOperationsModal({
   const isDeleteConfirm = operation === "delete";
   const targetName = path.basename(targetPath);
 
+  const accent = operation === "delete" ? "red" : "cyan";
+  const row = { height: 1, flexShrink: 0, flexDirection: "row" as const, paddingX: 1, backgroundColor: "#050505" };
+
   return (
     <box
       style={{
@@ -164,63 +161,45 @@ export function FileOperationsModal({
         alignItems: "center",
       }}
     >
+      {/* One line per row; the old padded/bordered rows needed 9 lines in a 6-line box
+          and were squashed on top of each other. */}
       <box
         style={{
           width: Math.min(60, width - 4),
-          height: isDeleteConfirm ? 7 : 6,
+          height: 6,
           flexDirection: "column",
           border: true,
-          borderColor: operation === "delete" ? "red" : "cyan",
+          borderColor: accent,
           backgroundColor: "#050505",
-          position: "relative",
         }}
       >
-        {/* Backdrop */}
-        <box
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            backgroundColor: "#050505",
-            flexDirection: "column",
-          }}
-        >
-          {Array.from({ length: 10 }).map((_, i) => (
-            <text key={i} style={{ bg: "#050505" }}>{" ".repeat(100)}</text>
-          ))}
+        <box style={{ ...row, backgroundColor: "#1a1a1a" }}>
+          <text style={{ fg: accent, attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>{getTitle()}</text>
         </box>
-
-        {/* Header */}
-        <box style={{ paddingX: 1, border: ["bottom"], borderColor: "gray", backgroundColor: "#1a1a1a" }}>
-          <text style={{ fg: operation === "delete" ? "red" : "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>
-            {getTitle()}
-          </text>
+        <box style={row}>
+          <text wrapMode="none" style={{ fg: "white", bg: "#050505" }}>{getPrompt()}</text>
         </box>
-
-        {/* Content */}
-        <box style={{ paddingX: 2, paddingY: 1, flexDirection: "column", backgroundColor: "#050505" }}>
-          <text style={{ fg: "white", bg: "#050505" }}>{getPrompt()}</text>
-
-          {isDeleteConfirm ? (
-            <box style={{ marginTop: 1, flexDirection: "row", backgroundColor: "#050505" }}>
-              <text style={{ fg: "gray", bg: "#050505" }}>Press </text>
-              <text style={{ fg: "red", attributes: TextAttributes.BOLD, bg: "#050505" }}>Enter</text>
-              <text style={{ fg: "gray", bg: "#050505" }}> to confirm or </text>
-              <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#050505" }}>Esc</text>
-              <text style={{ fg: "gray", bg: "#050505" }}> to cancel</text>
-            </box>
-          ) : (
-            <box style={{ marginTop: 1, flexDirection: "row", backgroundColor: "#050505" }}>
-              <text style={{ fg: "white", bg: "#050505" }}>{inputValue}</text>
-              <text style={{ fg: "cyan", bg: "#050505" }}>▌</text>
-            </box>
-          )}
-        </box>
-
-        {/* Footer */}
-        <box style={{ paddingX: 1, border: ["top"], borderColor: "gray", backgroundColor: "#0b0b0b" }}>
+        {isDeleteConfirm ? (
+          <box style={row}>
+            <text style={{ fg: "gray", bg: "#050505" }}>Press </text>
+            <text style={{ fg: "red", attributes: TextAttributes.BOLD, bg: "#050505" }}>Enter</text>
+            <text style={{ fg: "gray", bg: "#050505" }}> to confirm or </text>
+            <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#050505" }}>Esc</text>
+            <text style={{ fg: "gray", bg: "#050505" }}> to cancel</text>
+          </box>
+        ) : (
+          <box style={row}>
+            <text style={{ fg: "cyan", bg: "#050505" }}>{"› "}</text>
+            <input
+              focused={isOpen}
+              value={inputValue}
+              onInput={(v: string) => setInputValue(v)}
+              onSubmit={(v: any) => executeOperation(typeof v === "string" ? v : undefined)}
+              style={{ flexGrow: 1, backgroundColor: "#050505", textColor: "white", cursorColor: "cyan" }}
+            />
+          </box>
+        )}
+        <box style={{ ...row, backgroundColor: "#0b0b0b" }}>
           <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#0b0b0b" }}>
             {isDeleteConfirm ? "⚠️ This action cannot be undone" : "Enter: confirm | Esc: cancel"}
           </text>
