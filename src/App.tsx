@@ -36,6 +36,7 @@ import { getGitStatus, formatGitBranch, formatGitStatus, invalidateGitCache } fr
 import type { GitStatus } from "./lib/GitIntegration";
 import { THEMES, getTheme } from "./lib/ThemeSystem";
 import { loadPreferences, savePreferences } from "./lib/Preferences";
+import { ThemeContext } from "./lib/themeContext";
 import type { Theme } from "./lib/ThemeSystem";
 import { getLayoutConfig, getScreenSizeLabel } from "./lib/ResponsiveLayout";
 import type { LayoutConfig, ScreenSize } from "./lib/ResponsiveLayout";
@@ -1129,7 +1130,7 @@ export function App({ rootPath }: AppProps) {
   // Mini mode render
   if (isMiniMode) {
     return (
-      <>
+      <ThemeContext.Provider value={theme}>
         <MiniMode
           rootPath={rootPath}
           selectedFile={selectedFile}
@@ -1154,11 +1155,12 @@ export function App({ rootPath }: AppProps) {
           />
         )}
         <Notifications notifications={notifications} onDismiss={dismiss} />
-      </>
+      </ThemeContext.Provider>
     );
   }
 
   return (
+    <ThemeContext.Provider value={theme}>
     <box style={{ flexDirection: "column", width: "100%", height: "100%", backgroundColor: "#050505" }}>
       {/* Top Header - Compact or Full (hidden in Zen Mode) */}
       {!zenMode && (useCompactHeader ? (
@@ -1662,5 +1664,6 @@ export function App({ rootPath }: AppProps) {
         onDismiss={dismiss}
       />
     </box>
+    </ThemeContext.Provider>
   );
 }

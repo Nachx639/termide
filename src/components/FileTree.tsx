@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useTheme } from "../lib/themeContext";
 import { useKeyboard } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 import * as fs from "fs";
@@ -78,6 +79,7 @@ function flattenTree(nodes: FileNode[]): FileNode[] {
 }
 
 export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOperation }: FileTreeProps) {
+  const theme = useTheme();
   const [tree, setTree] = useState<FileNode[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const scrollRef = React.useRef<any>(null);
@@ -250,7 +252,7 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
     }
   });
 
-  const borderColor = focused ? "cyan" : "gray";
+  const borderColor = focused ? theme.borderFocused : theme.border;
   const fileCount = flatList.filter((n) => !n.isDirectory).length;
   const folderCount = flatList.filter((n) => n.isDirectory).length;
   const bottomTitle = `${fileCount} files · ${folderCount} dirs`;
@@ -263,7 +265,7 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
       onMouseDown={onFocus}
     >
       <box style={{ paddingX: 1, height: 1, backgroundColor: "#1a1a1a", flexDirection: "row" }}>
-        {focused && <text style={{ fg: "black", bg: "cyan", attributes: TextAttributes.BOLD }}> FOCUS </text>}
+        {focused && <text style={{ fg: "black", bg: theme.accent, attributes: TextAttributes.BOLD }}> FOCUS </text>}
         <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>Explorer</text>
       </box>
       <box

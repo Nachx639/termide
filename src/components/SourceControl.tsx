@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useTheme } from "../lib/themeContext";
 import { useKeyboard } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 import {
@@ -23,6 +24,7 @@ interface SourceControlProps {
 }
 
 export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: SourceControlProps) {
+    const theme = useTheme();
     const [changes, setChanges] = useState<{ path: string; status: FileGitStatus }[]>([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [showCommitModal, setShowCommitModal] = useState(false);
@@ -190,7 +192,7 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
         } catch {}
     }, [selectedIndex, changes.length]);
 
-    const borderColor = focused ? "cyan" : "gray";
+    const borderColor = focused ? theme.borderFocused : theme.border;
 
     // Group changes
     const staged = changes.filter(c => c.status.staged);
@@ -207,7 +209,7 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
             onMouseDown={onFocus}
         >
             <box style={{ paddingX: 1, height: 1, backgroundColor: "#1a1a1a", flexDirection: "row" }}>
-                {focused && <text style={{ fg: "black", bg: "cyan", attributes: TextAttributes.BOLD }}> FOCUS </text>}
+                {focused && <text style={{ fg: "black", bg: theme.accent, attributes: TextAttributes.BOLD }}> FOCUS </text>}
                 <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>Source Control</text>
                 {focused && (
                     <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#1a1a1a" }}> s:stage c:commit x:discard</text>

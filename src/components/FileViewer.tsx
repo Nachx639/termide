@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useTheme } from "../lib/themeContext";
 import { TextAttributes } from "@opentui/core";
 import type { TextareaRenderable, LineNumberRenderable } from "@opentui/core";
 import { useKeyboard } from "@opentui/react";
@@ -81,6 +82,7 @@ export function FileViewer({
   autoSave = true,
   syntaxTheme,
 }: FileViewerProps) {
+  const theme = useTheme();
   const textareaRef = useRef<TextareaRenderable | null>(null);
   const lineNumberRef = useRef<LineNumberRenderable | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -734,7 +736,7 @@ export function FileViewer({
   }, [onCursorChange, onSelectionChange]);
   handleCursorChangeRef.current = handleCursorChange;
 
-  const borderColor = focused ? "cyan" : "gray";
+  const borderColor = focused ? theme.borderFocused : theme.border;
 
   const bottomTitle = filePath
     ? ` ${langIndicator || "TXT"} · Ln ${cursorLine + 1}:${cursorColumn + 1}/${lineCount} `

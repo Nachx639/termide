@@ -1,4 +1,5 @@
 import React, { useRef } from "react";
+import { useTheme } from "../lib/themeContext";
 import { useKeyboard } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 import { getTermideSyntaxStyle } from "../lib/SyntaxStyles";
@@ -22,6 +23,7 @@ interface DiffViewerProps {
  * - Configurable colors for added/removed/context lines
  */
 export function DiffViewer({ diff, filePath, focused, onClose, onFocus }: DiffViewerProps) {
+  const theme = useTheme();
   const scrollBoxRef = useRef<any>(null);
   const [viewMode, setViewMode] = React.useState<"split" | "unified">("split");
 
@@ -68,13 +70,13 @@ export function DiffViewer({ diff, filePath, focused, onClose, onFocus }: DiffVi
 
   return (
     <box
-      style={{ flexDirection: "column", border: true, borderColor: focused ? "cyan" : "gray", height: "100%", backgroundColor: "#0b0b0b" }}
+      style={{ flexDirection: "column", border: true, borderColor: focused ? theme.borderFocused : theme.border, height: "100%", backgroundColor: "#0b0b0b" }}
       onMouseDown={onFocus}
     >
       {/* Header */}
       <box style={{ paddingX: 1, height: 1, backgroundColor: "#1a1a1a", flexDirection: "row", justifyContent: "space-between" }}>
         <box style={{ flexDirection: "row", gap: 1 }}>
-          {focused && <text style={{ fg: "black", bg: "cyan", attributes: TextAttributes.BOLD }}> FOCUS </text>}
+          {focused && <text style={{ fg: "black", bg: theme.accent, attributes: TextAttributes.BOLD }}> FOCUS </text>}
           <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD }}>📊 Diff</text>
           <text style={{ fg: "white" }}>{fileName}</text>
           <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>({viewMode})</text>
