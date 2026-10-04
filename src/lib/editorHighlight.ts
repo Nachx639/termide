@@ -98,6 +98,8 @@ export function rangesFromTokenizer(content: string, lang: string): LineRange[] 
   return out;
 }
 
+const MAX_HIGHLIGHT_LINES = 50_000;
+
 let tsReady: Promise<boolean> | null = null;
 function treeSitter() {
   tsReady ??= getTreeSitterClient()
@@ -109,7 +111,12 @@ function treeSitter() {
 
 /** Highlight ranges for a file's content; [] for unknown or very large files. */
 export async function highlightRanges(filePath: string, content: string): Promise<LineRange[]> {
+  // Huge files (logs, generated code) are shown plain: highlighting them would
+  // mean hundreds of thousands of ranges on every edit.
   if (content.length > 2_000_000) return [];
+  let lines = 1;
+  for (let i = 0; i < content.length && lines <= MAX_HIGHLIGHT_LINES; i++) if (content.charCodeAt(i) === 10) lines++;
+  if (lines > MAX_HIGHLIGHT_LINES) return [];
   const ft = pathToFiletype(filePath);
   if (ft && (await treeSitter())) {
     try {

@@ -122,14 +122,16 @@ export function FileViewer({
   const [searchIndex, setSearchIndex] = useState(0);
   // Symbol picker (Ctrl+Shift+O / @): list of symbols for the active file.
   const [showSymbolPicker, setShowSymbolPicker] = useState(false);
+  // Computed when the symbol picker opens: scanning symbols costs ~2 s per 30k
+  // lines and used to run on every file open.
   const fileSymbols: SymbolLocation[] = useMemo(() => {
-    if (!filePath || !initialContent) return [];
+    if (!showSymbolPicker || !filePath || !initialContent) return [];
     try {
       return getAllSymbols(initialContent, filePath);
     } catch {
       return [];
     }
-  }, [filePath, initialContent]);
+  }, [filePath, initialContent, showSymbolPicker]);
 
   const language = useMemo(() => (filePath ? detectLanguage(filePath) : null), [filePath]);
   const langIndicator = language ? language.toUpperCase() : "";
@@ -436,7 +438,7 @@ export function FileViewer({
     }
     // Ctrl+Shift+O opens the symbol picker ("@" alone must stay typeable in code).
     if (event.ctrl && event.shift && event.name === "o") {
-      if (fileSymbols.length > 0) setShowSymbolPicker(true);
+      setShowSymbolPicker(true);
       return;
     }
     if (event.name === "escape") {
