@@ -1,88 +1,16 @@
 import React, { useState } from "react";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
+import { SHORTCUTS as HELP_SHORTCUTS } from "./HelpPanel";
 
 interface ShortcutCategory {
   name: string;
   shortcuts: { keys: string; description: string }[];
 }
 
-const SHORTCUTS: ShortcutCategory[] = [
-  {
-    name: "Navigation",
-    shortcuts: [
-      { keys: "Tab", description: "Next panel" },
-      { keys: "Shift+Tab", description: "Previous panel" },
-      { keys: "j/k", description: "Move down/up" },
-      { keys: "h/l", description: "Move left/right" },
-      { keys: "g/G", description: "Go to start/end" },
-      { keys: "PgUp/PgDn", description: "Page up/down" },
-      { keys: "Ctrl+G", description: "Go to line" },
-    ],
-  },
-  {
-    name: "Files",
-    shortcuts: [
-      { keys: "Ctrl+P", description: "Quick open file" },
-      { keys: "Ctrl+W", description: "Close current tab" },
-      { keys: "Ctrl+Tab", description: "Next tab" },
-      { keys: "Ctrl+\\", description: "Toggle split view" },
-      { keys: "Alt+←/→", description: "Switch split" },
-    ],
-  },
-  {
-    name: "Search",
-    shortcuts: [
-      { keys: "Alt+F", description: "Find in file" },
-      { keys: "Ctrl+H", description: "Find & Replace" },
-      { keys: "Ctrl+Shift+F", description: "Global search" },
-    ],
-  },
-  {
-    name: "Editing",
-    shortcuts: [
-      { keys: "V", description: "Visual selection mode" },
-      { keys: "Shift+↑/↓", description: "Extend selection" },
-      { keys: "Ctrl+C/y", description: "Copy line(s)" },
-      { keys: "Ctrl+X", description: "Cut line(s)" },
-      { keys: "Ctrl+V/p", description: "Paste line(s)" },
-      { keys: "Ctrl+D", description: "Duplicate line(s)" },
-      { keys: "Ctrl+Shift+K", description: "Delete line(s)" },
-    ],
-  },
-  {
-    name: "Code",
-    shortcuts: [
-      { keys: "F12", description: "Go to definition" },
-      { keys: "z", description: "Toggle fold" },
-      { keys: "Z (Shift+z)", description: "Fold all" },
-      { keys: "Alt+Z", description: "Unfold all" },
-      { keys: "Ctrl+Shift+G", description: "Toggle git blame" },
-    ],
-  },
-  {
-    name: "View",
-    shortcuts: [
-      { keys: "Ctrl+F", description: "Toggle focus mode" },
-      { keys: "Cmd+Z", description: "Toggle word wrap" },
-      { keys: "Cmd+I", description: "Toggle indent guides" },
-      { keys: "Cmd+M", description: "Toggle minimap" },
-      { keys: "Alt+L", description: "Toggle relative line numbers" },
-      { keys: "Ctrl+,", description: "Quick settings" },
-    ],
-  },
-  {
-    name: "Other",
-    shortcuts: [
-      { keys: "Ctrl+K", description: "Command palette" },
-      { keys: "Ctrl+Shift+/", description: "This shortcuts help" },
-      { keys: "Ctrl+B/?/F1", description: "Toggle help panel" },
-      { keys: "Ctrl+Space", description: "Toggle AI agent" },
-      { keys: "Ctrl+`", description: "Focus terminal" },
-      { keys: "Ctrl+Q", description: "Quit" },
-    ],
-  },
-];
+// Same data as the help panel, so the two can never disagree (this overlay used
+// to list shortcuts that did not exist, e.g. "Ctrl+X: cut line").
+const SHORTCUTS: ShortcutCategory[] = HELP_SHORTCUTS.map((c) => ({ name: c.title, shortcuts: c.shortcuts }));
 
 interface KeyboardShortcutsProps {
   isOpen: boolean;
@@ -157,30 +85,22 @@ export function KeyboardShortcuts({ isOpen, onClose }: KeyboardShortcutsProps) {
           <text style={{ fg: "gray", bg: "#1a1a1a" }}>Esc/q: close</text>
         </box>
 
-        {/* Category tabs */}
+        {/* Category selector: nine categories do not fit as tabs, so show the
+            current one with its position (←/→ or Tab to move). */}
         <box
           style={{
-            height: 1,
+            height: 2,
+            flexShrink: 0,
             flexDirection: "row",
             paddingX: 1,
             border: ["bottom"],
             borderColor: "gray",
-            gap: 1,
+            justifyContent: "center",
           }}
         >
-          {SHORTCUTS.map((cat, index) => (
-            <text
-              key={cat.name}
-              style={{
-                fg: index === selectedCategory ? "cyan" : "gray",
-                attributes:
-                  (index === selectedCategory ? TextAttributes.BOLD : 0) |
-                  (index !== selectedCategory ? TextAttributes.DIM : 0),
-              }}
-            >
-              {cat.name}
-            </text>
-          ))}
+          <text wrapMode="none" style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>
+            {`◀  ${selectedCategory + 1}/${SHORTCUTS.length}  ${category.name}  ▶`}
+          </text>
         </box>
 
         {/* Shortcuts list */}
@@ -194,8 +114,8 @@ export function KeyboardShortcuts({ isOpen, onClose }: KeyboardShortcutsProps) {
                 paddingY: 0,
               }}
             >
-              <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD }}>{shortcut.keys}</text>
-              <text style={{ fg: "gray" }}>{shortcut.description}</text>
+              <text wrapMode="none" style={{ fg: "#d4a800", attributes: TextAttributes.BOLD, flexShrink: 0 }}>{shortcut.keys}</text>
+              <text wrapMode="none" style={{ fg: "gray", flexShrink: 1 }}>{`  ${shortcut.description}`}</text>
             </box>
           ))}
         </box>
@@ -204,7 +124,8 @@ export function KeyboardShortcuts({ isOpen, onClose }: KeyboardShortcutsProps) {
         <box
           style={{
             paddingX: 1,
-            height: 1,
+            height: 2,
+            flexShrink: 0,
             border: ["top"],
             borderColor: "gray",
             backgroundColor: "#0b0b0b",
