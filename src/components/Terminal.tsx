@@ -63,7 +63,8 @@ export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyRea
 
   useEffect(() => {
     onPasteReady?.((text) => manager.active?.paste(text));
-    onCopyReady?.(() => manager.active?.getVisibleText() ?? "");
+    // Copy / copy panel get the scrollback too (agent output rarely fits one screen).
+    onCopyReady?.(() => manager.active?.getAllText().split("\n").slice(-5000).join("\n") ?? "");
     onWriteReady?.((data) => manager.active?.write(data));
   }, [manager, onPasteReady, onCopyReady, onWriteReady]);
 
