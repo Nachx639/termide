@@ -1,6 +1,6 @@
 {
   "name": "termide",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A terminal-first IDE with embedded shell for AI coding agents",
   "module": "src/index.tsx",
   "type": "module",
@@ -16,17 +16,23 @@
     "smoke": "bun scripts/smoke.ts"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "@types/react": "19.2.7"
+    "@types/bun": "1.4.2",
+    "@types/node": "26.6.4",
+    "@types/react": "19.3.0"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
-    "@opentui/core": "0.2.1",
-    "@opentui/react": "0.2.1",
+    "@opentui/core": "0.5.14",
+    "@opentui/react": "0.5.14",
     "@xterm/addon-unicode11": "0.9.0",
     "@xterm/headless": "6.0.0",
-    "react": "19.2.3"
+    "react": "19.3.0",
+    "ws": "8.21.0"
+  },
+  "overrides": {
+    "shell-quote": "1.12.0",
+    "ws": "8.21.0"
   }
 }

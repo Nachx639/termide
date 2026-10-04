@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
 ### Terminal
 - Real terminal emulation (xterm.js headless): truecolor and 256 colours, emoji/CJK
@@ -79,6 +79,17 @@
 - The palette reaches editor commands whose shortcuts need the kitty protocol.
 - Untracked files show a diff; non-git folders say so.
 - Quitting during a conflict keeps your version as `<file>.termide-unsaved`.
+
+### Dependencies and security
+- OpenTUI 0.2.1 → 0.5.14, React 19.3.0, current type packages; every test and check
+  passes on the new versions.
+- `bun audit` was reporting 3 vulnerabilities (1 critical, 2 high) in transitive
+  dependencies (shell-quote, ws via react-devtools-core). They are fixed with
+  overrides, and `bun audit` now runs in CI.
+- CI: least-privilege token, actions pinned to commit SHAs, frozen lockfile; weekly
+  Dependabot updates for packages and actions.
+- New demo GIF and screenshot recorded in a sample project with
+  `scripts/demo/make-demo.sh`.
 
 ### Development
 - More than 300 tests (`bun run test`, i.e. `bun test --isolate`): PTY sessions, rendering via `testRender`, ACP
