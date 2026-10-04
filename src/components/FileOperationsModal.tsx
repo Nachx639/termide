@@ -129,8 +129,8 @@ export function FileOperationsModal({
     switch (operation) {
       case "create-file": return "📄 New File";
       case "create-folder": return "📁 New Folder";
-      case "rename": return "✏️ Rename";
-      case "delete": return "🗑️ Delete";
+      case "rename": return "✎ Rename";
+      case "delete": return "✖ Delete";
     }
   };
 
@@ -201,7 +201,7 @@ export function FileOperationsModal({
         )}
         <box style={{ ...row, backgroundColor: "#0b0b0b" }}>
           <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#0b0b0b" }}>
-            {isDeleteConfirm ? "⚠️ This action cannot be undone" : "Enter: confirm | Esc: cancel"}
+            {isDeleteConfirm ? "⚠ This action cannot be undone" : "Enter: confirm | Esc: cancel"}
           </text>
         </box>
       </box>

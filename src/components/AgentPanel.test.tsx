@@ -28,7 +28,7 @@ test("custom agent: connect, prompt, approve a write, see the tool result", asyn
   try {
     await waitForFrame(setup, (f) => f.includes("Select an AI Agent"));
     for (let i = 0; i < 3; i++) setup.mockInput.pressArrow("down"); // → Custom...
-    await waitForFrame(setup, (f) => f.includes("▸ ⚙️ Custom"));
+    await waitForFrame(setup, (f) => f.includes("▸ 🔧 Custom"));
     setup.mockInput.pressEnter();
     await waitForFrame(setup, (f) => f.includes("Command:"));
     await setup.mockInput.typeText(`bun ${mock}`);
