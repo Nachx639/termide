@@ -153,3 +153,34 @@ test("F12 jumps to the definition in the imported file", async () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 }, 15000);
+
+test("editing a file larger than 1 MB saves all of it, without freezing", async () => {
+  // 2026-10-04: OpenTUI's plainText stops at 1 MiB, so saving truncated big files
+  // (a 2.7 MB file became a few bytes), and the gutter was updated one line at a
+  // time (O(n²), ~5 s frozen after each save of a 30k-line file).
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "termide-bigfile-"));
+  const file = path.join(dir, "big.ts");
+  const original = Array.from({ length: 30000 }, (_, i) => `export const v${i} = "${"x".repeat(60)}"; // ${i}`).join("\n");
+  fs.writeFileSync(file, original);
+  const setup = await testRender(
+    <box style={{ width: 100, height: 16 }}>
+      <FileViewer filePath={file} focused={true} rootPath={dir} height={16} showMinimap={false} />
+    </box>,
+    { width: 100, height: 16 },
+  );
+  try {
+    await waitForFrame(setup, (f) => f.includes("v0 ="), 20000);
+    await setup.mockInput.typeText("Z");
+    await waitForFrame(setup, (f) => f.includes("Zexport") && f.includes("●"));
+    // Autosave (500 ms debounce) must complete promptly.
+    const t = performance.now();
+    await waitForFrame(setup, (f) => !f.includes("●"), 5000);
+    expect(performance.now() - t).toBeLessThan(2000);
+    const saved = fs.readFileSync(file, "utf8");
+    expect(saved.length).toBe(original.length + 1);
+    expect(saved).toBe("Z" + original);
+  } finally {
+    setup.renderer.destroy();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}, 60000);

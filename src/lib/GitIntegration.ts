@@ -440,7 +440,13 @@ export async function getFileLineDiffs(filePath: string, cwd: string): Promise<L
 
     // First check if file is tracked
     const lsFiles = await runGitCommand(["ls-files", relativePath], cwd);
-    const isTracked = lsFiles && lsFiles.trim().length > 0;
+    // null = git failed (not a repository): no gutter at all, rather than
+    // marking every line of the file as added.
+    if (lsFiles === null) {
+      lineDiffCache.set(cacheKey, { diffs, timestamp: now });
+      return diffs;
+    }
+    const isTracked = lsFiles.trim().length > 0;
 
     if (!isTracked) {
       // Untracked file - all lines are "added"

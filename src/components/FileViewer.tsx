@@ -8,6 +8,7 @@ import * as path from "path";
 import { detectLanguage } from "../lib/SyntaxHighlighter";
 import { getTermideSyntaxStyle } from "../lib/SyntaxStyles";
 import { highlightRanges } from "../lib/editorHighlight";
+import { readEditorText, looksComplete } from "../lib/editorText";
 import type { Theme } from "../lib/ThemeSystem";
 import { getFileLineDiffs, type LineDiffStatus } from "../lib/GitIntegration";
 import { findMatchingBracket } from "../lib/BracketMatcher";
@@ -158,6 +159,13 @@ export function FileViewer({
    * `force` (Ctrl+S during a conflict) overwrites anyway.
    */
   const saveNow = useCallback((targetPath: string, content: string, force = false): boolean => {
+    // Refuse to write a buffer that does not look complete (line count differs
+    // from the editor's): a truncated read must never reach the disk.
+    const ta = textareaRef.current;
+    if (ta && !looksComplete(ta, content)) {
+      setNotice("Not saved: could not read the whole buffer safely");
+      return false;
+    }
     const known = diskRef.current;
     const st = statDisk(targetPath);
     if (!force && known && st && (st.mtimeMs !== known.mtimeMs || st.size !== known.size)) {
@@ -253,7 +261,7 @@ export function FileViewer({
       diskRef.current = { content: onDisk, mtimeMs: st.mtimeMs, size: st.size };
       const ta = textareaRef.current;
       if (!ta || onDisk === known.content) return;
-      const hasLocalEdits = saveTimerRef.current !== null || ta.plainText !== known.content;
+      const hasLocalEdits = saveTimerRef.current !== null || readEditorText(ta) !== known.content;
       if (hasLocalEdits) {
         // Keep the user's edits; stop autosave from overwriting the other change.
         if (saveTimerRef.current) {
@@ -326,7 +334,7 @@ export function FileViewer({
         clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
       }
-      if (saveNow(filePath, textareaRef.current?.plainText ?? "", conflict)) {
+      if (saveNow(filePath, readEditorText(textareaRef.current), conflict)) {
         setIsDirty(false);
         setNotice(conflict ? "Saved your version over the disk copy" : "Saved");
       }
@@ -391,7 +399,7 @@ export function FileViewer({
     if (event.name === "f12" || (event.ctrl && event.shift && event.name === "g")) {
       const ta = textareaRef.current;
       if (!ta || !filePath) return;
-      const text = ta.plainText ?? "";
+      const text = readEditorText(ta);
       const w = getWordAtPosition(text.split("\n")[cursorLine] ?? "", cursorColumn);
       if (!w) return;
       const def = findDefinition(text, filePath, w.word);
@@ -411,7 +419,7 @@ export function FileViewer({
     if (event.ctrl && event.name === "d") {
       const ta = textareaRef.current;
       if (!ta) return;
-      const lines = (ta.plainText ?? "").split("\n");
+      const lines = readEditorText(ta).split("\n");
       const lineText = lines[cursorLine] ?? "";
       const w = getWordAtPosition(lineText, cursorColumn);
       if (w) setWordHighlight(w.word === wordHighlight ? null : w.word);
@@ -444,7 +452,7 @@ export function FileViewer({
     }
     const ta = textareaRef.current;
     if (!ta) return;
-    const lines = (ta.plainText ?? "").split("\n");
+    const lines = readEditorText(ta).split("\n");
     const q = searchQuery.toLowerCase();
     const out: Array<{ line: number; col: number }> = [];
     for (let i = 0; i < lines.length; i++) {
@@ -511,7 +519,7 @@ export function FileViewer({
     const ref = (bracketHlRefRef.current + 1000) | 0; // separate ref space
     wordHlRefRef.current = ref;
 
-    const lines = (ta.plainText ?? "").split("\n");
+    const lines = readEditorText(ta).split("\n");
     const word = wordHighlight;
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i] ?? "";
@@ -546,30 +554,27 @@ export function FileViewer({
     setBlameLines(lines);
   }, [showBlame, filePath, isDirty]);
 
-  useEffect(() => {
+  // Gutter signs: git diff bars (before) and blame authors (after), merged and
+  // applied in one setLineSigns call. Setting them one line at a time re-laid
+  // out the gutter each time: O(n²), ~5 s of frozen UI after every save of a
+  // 30k-line file (every line of an untracked file is "added").
+  const diffSignsRef = useRef<Map<number, { before: string; beforeColor: string }>>(new Map());
+  const blameSignsRef = useRef<Map<number, { after: string; afterColor: string }>>(new Map());
+  const applySigns = useCallback(() => {
     const ln = lineNumberRef.current;
     if (!ln) return;
-    if (!showBlame || blameLines.length === 0) return;
+    const merged = new Map<number, any>();
+    for (const [line, sign] of diffSignsRef.current) merged.set(line, { ...sign });
+    for (const [line, sign] of blameSignsRef.current) merged.set(line, { ...(merged.get(line) ?? {}), ...sign });
+    ln.setLineSigns(merged);
+  }, []);
 
-    for (const bl of blameLines) {
-      const author = (bl.author || "?").slice(0, 12);
-      ln.setLineSign(bl.line, {
-        after: ` ${author}`,
-        afterColor: "#6e7681",
-      });
-    }
-    return () => {
-      const cur = lineNumberRef.current;
-      if (!cur) return;
-      // Clearing only the `after` portion — leave `before` (diff gutter).
-      // setLineSigns Map<number, LineSign> overrides whole signs, so we
-      // re-apply diff signs after blame is toggled off via the diff effect
-      // re-running on isDirty change.
-      for (const bl of blameLines) {
-        cur.clearLineSign(bl.line);
-      }
-    };
-  }, [showBlame, blameLines]);
+  useEffect(() => {
+    blameSignsRef.current = new Map(
+      showBlame ? blameLines.map((bl) => [bl.line, { after: ` ${(bl.author || "?").slice(0, 12)}`, afterColor: "#6e7681" }]) : [],
+    );
+    applySigns();
+  }, [showBlame, blameLines, applySigns]);
 
   // Bracket matching — when the cursor sits on (or just after) a bracket,
   // highlight its mate using the textarea's per-line addHighlight. We track
@@ -587,7 +592,7 @@ export function FileViewer({
     const styleId = syntaxStyle.getStyleId("bracketMatch");
     if (styleId == null) return;
 
-    const lines = (ta.plainText ?? "").split("\n");
+    const lines = readEditorText(ta).split("\n");
     const match =
       findMatchingBracket(lines, cursorLine, cursorColumn) ??
       (cursorColumn > 0 ? findMatchingBracket(lines, cursorLine, cursorColumn - 1) : null);
@@ -619,7 +624,6 @@ export function FileViewer({
     if (!ln) return;
 
     let cancelled = false;
-    ln.clearAllLineSigns();
 
     const colors: Record<Exclude<LineDiffStatus, null>, { char: string; color: string }> = {
       added: { char: "┃", color: "#4ec9b0" },
@@ -630,14 +634,15 @@ export function FileViewer({
     getFileLineDiffs(filePath, rootPath)
       .then((diffs) => {
         if (cancelled) return;
-        const cur = lineNumberRef.current;
-        if (!cur) return;
+        const signs = new Map<number, { before: string; beforeColor: string }>();
         for (const d of diffs) {
           if (!d.status) continue;
           const c = colors[d.status];
           // line-number is 1-indexed (matches getFileLineDiffs output).
-          cur.setLineSign(d.lineNumber, { before: c.char, beforeColor: c.color });
+          signs.set(d.lineNumber, { before: c.char, beforeColor: c.color });
         }
+        diffSignsRef.current = signs;
+        applySigns();
       })
       .catch(() => {
         // Non-fatal: leave the gutter empty if git is unavailable.
@@ -653,12 +658,12 @@ export function FileViewer({
   useEffect(() => {
     const ta = textareaRef.current;
     if (!ta || !filePath) return;
-    const text = ta.plainText;
+    const text = readEditorText(ta);
     let cancelled = false;
     const timer = setTimeout(async () => {
       const ranges = await highlightRanges(filePath, text);
       // Skip stale results: a newer edit will schedule its own run.
-      if (cancelled || textareaRef.current !== ta || ta.plainText !== text) return;
+      if (cancelled || textareaRef.current !== ta || readEditorText(ta) !== text) return;
       ta.removeHighlightsByRef(SYNTAX_HL_REF);
       for (const r of ranges) {
         const styleId = syntaxStyle.getStyleId(r.name);
@@ -676,7 +681,7 @@ export function FileViewer({
     const ta = textareaRef.current;
     if (ta) {
       setLineCount(ta.lineCount);
-      latestTextRef.current = ta.plainText;
+      latestTextRef.current = readEditorText(ta);
     }
     setEditVersion((v) => v + 1);
 
@@ -689,7 +694,7 @@ export function FileViewer({
     if (!filePath) return;
     // Same text as on disk (initial load, undo back to saved, reload): nothing to
     // save. Previously opening a file marked it dirty and rewrote it unchanged.
-    if (ta && diskRef.current && ta.plainText === diskRef.current.content) {
+    if (ta && diskRef.current && readEditorText(ta) === diskRef.current.content) {
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
@@ -705,7 +710,7 @@ export function FileViewer({
     if (!autoSaveRef.current) return; // manual mode: Ctrl+S, or flushed on file switch / unmount
     saveTimerRef.current = setTimeout(() => {
       saveTimerRef.current = null;
-      const latest = textareaRef.current?.plainText ?? "";
+      const latest = readEditorText(textareaRef.current);
       // Keeps the dirty flag if the write failed or the disk changed underneath.
       if (saveNow(targetPath, latest)) setIsDirty(false);
     }, SAVE_DEBOUNCE_MS);
