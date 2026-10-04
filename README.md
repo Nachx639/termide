@@ -117,7 +117,7 @@ git clone https://github.com/Nachx639/termide.git
 cd termide
 bun install
 bun run dev
-bun test                 # unit + PTY + render tests
+bun run test             # unit + PTY + render tests (bun test --isolate)
 bun scripts/smoke.ts     # run the whole app headlessly and print the screen
 bun scripts/exit-check.ts  # every way of quitting must restore your terminal
 ```

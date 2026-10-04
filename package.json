@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "bun run src/index.tsx",
     "start": "bun run src/index.tsx",
-    "test": "bun test",
+    "test": "bun test --isolate",
     "typecheck": "tsc --noEmit -p .",
     "smoke": "bun scripts/smoke.ts"
   },
