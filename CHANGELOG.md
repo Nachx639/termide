@@ -71,8 +71,18 @@
 - The command palette ranks results and has new terminal commands.
 - `termide --help`, `--version`, and an error for a path that is not a directory.
 
+### Second QA round
+- Undo/redo are saved; light themes are readable (editor colours follow the theme).
+- Mini mode has the palette, file finder, search and help (Ctrl+X P/K/S/H).
+- The commit box fits small panels; the status bar truncates cleanly.
+- Search and F12 leave the cursor on the match; search results open at their line.
+- The palette reaches editor commands whose shortcuts need the kitty protocol.
+- Untracked files show a diff; non-git folders say so.
+- Quitting during a conflict keeps your version as `<file>.termide-unsaved`.
+
 ### Development
-- More than 300 tests (`bun test`): PTY sessions, rendering via `testRender`, ACP
+- More than 300 tests (`bun run test`, i.e. `bun test --isolate`): PTY sessions, rendering via `testRender`, ACP
   against a mock agent, and git in temporary repos.
 - `bun scripts/smoke.ts` runs the whole app headlessly and prints the screen.
   `bun scripts/exit-check.ts` verifies terminal restoration and the save on quit.
+  Both run shells with an empty ZDOTDIR, so the user's config and history are untouched.
