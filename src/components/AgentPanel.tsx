@@ -30,9 +30,31 @@ const ANTIGRAVITY_MODELS = [
 // Bundled with termide, not with the project being edited.
 const ANTIGRAVITY_BIN = path.join(import.meta.dir, "..", "..", "bin", "claude-antigravity");
 
+// Claude Code's ACP adapter: an installed binary (current name, then the
+// deprecated @zed-industries one), else run it straight from npm via bunx.
+function claudeAcpCommand(): string {
+    if (Bun.which("claude-agent-acp")) return "claude-agent-acp";
+    if (Bun.which("claude-code-acp")) return "claude-code-acp";
+    return "bunx @agentclientprotocol/claude-agent-acp";
+}
+
+/** How to get an agent whose executable is missing. */
+const INSTALL_HINTS: Record<string, string> = {
+    gemini: "npm install -g @google/gemini-cli",
+    "claude-agent-acp": "npm install -g @agentclientprotocol/claude-agent-acp",
+    "claude-code-acp": "npm install -g @agentclientprotocol/claude-agent-acp",
+    "antigravity-claude-proxy": "npm install -g antigravity-claude-proxy",
+};
+
+function installHint(error: string | null): string | null {
+    const m = error?.match(/not found[^"]*"([^"]+)"/i) ?? error?.match(/Executable not found in \$PATH: "?([^"\s]+)/);
+    const bin = m?.[1]?.split("/").pop();
+    return bin && INSTALL_HINTS[bin] ? `Install it with: ${INSTALL_HINTS[bin]}` : null;
+}
+
 // Predefined agents with their commands
 const AGENTS: AgentConfig[] = [
-    { id: "claude", name: "Claude", icon: "🤖", command: "claude-code-acp", description: "Anthropic Claude Code" },
+    { id: "claude", name: "Claude", icon: "🤖", command: claudeAcpCommand(), description: "Anthropic Claude Code" },
     {
         id: "claude-antigravity",
         name: "Claude (Antigravity)",
@@ -349,6 +371,7 @@ export function AgentPanel({ rootPath, focused, onFocus, isolated = false }: Age
                                 )}
                                 <text style={{ fg: "gray", marginTop: 1 }}>↑↓ to select | Enter to connect{isCustomMode ? " | Esc to cancel" : ""}</text>
                                 {error && <text style={{ fg: "red", marginTop: 1 }}>Error: {error}</text>}
+                                {installHint(error) && <text style={{ fg: "yellow" }}>{installHint(error)}</text>}
                             </>
                         )}
                     </box>
