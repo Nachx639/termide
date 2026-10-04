@@ -108,9 +108,11 @@ export const FILE_PATTERNS = {
     ".turbo",
   ],
 
-  // Binary file extensions (don't try to preview)
+  // Binary file extensions (don't try to preview).
+  // .svg is XML text (SyntaxHighlighter highlights it as html), so it is not
+  // listed here (2026-10-04).
   BINARY_EXTENSIONS: [
-    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".svg",
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico",
     ".pdf", ".zip", ".tar", ".gz", ".7z", ".rar",
     ".exe", ".dll", ".so", ".dylib",
     ".mp3", ".mp4", ".wav", ".avi", ".mov",

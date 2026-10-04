@@ -14,6 +14,79 @@ const CLOSING_BRACKETS: Record<string, string> = {
   ">": "<",
 };
 
+/**
+ * Classify each column of a line as code (true) or string/comment (false).
+ * Single-line only: handles '...', "...", `...`, // comments and /* ... *\/
+ * that open and close on the same line. A line comment or unterminated
+ * string runs to the end of the line.
+ *
+ * 2026-10-04: brackets inside strings/comments (e.g. `log("(")`) used to be
+ * counted, so the matcher paired the wrong brackets.
+ */
+function codeMask(lineText: string): boolean[] {
+  const mask = new Array<boolean>(lineText.length).fill(true);
+  let i = 0;
+  while (i < lineText.length) {
+    const ch = lineText[i]!;
+    if (ch === '"' || ch === "'" || ch === "`") {
+      const start = i;
+      i++;
+      while (i < lineText.length && lineText[i] !== ch) {
+        if (lineText[i] === "\\") i++;
+        i++;
+      }
+      const end = Math.min(i, lineText.length - 1);
+      for (let k = start; k <= end; k++) mask[k] = false;
+      i = end + 1;
+      continue;
+    }
+    if (ch === "/" && lineText[i + 1] === "/") {
+      for (let k = i; k < lineText.length; k++) mask[k] = false;
+      break;
+    }
+    if (ch === "/" && lineText[i + 1] === "*") {
+      const close = lineText.indexOf("*/", i + 2);
+      const end = close === -1 ? lineText.length - 1 : close + 1;
+      for (let k = i; k <= end; k++) mask[k] = false;
+      i = end + 1;
+      continue;
+    }
+    i++;
+  }
+  return mask;
+}
+
+/**
+ * `<` / `>` are only brackets in generics/tags. Arrows (`=>`, `->`), shifts
+ * and comparisons (`<=`, `>=`, `a < b`) are operators.
+ */
+function isAngleOperator(lineText: string, column: number): boolean {
+  const ch = lineText[column];
+  if (ch !== "<" && ch !== ">") return false;
+  const prev = lineText[column - 1];
+  const next = lineText[column + 1];
+  if (ch === ">" && (prev === "=" || prev === "-")) return true;
+  if (next === "=") return true;
+  // `<<` is a shift; `>>` is left alone since it usually closes nested generics
+  if (ch === "<" && (next === "<" || prev === "<")) return true;
+  // Spaced on both sides: comparison, not a generic/tag
+  if ((prev === " " || prev === "\t") && (next === " " || next === "\t")) return true;
+  return false;
+}
+
+class LineClassifier {
+  private cache = new Map<number, boolean[]>();
+  constructor(private lines: string[]) {}
+  isCode(line: number, column: number): boolean {
+    let mask = this.cache.get(line);
+    if (!mask) {
+      mask = codeMask(this.lines[line] || "");
+      this.cache.set(line, mask);
+    }
+    return mask[column] ?? true;
+  }
+}
+
 export interface BracketMatch {
   openLine: number;
   openColumn: number;
@@ -35,6 +108,7 @@ export function findMatchingBracket(
 
   const char = lineText[column];
   if (!char) return null;
+  if (isAngleOperator(lineText, column)) return null;
 
   // Check if cursor is on an opening bracket
   if (BRACKET_PAIRS[char]) {
@@ -62,12 +136,23 @@ function findClosingBracket(
   let depth = 1;
   let line = startLine;
   let column = startColumn + 1;
+  const classifier = new LineClassifier(lines);
+  const startIsCode = classifier.isCode(startLine, startColumn);
 
   while (line < lines.length) {
     const lineText = lines[line] || "";
 
     while (column < lineText.length) {
       const char = lineText[column];
+
+      if (
+        (char !== openBracket && char !== closeBracket) ||
+        classifier.isCode(line, column) !== startIsCode ||
+        isAngleOperator(lineText, column)
+      ) {
+        column++;
+        continue;
+      }
 
       if (char === openBracket) {
         depth++;
@@ -106,12 +191,23 @@ function findOpeningBracket(
   let depth = 1;
   let line = startLine;
   let column = startColumn - 1;
+  const classifier = new LineClassifier(lines);
+  const startIsCode = classifier.isCode(startLine, startColumn);
 
   while (line >= 0) {
     const lineText = lines[line] || "";
 
     while (column >= 0) {
       const char = lineText[column];
+
+      if (
+        (char !== openBracket && char !== closeBracket) ||
+        classifier.isCode(line, column) !== startIsCode ||
+        isAngleOperator(lineText, column)
+      ) {
+        column--;
+        continue;
+      }
 
       if (char === closeBracket) {
         depth++;

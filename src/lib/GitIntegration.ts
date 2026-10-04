@@ -1,3 +1,4 @@
+import * as fs from "fs";
 import * as path from "path";
 import { TIMING } from "./config";
 
@@ -19,33 +20,91 @@ export interface FileGitStatus {
   staged: boolean;
 }
 
-// Cache for git status to avoid too many shell calls
-let gitStatusCache: { status: GitStatus; timestamp: number } | null = null;
-let fileStatusCache: Map<string, FileGitStatus> = new Map();
-let cacheTimestamp = 0;
+// Cache for git status to avoid too many shell calls.
+// 2026-10-04: caches are keyed by cwd; they used to be global, so asking
+// about a second repository within the TTL returned the first one's status.
+const gitStatusCache: Map<string, { status: GitStatus; timestamp: number }> = new Map();
+const fileStatusCache: Map<string, { entries: Map<string, FileGitStatus>; timestamp: number }> = new Map();
 const CACHE_TTL = TIMING.GIT_CACHE_TTL;
 
+/**
+ * Run git and return stdout, or null if git could not run or exited non-zero.
+ * 2026-10-04: the exit code used to be ignored, so a failed `git add`/`git
+ * commit` (nothing staged, bad path, no repo) was reported as success. stderr
+ * is discarded instead of piped-but-unread (a full pipe could stall git).
+ */
 async function runGitCommand(args: string[], cwd: string): Promise<string | null> {
   try {
     const proc = Bun.spawn(["git", ...args], {
       cwd,
       stdout: "pipe",
-      stderr: "pipe",
+      stderr: "ignore",
     });
     const output = await new Response(proc.stdout).text();
-    await proc.exited;
-    return output;
+    const exitCode = await proc.exited;
+    return exitCode === 0 ? output : null;
   } catch {
     return null;
   }
+}
+
+interface PorcelainEntry {
+  x: string;
+  y: string;
+  /** Path relative to the repository root, unquoted */
+  path: string;
+  /** Source path of a rename/copy */
+  origPath?: string;
+}
+
+/**
+ * Parse `git status --porcelain=v1 -z` output.
+ * 2026-10-04: parsing the newline format kept git's C-style quoting
+ * (`"a b.txt"`, `"\303\261.txt"`) and rename arrows (`old -> new`) in the
+ * path, so files with spaces/unicode and renamed files got bogus paths.
+ */
+function parsePorcelainZ(output: string): PorcelainEntry[] {
+  const parts = output.split("\0");
+  const entries: PorcelainEntry[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const record = parts[i]!;
+    if (record.length < 4) continue;
+    const entry: PorcelainEntry = { x: record[0]!, y: record[1]!, path: record.slice(3) };
+    if (entry.x === "R" || entry.x === "C" || entry.y === "R" || entry.y === "C") {
+      entry.origPath = parts[++i];
+    }
+    entries.push(entry);
+  }
+  return entries;
+}
+
+/**
+ * Porcelain paths are relative to the repository root, not to cwd. Returns a
+ * function mapping them to paths relative to `cwd` (identical when cwd is the
+ * repository root).
+ */
+async function repoPathMapper(cwd: string): Promise<(repoPath: string) => string> {
+  const top = (await runGitCommand(["rev-parse", "--show-toplevel"], cwd))?.trim();
+  if (!top) return (p) => p;
+  let realCwd = cwd;
+  try {
+    realCwd = fs.realpathSync(cwd);
+  } catch {}
+  let realTop = top;
+  try {
+    realTop = fs.realpathSync(top);
+  } catch {}
+  if (realTop === realCwd) return (p) => p;
+  return (p) => path.relative(realCwd, path.join(realTop, p));
 }
 
 export async function getGitStatus(cwd: string): Promise<GitStatus> {
   const now = Date.now();
 
   // Return cached if fresh
-  if (gitStatusCache && now - gitStatusCache.timestamp < CACHE_TTL) {
-    return gitStatusCache.status;
+  const cached = gitStatusCache.get(cwd);
+  if (cached && now - cached.timestamp < CACHE_TTL) {
+    return cached.status;
   }
 
   const defaultStatus: GitStatus = {
@@ -61,21 +120,25 @@ export async function getGitStatus(cwd: string): Promise<GitStatus> {
     clean: true,
   };
 
-  // Check if it's a git repo
-  const isRepo = await runGitCommand(["rev-parse", "--is-inside-work-tree"], cwd);
+  // Check if it's a git repo.
+  // 2026-10-04: git prints "true\n"; comparing the untrimmed output with
+  // "true" made every repository look like "not a repo" (and the branch name
+  // carried a trailing newline).
+  const isRepo = (await runGitCommand(["rev-parse", "--is-inside-work-tree"], cwd))?.trim();
   if (isRepo !== "true") {
-    gitStatusCache = { status: defaultStatus, timestamp: now };
+    gitStatusCache.set(cwd, { status: defaultStatus, timestamp: now });
     return defaultStatus;
   }
 
-  // Get branch name
-  const branch = await runGitCommand(["branch", "--show-current"], cwd) ||
-    await runGitCommand(["rev-parse", "--short", "HEAD"], cwd);
+  // Get branch name (short SHA when detached)
+  const branch = (await runGitCommand(["branch", "--show-current"], cwd))?.trim() ||
+    (await runGitCommand(["rev-parse", "--short", "HEAD"], cwd))?.trim() ||
+    null;
 
   // Get ahead/behind
   let ahead = 0;
   let behind = 0;
-  const aheadBehind = await runGitCommand(["rev-list", "--left-right", "--count", "@{upstream}...HEAD"], cwd);
+  const aheadBehind = (await runGitCommand(["rev-list", "--left-right", "--count", "@{upstream}...HEAD"], cwd))?.trim();
   if (aheadBehind) {
     const parts = aheadBehind.split(/\s+/);
     if (parts.length === 2) {
@@ -137,43 +200,44 @@ export async function getGitStatus(cwd: string): Promise<GitStatus> {
     clean: staged === 0 && modified === 0 && untracked === 0 && conflicts === 0,
   };
 
-  gitStatusCache = { status, timestamp: now };
+  gitStatusCache.set(cwd, { status, timestamp: now });
   return status;
 }
 
+/**
+ * Git status of a single file (absolute path, or relative to cwd).
+ * Prefers the working-tree status; falls back to the staged one.
+ * A `${path}:staged` / `${path}:unstaged` key selects one explicitly.
+ * 2026-10-04: entries were stored under `${path}:staged|unstaged` but looked
+ * up by the bare path, so the file tree never showed any git status.
+ */
 export async function getFileGitStatus(filePath: string, cwd: string): Promise<FileGitStatus | null> {
   const now = Date.now();
 
   // Refresh cache if stale
-  if (now - cacheTimestamp > CACHE_TTL) {
-    fileStatusCache.clear();
-    cacheTimestamp = now;
+  let cache = fileStatusCache.get(cwd);
+  if (!cache || now - cache.timestamp > CACHE_TTL) {
+    cache = { entries: new Map(), timestamp: now };
+    fileStatusCache.set(cwd, cache);
 
     try {
-      const statusOutput = await runGitCommand(["status", "--porcelain=v1", "-uall"], cwd);
+      const statusOutput = await runGitCommand(["status", "--porcelain=v1", "-z", "-uall"], cwd);
       if (statusOutput) {
-        const lines = statusOutput.split("\n");
-        for (const line of lines) {
-          if (line.length < 4) continue;
-          const x = line[0] || " ";
-          const y = line[1] || " ";
-
-          // Git porcelain v1: XY PATH (where XY are status codes)
-          // The path starts at index 3. If there's an extra space, it's safer to trim starting spaces.
-          const file = line.slice(3).trimStart();
-          const fullPath = path.resolve(cwd, file);
+        const toCwdRelative = await repoPathMapper(cwd);
+        for (const { x, y, path: repoPath } of parsePorcelainZ(statusOutput)) {
+          const fullPath = path.resolve(cwd, toCwdRelative(repoPath));
 
           // Staged entry
           if (x !== " " && x !== "?") {
-            fileStatusCache.set(`${fullPath}:staged`, { status: x as any, staged: true });
+            cache.entries.set(`${fullPath}:staged`, { status: x as FileGitStatus["status"], staged: true });
           }
           // Unstaged entry
           if (y !== " " && y !== "?") {
-            fileStatusCache.set(`${fullPath}:unstaged`, { status: y as any, staged: false });
+            cache.entries.set(`${fullPath}:unstaged`, { status: y as FileGitStatus["status"], staged: false });
           }
           // Untracked/Other
           if (x === "?" || y === "?") {
-            fileStatusCache.set(`${fullPath}:unstaged`, { status: "?", staged: false });
+            cache.entries.set(`${fullPath}:unstaged`, { status: "?", staged: false });
           }
         }
       }
@@ -182,7 +246,11 @@ export async function getFileGitStatus(filePath: string, cwd: string): Promise<F
     }
   }
 
-  return fileStatusCache.get(filePath) || null;
+  if (filePath.endsWith(":staged") || filePath.endsWith(":unstaged")) {
+    return cache.entries.get(filePath) || null;
+  }
+  const fullPath = path.resolve(cwd, filePath);
+  return cache.entries.get(`${fullPath}:unstaged`) || cache.entries.get(`${fullPath}:staged`) || null;
 }
 
 export function formatGitBranch(status: GitStatus): string {
@@ -246,9 +314,9 @@ export function getFileStatusIcon(status: FileGitStatus | null): string {
 
 // Force refresh cache
 export function invalidateGitCache(): void {
-  gitStatusCache = null;
+  gitStatusCache.clear();
   fileStatusCache.clear();
-  cacheTimestamp = 0;
+  lineDiffCache.clear();
 }
 
 // Stage a file
@@ -302,20 +370,19 @@ export async function discardFileChanges(filePath: string, cwd: string): Promise
   return result !== null;
 }
 
+/**
+ * Changed files, with paths relative to `cwd` (= repository-relative when cwd
+ * is the repository root). Renames report the new path.
+ */
 export async function getGitChanges(cwd: string): Promise<{ path: string; status: FileGitStatus }[]> {
-  const statusOutput = await runGitCommand(["status", "--porcelain=v1", "-uall"], cwd);
+  const statusOutput = await runGitCommand(["status", "--porcelain=v1", "-z", "-uall"], cwd);
   if (!statusOutput) return [];
 
   const changes: { path: string; status: FileGitStatus }[] = [];
-  const lines = statusOutput.split("\n").filter(Boolean);
+  const toCwdRelative = await repoPathMapper(cwd);
 
-  for (const line of lines) {
-    if (line.length < 4) continue;
-
-    // Porcelain v1 format: XY PATH
-    const x = line[0] || " ";
-    const y = line[1] || " ";
-    const file = line.slice(3).trimStart();
+  for (const { x, y, path: repoPath } of parsePorcelainZ(statusOutput)) {
+    const file = toCwdRelative(repoPath);
 
     // Untracked
     if (x === "?" || y === "?") {
@@ -325,12 +392,12 @@ export async function getGitChanges(cwd: string): Promise<{ path: string; status
 
     // Handle staged
     if (x !== " ") {
-      changes.push({ path: file, status: { status: x as any, staged: true } });
+      changes.push({ path: file, status: { status: x as FileGitStatus["status"], staged: true } });
     }
 
     // Handle unstaged
     if (y !== " ") {
-      changes.push({ path: file, status: { status: y as any, staged: false } });
+      changes.push({ path: file, status: { status: y as FileGitStatus["status"], staged: false } });
     }
   }
 
@@ -362,10 +429,10 @@ export async function getFileLineDiffs(filePath: string, cwd: string): Promise<L
   const diffs: LineDiffInfo[] = [];
 
   try {
-    // Get the relative path from cwd
-    const relativePath = filePath.startsWith(cwd)
-      ? filePath.slice(cwd.length + 1)
-      : filePath;
+    // Get the relative path from cwd.
+    // 2026-10-04: a plain startsWith(cwd) prefix check mangled sibling paths
+    // (cwd "/a/b" vs file "/a/bc/x") and relative inputs.
+    const relativePath = path.relative(cwd, path.resolve(cwd, filePath));
 
     // First check if file is tracked
     const lsFiles = await runGitCommand(["ls-files", relativePath], cwd);

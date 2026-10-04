@@ -2,7 +2,7 @@
  * Git blame utilities
  */
 
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import * as path from "path";
 
 export interface BlameLine {
@@ -29,11 +29,15 @@ export function getGitBlame(filePath: string, currentUser?: string): BlameLine[]
     const dir = path.dirname(filePath);
     const fileName = path.basename(filePath);
 
-    // Run git blame with porcelain output for parsing
-    const output = execSync(`git blame -l --porcelain "${fileName}"`, {
+    // Run git blame with porcelain output for parsing.
+    // 2026-10-04: no shell — the file name used to be interpolated into a
+    // shell string, so names containing `"`, `$` or backticks broke blame
+    // (or ran commands).
+    const output = execFileSync("git", ["blame", "-l", "--porcelain", "--", fileName], {
       cwd: dir,
       encoding: "utf-8",
       maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large files
+      stdio: ["ignore", "pipe", "ignore"],
     });
 
     return parseBlameOutput(output, currentUser);
@@ -51,12 +55,28 @@ function parseBlameOutput(output: string, currentUser?: string): BlameLine[] {
 
   let currentEntry: Partial<BlameLine> = {};
   let lineNum = 0;
+  // Porcelain output only prints author/time headers the first time a commit
+  // appears; later lines from the same commit carry just the SHA line.
+  // 2026-10-04: those lines came back with author/date undefined, which
+  // crashed formatAuthor() / getBlameAnnotation() for any file where one
+  // commit owns two or more non-adjacent hunks.
+  const commits = new Map<string, Partial<BlameLine>>();
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
 
     if (line.startsWith("\t")) {
-      // Content line - finalize entry
+      // Content line - finalize entry, filling headers from earlier lines of
+      // the same commit
+      const known = currentEntry.sha ? commits.get(currentEntry.sha) : undefined;
+      if (known) {
+        currentEntry = { ...known, ...currentEntry };
+      } else if (currentEntry.sha) {
+        commits.set(currentEntry.sha, { ...currentEntry });
+      }
+      currentEntry.author ??= "";
+      currentEntry.authorMail ??= "";
+      currentEntry.date ??= new Date(0);
       currentEntry.content = line.slice(1);
       currentEntry.line = lineNum;
 
@@ -100,7 +120,8 @@ export function formatBlameDate(date: Date): string {
   const diffMs = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffDays === 0) {
+  // <= 0 also covers small clock skew (dates slightly in the future)
+  if (diffDays <= 0) {
     return "today";
   } else if (diffDays === 1) {
     return "yesterday";
