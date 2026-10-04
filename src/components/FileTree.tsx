@@ -76,7 +76,7 @@ function flattenTree(nodes: FileNode[]): FileNode[] {
 export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOperation }: FileTreeProps) {
   const [tree, setTree] = useState<FileNode[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [scrollTop, setScrollTop] = useState(0);
+  const scrollRef = React.useRef<any>(null);
   const [gitStatuses, setGitStatuses] = useState<Map<string, FileGitStatus>>(new Map());
 
   // Fetch git statuses for visible files
@@ -149,22 +149,29 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
   const flatList = flattenTree(tree);
   selectedPathRef.current = flatList[selectedIndex]?.path ?? null;
 
+  // Keep the selected entry on screen.
+  const selectedPath = flatList[selectedIndex]?.path;
+  useEffect(() => {
+    if (!selectedPath) return;
+    try {
+      scrollRef.current?.scrollChildIntoView(`ft:${selectedPath}`);
+    } catch {}
+  }, [selectedPath]);
+
   useKeyboard((event) => {
     if (!focused) return;
 
     if (event.name === "up" || event.name === "k") {
-      setSelectedIndex((i) => {
-        const next = Math.max(0, i - 1);
-        if (next < scrollTop) setScrollTop(next);
-        return next;
-      });
+      setSelectedIndex((i) => Math.max(0, i - 1));
     } else if (event.name === "down" || event.name === "j") {
-      setSelectedIndex((i) => {
-        const next = Math.min(flatList.length - 1, i + 1);
-        const visibleHeight = 15; // Approximate visible height
-        if (next >= scrollTop + visibleHeight) setScrollTop(next - visibleHeight + 1);
-        return next;
-      });
+      setSelectedIndex((i) => Math.min(flatList.length - 1, i + 1));
+    } else if (event.name === "pageup" || event.name === "pagedown") {
+      const step = Math.max(1, (scrollRef.current?.viewport?.height ?? 10) - 1);
+      setSelectedIndex((i) => Math.max(0, Math.min(flatList.length - 1, i + (event.name === "pageup" ? -step : step))));
+    } else if (event.name === "home" || (event.name === "g" && !event.shift)) {
+      setSelectedIndex(0);
+    } else if (event.name === "end" || event.name === "G" || (event.name === "g" && event.shift)) {
+      setSelectedIndex(Math.max(0, flatList.length - 1));
     } else if (event.name === "return" || event.name === "l") {
       const selected = flatList[selectedIndex];
       if (selected) {
@@ -257,29 +264,12 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
       </box>
       <box
         style={{ flexDirection: "column", flexGrow: 1, backgroundColor: "#0b0b0b" }}
-        onMouse={(event: any) => {
-          if (!focused) return;
-          if (event.action === "wheel") {
-            const visibleHeight = 20;
-            if (event.direction === "up") {
-              const newIndex = Math.max(0, selectedIndex - 1);
-              setSelectedIndex(newIndex);
-              if (newIndex < scrollTop) {
-                setScrollTop(Math.max(0, scrollTop - 1));
-              }
-            } else if (event.direction === "down") {
-              const newIndex = Math.min(flatList.length - 1, selectedIndex + 1);
-              setSelectedIndex(newIndex);
-              if (newIndex >= scrollTop + visibleHeight) {
-                setScrollTop(scrollTop + 1);
-              }
-            }
-          }
-        }}
       >
-        <scrollbox style={{ flexGrow: 1, paddingX: 1, backgroundColor: "#0b0b0b" }}>
-          {flatList.slice(scrollTop, scrollTop + 20).map((node, index) => {
-            const actualIndex = index + scrollTop;
+        {/* Every entry is rendered; the scrollbox culls what is off screen and
+            owns wheel scrolling. (It used to render a hard-coded window of 20
+            rows and only knew about 15 for keyboard scrolling.) */}
+        <scrollbox ref={scrollRef} viewportCulling style={{ flexGrow: 1, paddingX: 1, backgroundColor: "#0b0b0b" }}>
+          {flatList.map((node, actualIndex) => {
             const isSelected = actualIndex === selectedIndex && focused;
             const prefix = "  ".repeat(node.level);
             const fileIcon = getFileIconSimple(node.name, node.isDirectory, node.expanded);
@@ -303,6 +293,7 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
             return (
               <box
                 key={node.path}
+                id={`ft:${node.path}`}
                 style={{ flexDirection: "row", backgroundColor: bg as any, paddingX: 1 }}
                 onMouseDown={() => {
                   // Select this item
