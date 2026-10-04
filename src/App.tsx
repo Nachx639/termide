@@ -38,6 +38,7 @@ import { THEMES, getTheme } from "./lib/ThemeSystem";
 import { loadPreferences, savePreferences } from "./lib/Preferences";
 import { ThemeContext } from "./lib/themeContext";
 import { isKeyCaptureActive } from "./lib/keyCapture";
+import { onRepoChange } from "./lib/repoEvents";
 import type { Theme } from "./lib/ThemeSystem";
 import { getLayoutConfig, getScreenSizeLabel } from "./lib/ResponsiveLayout";
 import type { LayoutConfig, ScreenSize } from "./lib/ResponsiveLayout";
@@ -690,9 +691,11 @@ export function App({ rootPath }: AppProps) {
     };
 
     fetchGitStatus();
-    const interval = setInterval(fetchGitStatus, 5000); // Refresh every 5s
-
-    return () => clearInterval(interval);
+    // Refresh when the project changes (shared watcher) instead of polling.
+    return onRepoChange(rootPath, () => {
+      invalidateGitCache();
+      fetchGitStatus();
+    });
   }, [rootPath]);
 
   useKeyboard(async (event) => {

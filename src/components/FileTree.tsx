@@ -6,6 +6,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { getFileGitStatus, type FileGitStatus, getFileStatusColor, getFileStatusIcon } from "../lib/GitIntegration";
 import { getFileIconSimple } from "../lib/FileIcons";
+import { onRepoChange } from "../lib/repoEvents";
 
 interface FileNode {
   name: string;
@@ -114,9 +115,7 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
   treeRef.current = tree;
   const selectedPathRef = React.useRef<string | null>(null);
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
     const refresh = () => {
-      timer = null;
       const next = rescanTree(treeRef.current, rootPath);
       setTree(next);
       const flat = flattenTree(next);
@@ -124,33 +123,10 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
       setSelectedIndex((i) => (idx >= 0 ? idx : Math.min(i, Math.max(0, flat.length - 1))));
       updateGitStatuses(next);
     };
-    const schedule = (file?: string | null) => {
-      if (file && /(^|[\\/])(node_modules|\.git[\\/]objects)([\\/]|$)/.test(file)) return;
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(refresh, 200);
-    };
-    let watcher: fs.FSWatcher | null = null;
-    try {
-      watcher = fs.watch(rootPath, { recursive: true }, (_event, file) => schedule(file?.toString()));
-    } catch {
-      // No recursive watch on this platform: the periodic refresh below still catches up.
-    }
-    // Safety net for missed events (network drives, platforms without recursive watch).
-    const interval = setInterval(() => schedule(null), 15000);
-    return () => {
-      watcher?.close();
-      clearInterval(interval);
-      if (timer) clearTimeout(timer);
-    };
+    // Shared project watcher (lib/repoEvents): also fires on git index/HEAD
+    // changes, so status marks refresh without a separate poll.
+    return onRepoChange(rootPath, refresh);
   }, [rootPath, updateGitStatuses]);
-
-  // Refresh git statuses periodically
-  useEffect(() => {
-    const interval = setInterval(() => {
-      updateGitStatuses(tree);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [tree, updateGitStatuses]);
 
   const flatList = flattenTree(tree);
   selectedPathRef.current = flatList[selectedIndex]?.path ?? null;

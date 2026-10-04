@@ -14,8 +14,10 @@ import {
     createCommit,
     getFileDiff,
     discardFileChanges,
+    invalidateGitCache,
 } from "../lib/GitIntegration";
 import { setKeyCapture } from "../lib/keyCapture";
+import { onRepoChange } from "../lib/repoEvents";
 
 interface SourceControlProps {
     rootPath: string;
@@ -53,9 +55,11 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
 
     useEffect(() => {
         updateChanges();
-        const interval = setInterval(updateChanges, 3000);
-        return () => clearInterval(interval);
-    }, [updateChanges]);
+        return onRepoChange(rootPath, () => {
+            invalidateGitCache();
+            updateChanges();
+        });
+    }, [updateChanges, rootPath]);
 
     // Clear status message after 2 seconds
     useEffect(() => {

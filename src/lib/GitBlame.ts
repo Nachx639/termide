@@ -33,7 +33,7 @@ export function getGitBlame(filePath: string, currentUser?: string): BlameLine[]
     // 2026-10-04: no shell — the file name used to be interpolated into a
     // shell string, so names containing `"`, `$` or backticks broke blame
     // (or ran commands).
-    const output = execFileSync("git", ["blame", "-l", "--porcelain", "--", fileName], {
+    const output = execFileSync("git", ["blame", "-l", "--porcelain", "--", fileName], { env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
       cwd: dir,
       encoding: "utf-8",
       maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large files
