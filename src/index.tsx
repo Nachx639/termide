@@ -8,11 +8,6 @@ import { disposeAllAgents } from "./hooks/useACP";
 import * as path from "path";
 import * as fs from "fs";
 
-// Debug log
-const debugLog = (msg: string) => {
-  fs.appendFileSync("/tmp/termide-debug.log", `[${new Date().toISOString()}] ${msg}\n`);
-};
-
 // Note: Ctrl+C exits the app (handled by Bun at low level)
 // Use Ctrl+Q for Zen Mode toggle within the app
 
@@ -51,7 +46,6 @@ const renderer = await createCliRenderer({
   useMouse: true,
   exitOnCtrlC: false, // Critical: let Terminal.tsx handle Ctrl+C → PTY, don't kill Termide
 });
-debugLog("🖱️ Renderer created with useMouse: true");
 
 // Export renderer for selection API
 (globalThis as any).__termideRenderer = renderer;
