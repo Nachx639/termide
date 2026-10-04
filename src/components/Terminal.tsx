@@ -20,9 +20,11 @@ interface TerminalProps {
   command?: string[];
   /** Double-click on "path/to/file.ts:12" in the output. */
   onOpenFile?: (filePath: string, line?: number) => void;
+  /** Receives a function that opens the scrollback search bar (Ctrl+X /). */
+  onSearchReady?: (openSearch: () => void) => void;
 }
 
-export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyReady, onWriteReady, selectMode = false, command, onOpenFile }: TerminalProps) {
+export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyReady, onWriteReady, selectMode = false, command, onOpenFile, onSearchReady }: TerminalProps) {
   const renderer = useRenderer();
   // Shared, app-lifetime sessions: unmounting this component must not kill the shell.
   const [manager] = useState(() => (command ? new TerminalManager(cwd, command) : getTerminalManager(cwd)));
@@ -33,6 +35,46 @@ export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyRea
   useEffect(() => () => {
     if (command) manager.disposeAll();
   }, [manager, command]);
+
+  // Scrollback search (Ctrl+X /).
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [matches, setMatches] = useState<{ line: number; col: number; len: number }[]>([]);
+  const [matchIndex, setMatchIndex] = useState(-1);
+
+  useEffect(() => {
+    onSearchReady?.(() => setSearchOpen(true));
+  }, [onSearchReady]);
+
+  const runSearch = useCallback(
+    (q: string) => {
+      setQuery(q);
+      const s = manager.active;
+      const found = s ? s.find(q) : [];
+      setMatches(found);
+      // Start from the most recent occurrence, like scrolling up from the prompt.
+      const idx = found.length - 1;
+      setMatchIndex(idx);
+      if (s && idx >= 0) s.revealLine(found[idx]!.line);
+    },
+    [manager],
+  );
+
+  const stepMatch = (delta: number) => {
+    const s = manager.active;
+    if (!s || matches.length === 0) return;
+    const idx = (matchIndex + delta + matches.length) % matches.length;
+    setMatchIndex(idx);
+    s.revealLine(matches[idx]!.line);
+  };
+
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setQuery("");
+    setMatches([]);
+    setMatchIndex(-1);
+    manager.active?.scrollToBottom();
+  };
 
   // While the terminal is on screen and focused, its active tab is "seen".
   useEffect(() => {
@@ -100,6 +142,16 @@ export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyRea
     if (!focused || !s) return;
     if (isTerminalHostKey(event)) return;
 
+    // Search bar open: typing goes to its <input>; Enter = older match,
+    // Shift+Enter = newer, Esc closes.
+    if (searchOpen) {
+      if (event.name === "escape") closeSearch();
+      else if (event.name === "return") stepMatch(event.shift ? 1 : -1);
+      else if (event.name === "up") stepMatch(-1);
+      else if (event.name === "down") stepMatch(1);
+      return;
+    }
+
     // Scrollback: Shift+PageUp/PageDown, Shift+Up/Down, Alt+Up/Down.
     const page = Math.max(1, s.rows - 1);
     if (event.shift && event.name === "pageup") return s.scrollBy(page);
@@ -164,8 +216,31 @@ export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyRea
           )}
         </box>
       )}
+      {searchOpen && (
+        <box style={{ paddingX: 1, height: 1, flexDirection: "row", flexShrink: 0, backgroundColor: "#1a1a1a" }}>
+          <text style={{ fg: "green", bg: "#1a1a1a", attributes: TextAttributes.BOLD, flexShrink: 0 }}>{"/ "}</text>
+          <input
+            focused={focused && searchOpen}
+            value={query}
+            placeholder="search output…"
+            onInput={(v: string) => runSearch(v)}
+            onSubmit={() => {}}
+            style={{ flexGrow: 1, backgroundColor: "#1a1a1a", textColor: "white", placeholderColor: "gray", cursorColor: "green" }}
+          />
+          <text wrapMode="none" style={{ fg: matches.length ? "green" : "gray", bg: "#1a1a1a", flexShrink: 0 }}>
+            {matches.length
+              ? `  ${matchIndex + 1}/${matches.length}${matches.length >= 2000 ? "+" : ""}  Enter:older Shift+Enter:newer Esc:close`
+              : query
+                ? "  no matches  Esc:close"
+                : "  Esc:close"}
+          </text>
+        </box>
+      )}
       <box style={{ flexGrow: 1, paddingX: 1 }}>
-        <terminal-view session={active} terminalFocused={focused} onTerminalSize={onTerminalSize} onOpenPath={onOpenPath} style={{ flexGrow: 1 }} />
+        <terminal-view session={active} terminalFocused={focused} onTerminalSize={onTerminalSize} onOpenPath={onOpenPath}
+          matches={searchOpen ? matches.map((m, i) => ({ ...m, active: i === matchIndex })) : undefined}
+          style={{ flexGrow: 1 }}
+        />
       </box>
     </box>
   );

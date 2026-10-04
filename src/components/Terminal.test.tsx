@@ -117,3 +117,38 @@ test("double-click on a file reference in the output opens it at that line", asy
     fsx.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("Ctrl+X / search finds text in the scrollback and jumps between matches", async () => {
+  let openSearch: (() => void) | null = null;
+  const setup = await testRender(
+    <box style={{ width: 60, height: 12 }}>
+      <Terminal
+        cwd={process.cwd()}
+        focused={true}
+        onFocusRequest={() => {}}
+        onSearchReady={(open) => (openSearch = open)}
+        command={["/bin/sh", "-c", "i=0; while [ $i -lt 300 ]; do if [ $i = 20 ] || [ $i = 150 ] || [ $i = 280 ]; then echo \"line $i needle\"; else echo \"line $i\"; fi; i=$((i+1)); done; sleep 5"]}
+      />
+    </box>,
+    { width: 60, height: 14 },
+  );
+  try {
+    await waitForFrame(setup, (f) => f.includes("line 299"));
+    openSearch!();
+    await waitForFrame(setup, (f) => f.includes("Esc:close"));
+    await setup.mockInput.typeText("needle");
+    let frame = await waitForFrame(setup, (f) => f.includes("3/3"));
+    expect(frame).toContain("line 280 needle");
+    setup.mockInput.pressEnter(); // older
+    frame = await waitForFrame(setup, (f) => f.includes("2/3"));
+    expect(frame).toContain("line 150 needle");
+    setup.mockInput.pressEnter();
+    frame = await waitForFrame(setup, (f) => f.includes("1/3"));
+    expect(frame).toContain("line 20 needle");
+    setup.mockInput.pressEscape();
+    frame = await waitForFrame(setup, (f) => !f.includes("Esc:close"));
+    expect(frame).toContain("line 299");
+  } finally {
+    setup.renderer.destroy();
+  }
+});
