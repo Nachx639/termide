@@ -6,11 +6,9 @@ import type { Theme } from "../lib/ThemeSystem";
 
 export interface QuickSettingsState {
   wordWrap: boolean;
-  indentGuides: boolean;
   minimap: boolean;
   lineNumbers: boolean;
-  fontSize: "small" | "normal" | "large";
-  tabSize: number;
+  /** Off: save with Ctrl+S, or when switching files / hiding the editor. */
   autoSave: boolean;
   theme: Theme;
 }
@@ -29,14 +27,13 @@ interface SettingItem {
   options?: string[];
 }
 
+// Only settings the editor actually honours (indent guides, tab size and font
+// size were listed but wired to nothing).
 const SETTINGS_LIST: SettingItem[] = [
   { key: "wordWrap", label: "Word Wrap", type: "toggle" },
-  { key: "indentGuides", label: "Indent Guides", type: "toggle" },
-  { key: "minimap", label: "Minimap", type: "toggle" },
   { key: "lineNumbers", label: "Line Numbers", type: "toggle" },
+  { key: "minimap", label: "Minimap", type: "toggle" },
   { key: "autoSave", label: "Auto Save", type: "toggle" },
-  { key: "tabSize", label: "Tab Size", type: "number" },
-  { key: "fontSize", label: "Font Size", type: "select", options: ["small", "normal", "large"] },
 ];
 
 export function QuickSettings({
@@ -95,30 +92,6 @@ export function QuickSettings({
 
       if (setting.type === "toggle") {
         onSettingsChange({ [setting.key]: !settings[setting.key] });
-      } else if (setting.type === "number") {
-        // Cycle tab sizes: 2 -> 4 -> 8 -> 2
-        const current = settings[setting.key] as number;
-        const next = current === 2 ? 4 : current === 4 ? 8 : 2;
-        onSettingsChange({ [setting.key]: next });
-      } else if (setting.type === "select" && setting.options) {
-        const current = settings[setting.key] as string;
-        const currentIdx = setting.options.indexOf(current);
-        const nextIdx = (currentIdx + 1) % setting.options.length;
-        onSettingsChange({ [setting.key]: setting.options[nextIdx] });
-      }
-    } else if (event.name === "left" || event.name === "h") {
-      const setting = SETTINGS_LIST[selectedIndex];
-      if (setting?.type === "number") {
-        const current = settings[setting.key] as number;
-        const next = Math.max(2, current === 8 ? 4 : current === 4 ? 2 : 2);
-        onSettingsChange({ [setting.key]: next });
-      }
-    } else if (event.name === "right" || event.name === "l") {
-      const setting = SETTINGS_LIST[selectedIndex];
-      if (setting?.type === "number") {
-        const current = settings[setting.key] as number;
-        const next = Math.min(8, current === 2 ? 4 : current === 4 ? 8 : 8);
-        onSettingsChange({ [setting.key]: next });
       }
     }
   });
@@ -270,7 +243,8 @@ export function QuickSettings({
         <box
           style={{
             paddingX: 1,
-            height: 1,
+            height: 2,
+            flexShrink: 0,
             border: ["top"],
             borderColor: "gray",
             backgroundColor: "#0b0b0b",
