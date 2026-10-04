@@ -364,8 +364,12 @@ export async function getFileDiff(filePath: string, cwd: string, staged: boolean
 }
 
 // Discard changes to a file (checkout HEAD version)
+/**
+ * Discard the unstaged changes of a file (restore it from the index). Staged
+ * changes are kept — `checkout HEAD --` used to wipe those too.
+ */
 export async function discardFileChanges(filePath: string, cwd: string): Promise<boolean> {
-  const result = await runGitCommand(["checkout", "HEAD", "--", filePath], cwd);
+  const result = await runGitCommand(["checkout", "--", filePath], cwd);
   invalidateGitCache();
   return result !== null;
 }

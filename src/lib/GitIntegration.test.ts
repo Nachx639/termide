@@ -299,6 +299,16 @@ describe("diffs", () => {
     expect(await getFileDiff("d.txt", repo)).toBe("");
   });
 
+  test("discardFileChanges keeps staged changes", async () => {
+    const repo = makeRepo({ "s.txt": "base\n" });
+    write(repo, { "s.txt": "staged\n" });
+    git(repo, "add", "s.txt");
+    write(repo, { "s.txt": "staged + later edit\n" });
+    expect(await discardFileChanges("s.txt", repo)).toBe(true);
+    expect(fs.readFileSync(path.join(repo, "s.txt"), "utf-8")).toBe("staged\n");
+    expect(await getFileDiff("s.txt", repo, true)).toContain("+staged");
+  });
+
   test("getFileLineDiffs reports added, modified and deleted lines (1-based)", async () => {
     const repo = makeRepo({ "f.txt": "1\n2\n3\n4\n5\n" });
     // modify line 2, delete line 4, add a line after 5
