@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
-import { THEMES, Theme } from "../lib/ThemeSystem";
+import { THEMES, type Theme } from "../lib/ThemeSystem";
 
 interface ThemePickerProps {
   isOpen: boolean;
@@ -31,7 +31,8 @@ export function ThemePicker({ isOpen, onClose, currentTheme, onSelect }: ThemePi
     }
 
     if (event.name === "return") {
-      onSelect(THEMES[selectedIndex]);
+      const theme = THEMES[selectedIndex];
+      if (theme) onSelect(theme);
       onClose();
       return;
     }

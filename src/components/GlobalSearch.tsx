@@ -108,7 +108,7 @@ export function GlobalSearch({ rootPath, isOpen, onClose, onSelect }: GlobalSear
           let fileResults = 0;
 
           for (let i = 0; i < lines.length && fileResults < maxResultsPerFile; i++) {
-            const line = lines[i];
+            const line = lines[i] ?? "";
             const lineLower = line.toLowerCase();
             const matchIndex = lineLower.indexOf(queryLower);
 

@@ -9,7 +9,7 @@ interface LoadingSpinnerProps {
   /** Color of the spinner */
   color?: string;
   /** Custom animation frames */
-  frames?: string[];
+  frames?: readonly string[];
   /** Animation speed in ms */
   interval?: number;
 }

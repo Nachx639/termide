@@ -9,6 +9,41 @@ export interface Message {
   timestamp: number;
 }
 
+// Minimal shapes of the ACP payloads we consume. Everything arrives as untrusted
+// JSON, so fields are optional and narrowed before use.
+interface ACPContentBlock {
+  type?: string;
+  text?: string;
+}
+
+interface ACPSessionUpdate {
+  sessionUpdate?: string;
+  content?: ACPContentBlock;
+  toolCall?: { name?: string };
+}
+
+interface ACPSessionUpdateParams {
+  update?: ACPSessionUpdate;
+}
+
+interface ACPReadTextFileParams {
+  path?: string;
+}
+
+interface ACPSessionNewResult {
+  sessionId?: string;
+  id?: string;
+}
+
+interface ACPPromptResult {
+  message?: { content?: string | ACPContentBlock[] };
+  stopReason?: string;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 export function useACP() {
   const [client, setClient] = useState<ACPClient | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -65,7 +100,7 @@ export function useACP() {
       onNotification: (method, params) => {
         // Handle session/update notifications (streaming responses)
         if (method === 'session/update') {
-          const update = params?.update;
+          const update = isRecord(params) ? (params as ACPSessionUpdateParams).update : undefined;
           if (!update) return;
 
           // Handle text message chunks from the agent
@@ -90,8 +125,12 @@ export function useACP() {
         // Handle agent requests to the client
         // For now, we just return success for most things
         if (method === 'fs/readTextFile') {
+          const filePath = isRecord(params) ? (params as ACPReadTextFileParams).path : undefined;
+          if (typeof filePath !== 'string') {
+            return { error: 'File not found' };
+          }
           try {
-            const file = Bun.file(params.path);
+            const file = Bun.file(filePath);
             const content = await file.text();
             return { content };
           } catch {
@@ -123,7 +162,7 @@ export function useACP() {
 
       // Create a new session
       // mcpServers is required by Gemini, must be an array (can be empty)
-      const sessionResult = await newClient.sendRequest('session/new', {
+      const sessionResult = await newClient.sendRequest<ACPSessionNewResult | null>('session/new', {
         cwd: process.cwd(),
         mcpServers: []
       });
@@ -183,7 +222,7 @@ export function useACP() {
 
     try {
       // ACP method: session/prompt
-      const response = await client.sendRequest('session/prompt', {
+      const response = await client.sendRequest<ACPPromptResult | null>('session/prompt', {
         sessionId: sessionIdRef.current,
         prompt: [{ type: 'text', text }]
       });
@@ -193,8 +232,8 @@ export function useACP() {
         const content = response.message.content;
         if (Array.isArray(content)) {
           const text = content
-            .filter((c: any) => c.type === 'text')
-            .map((c: any) => c.text)
+            .filter((c) => c.type === 'text')
+            .map((c) => c.text)
             .join('');
           if (text) addMessage('assistant', text);
         } else if (typeof content === 'string') {

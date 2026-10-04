@@ -30,14 +30,14 @@ export function isDirectory(filePath: string): boolean {
  */
 export function isBinaryFile(filePath: string): boolean {
   const ext = path.extname(filePath).toLowerCase();
-  return FILE_PATTERNS.BINARY_EXTENSIONS.includes(ext);
+  return (FILE_PATTERNS.BINARY_EXTENSIONS as readonly string[]).includes(ext);
 }
 
 /**
  * Check if a file/directory should be ignored
  */
 export function shouldIgnore(name: string): boolean {
-  return FILE_PATTERNS.IGNORED_PATTERNS.includes(name);
+  return (FILE_PATTERNS.IGNORED_PATTERNS as readonly string[]).includes(name);
 }
 
 /**

@@ -38,7 +38,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+  override componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
     this.setState({ errorInfo });
 
     // Log to console in development
@@ -49,7 +49,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     this.props.onError?.(error, errorInfo);
   }
 
-  render(): ReactNode {
+  override render(): ReactNode {
     if (this.state.hasError) {
       // Custom fallback UI
       if (this.props.fallback) {
@@ -94,7 +94,7 @@ export function withErrorBoundary<P extends object>(
 
   const ComponentWithErrorBoundary = (props: P) => (
     <ErrorBoundary fallback={fallback}>
-      <WrappedComponent {...props} />
+      {React.createElement(WrappedComponent, props)}
     </ErrorBoundary>
   );
 
@@ -124,7 +124,7 @@ export class PanelErrorBoundary extends Component<PanelErrorBoundaryProps, Error
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+  override componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
     this.setState({ errorInfo });
     console.error(`Error in ${this.props.panelName}:`, error);
     this.props.onError?.(error, errorInfo);
@@ -134,7 +134,7 @@ export class PanelErrorBoundary extends Component<PanelErrorBoundaryProps, Error
     this.setState({ hasError: false, error: null, errorInfo: null });
   };
 
-  render(): ReactNode {
+  override render(): ReactNode {
     if (this.state.hasError) {
       return (
         <box

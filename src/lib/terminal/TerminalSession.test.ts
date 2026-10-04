@@ -76,6 +76,7 @@ test("reports exit and restarts on Enter", async () => {
   await waitFor(() => s.exited);
   expect(s.exitCode).toBe(0);
   expect(s.sendKey({ name: "return", sequence: "\r", ctrl: false, meta: false, shift: false })).toBe(true);
-  await waitFor(() => !s.exited);
+  // The restarted `echo bye` may exit again before a poll sees it running, so only
+  // wait for its output.
   await waitFor(() => s.getAllText().split("bye").length === 3);
 });

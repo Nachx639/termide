@@ -37,7 +37,7 @@ export function SearchBar({ isOpen, onClose, content, onJumpToLine, mode }: Sear
     const queryLower = query.toLowerCase();
 
     for (let i = 0; i < content.length; i++) {
-      const line = content[i];
+      const line = content[i] ?? "";
       const lineLower = line.toLowerCase();
       let pos = 0;
 
@@ -79,8 +79,9 @@ export function SearchBar({ isOpen, onClose, content, onJumpToLine, mode }: Sear
       }
 
       // Jump to current match
-      if (matches[currentMatchIndex]) {
-        onJumpToLine(matches[currentMatchIndex].lineIndex);
+      const currentMatch = matches[currentMatchIndex];
+      if (currentMatch) {
+        onJumpToLine(currentMatch.lineIndex);
         onClose();
       }
       return;
@@ -91,8 +92,9 @@ export function SearchBar({ isOpen, onClose, content, onJumpToLine, mode }: Sear
       if (event.name === "n" && event.ctrl) {
         // Next match
         setCurrentMatchIndex((i) => (i + 1) % matches.length);
-        if (matches[(currentMatchIndex + 1) % matches.length]) {
-          onJumpToLine(matches[(currentMatchIndex + 1) % matches.length].lineIndex);
+        const nextMatch = matches[(currentMatchIndex + 1) % matches.length];
+        if (nextMatch) {
+          onJumpToLine(nextMatch.lineIndex);
         }
         return;
       }
