@@ -24,7 +24,7 @@ test("custom agent: connect, prompt, approve a write, see the tool result", asyn
   // Command lines are split on whitespace, so use a path without spaces.
   const mock = path.join(dir, "mock-agent.ts");
   fs.copyFileSync(path.join(import.meta.dir, "../lib/acp/fixtures/mock-agent.ts"), mock);
-  const setup = await testRender(<AgentPanel rootPath={dir} focused={true} onFocus={() => {}} />, { width: 90, height: 24 });
+  const setup = await testRender(<AgentPanel rootPath={dir} focused={true} onFocus={() => {}} isolated />, { width: 90, height: 24 });
   try {
     await waitForFrame(setup, (f) => f.includes("Select an AI Agent"));
     for (let i = 0; i < 3; i++) setup.mockInput.pressArrow("down"); // → Custom...

@@ -3,6 +3,7 @@ import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
 import { App } from "./App";
 import { disposeAllTerminals } from "./lib/terminal/TerminalManager";
+import { disposeAllAgents } from "./hooks/useACP";
 import * as path from "path";
 import * as fs from "fs";
 
@@ -46,4 +47,7 @@ const cleanExit = () => {
 // SIGTERM for clean exit
 process.on("SIGTERM", cleanExit);
 // Shells and the programs inside them go down with termide, whatever the exit path.
-process.on("exit", disposeAllTerminals);
+process.on("exit", () => {
+  disposeAllTerminals();
+  disposeAllAgents();
+});
