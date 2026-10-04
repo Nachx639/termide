@@ -12,6 +12,8 @@ import {
   type RenderContext,
   type RenderableOptions,
   type MouseEvent,
+  type Selection,
+  convertGlobalToLocalSelection,
 } from "@opentui/core";
 import { extend } from "@opentui/react";
 import type { IBufferCell } from "@xterm/headless";
@@ -38,6 +40,14 @@ function rgba(c: RGB): RGBA {
 }
 
 const TRANSPARENT = RGBA.fromInts(0, 0, 0, 0);
+const SELECTION_BG = RGBA.fromInts(38, 79, 120, 255);
+const SELECTION_FG = RGBA.fromInts(240, 242, 245, 255);
+
+/** A point in buffer coordinates (absolute line incl. scrollback, column). */
+interface BufPoint {
+  line: number;
+  col: number;
+}
 const FG_DEFAULT = rgba(DEFAULT_FG);
 const BG_DEFAULT_SOLID = rgba(DEFAULT_BG);
 
@@ -70,9 +80,13 @@ export class TerminalViewRenderable extends Renderable {
   private unsubscribe: (() => void) | null = null;
   private scratchCell: IBufferCell | undefined;
   onTerminalSize: ((cols: number, rows: number) => void) | null = null;
+  /** Mouse selection in buffer coordinates so it stays put while scrolling. */
+  private selAnchor: BufPoint | null = null;
+  private selFocus: BufPoint | null = null;
 
   constructor(ctx: RenderContext, options: TerminalViewOptions) {
     super(ctx, { ...options, buffered: false });
+    this.selectable = true;
     this.session = options.session ?? null;
     this._termFocused = options.terminalFocused ?? false;
     this.onTerminalSize = options.onTerminalSize ?? null;
@@ -125,6 +139,71 @@ export class TerminalViewRenderable extends Renderable {
     event.stopPropagation();
   }
 
+  override shouldStartSelection(x: number, y: number): boolean {
+    if (!this.selectable || !this._session) return false;
+    const lx = x - this.screenX;
+    const ly = y - this.screenY;
+    return lx >= 0 && lx < this.width && ly >= 0 && ly < this.height;
+  }
+
+  override onSelectionChanged(selection: Selection | null): boolean {
+    const s = this._session;
+    const local = convertGlobalToLocalSelection(selection, this.screenX, this.screenY);
+    const had = this.selAnchor !== null;
+    if (!s || !local?.isActive) {
+      this.selAnchor = this.selFocus = null;
+      if (had) this.requestRender();
+      return had;
+    }
+    const top = s.viewportTop;
+    const clampCol = (c: number) => Math.max(0, Math.min(s.cols, c));
+    const clampLine = (l: number) => Math.max(0, Math.min(s.xterm.buffer.active.length - 1, l));
+    this.selAnchor = { line: clampLine(top + local.anchorY), col: clampCol(local.anchorX) };
+    this.selFocus = { line: clampLine(top + local.focusY), col: clampCol(local.focusX) };
+    this.requestRender();
+    return true;
+  }
+
+  override hasSelection(): boolean {
+    return this.selAnchor !== null && this.selFocus !== null && (this.selAnchor.line !== this.selFocus.line || this.selAnchor.col !== this.selFocus.col);
+  }
+
+  /** Ordered selection range, end exclusive. */
+  private selRange(): { start: BufPoint; end: BufPoint } | null {
+    if (!this.hasSelection()) return null;
+    const a = this.selAnchor!;
+    const b = this.selFocus!;
+    return a.line < b.line || (a.line === b.line && a.col <= b.col) ? { start: a, end: b } : { start: b, end: a };
+  }
+
+  private isSelected(line: number, col: number, range: { start: BufPoint; end: BufPoint } | null): boolean {
+    if (!range) return false;
+    const { start, end } = range;
+    if (line < start.line || line > end.line) return false;
+    if (line === start.line && col < start.col) return false;
+    if (line === end.line && col >= end.col) return false;
+    return true;
+  }
+
+  override getSelectedText(): string {
+    const s = this._session;
+    const range = this.selRange();
+    if (!s || !range) return "";
+    const buf = s.xterm.buffer.active;
+    let out = "";
+    for (let y = range.start.line; y <= range.end.line; y++) {
+      const line = buf.getLine(y);
+      if (!line) continue;
+      const from = y === range.start.line ? range.start.col : 0;
+      const to = y === range.end.line ? range.end.col : s.cols;
+      const text = line.translateToString(y !== range.end.line, from, to);
+      // Soft-wrapped continuation lines join without a newline.
+      const next = buf.getLine(y + 1);
+      out += text + (y < range.end.line && !next?.isWrapped ? "\n" : "");
+    }
+    return out.replace(/[ \t]+$/gm, "");
+  }
+
   protected override renderSelf(buffer: OptimizedBuffer): void {
     const s = this._session;
     const w = this.width;
@@ -139,6 +218,7 @@ export class TerminalViewRenderable extends Renderable {
     const showCursor = this._termFocused && following && !s.exited && (s.xterm as any)._core?.coreService?.isCursorHidden !== true;
     const cursorX = buf.cursorX;
     const cursorY = buf.cursorY;
+    const range = this.selRange();
 
     for (let row = 0; row < h; row++) {
       const line = row < s.rows ? buf.getLine(top + row) : undefined;
@@ -166,7 +246,10 @@ export class TerminalViewRenderable extends Renderable {
         let attrs = cellAttributes(cell);
         if (cell.isInvisible()) fg = bg ?? TRANSPARENT;
 
-        if (showCursor && row === cursorY && col === cursorX) {
+        if (range && this.isSelected(top + row, col, range)) {
+          fg = SELECTION_FG;
+          bg = SELECTION_BG;
+        } else if (showCursor && row === cursorY && col === cursorX) {
           fg = rgba(CURSOR_FG);
           bg = rgba(CURSOR_BG);
         }

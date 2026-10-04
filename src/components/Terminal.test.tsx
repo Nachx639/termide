@@ -51,3 +51,34 @@ test("typing goes to the shell when focused", async () => {
     setup.renderer.destroy();
   }
 });
+
+test("mouse drag selects terminal text for copy, joining soft-wrapped lines", async () => {
+  const setup = await testRender(
+    <box style={{ width: 30, height: 10 }}>
+      <Terminal
+        cwd={process.cwd()}
+        focused={false}
+        onFocusRequest={() => {}}
+        command={["/bin/sh", "-c", "printf 'first line\\nsecond line\\n'; printf 'abcdefghijklmnopqrstuvwxyz0123456789'; sleep 5"]}
+      />
+    </box>,
+    { width: 40, height: 12 },
+  );
+  try {
+    const frame = await waitForFrame(setup, (f) => f.includes("0123"));
+    // Box border (1) + padding (1) → terminal origin at column 2, row 1.
+    const lines = frame.split("\n");
+    const y0 = lines.findIndex((l) => l.includes("first line"));
+    const x0 = lines[y0]!.indexOf("first line");
+    await setup.mockMouse.drag(x0 + 6, y0, x0 + 6, y0 + 1);
+    await setup.renderOnce();
+    expect(setup.renderer.getSelection()?.getSelectedText()).toBe("line\nsecond");
+
+    // From the start of the wrapped line to its continuation: no newline inserted.
+    await setup.mockMouse.drag(x0, y0 + 2, x0 + 10, y0 + 3);
+    await setup.renderOnce();
+    expect(setup.renderer.getSelection()?.getSelectedText()).toBe("abcdefghijklmnopqrstuvwxyz0123456789".slice(0, 26 + 10));
+  } finally {
+    setup.renderer.destroy();
+  }
+});
