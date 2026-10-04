@@ -264,8 +264,9 @@ export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles =
         <scrollbox
           style={{ flexDirection: "column", flexGrow: 1, backgroundColor: "#1a1a1a" }}
           onMouse={(event: any) => {
-            if (event.action === "wheel") {
-              if (event.direction === "up") {
+            // OpenTUI reports the wheel as type "scroll" with scroll.direction.
+            if (event.type === "scroll") {
+              if (event.scroll?.direction === "up") {
                 setSelectedIndex(i => Math.max(0, i - 1));
               } else {
                 setSelectedIndex(i => Math.min(matches.length - 1, i + 1));

@@ -230,8 +230,9 @@ export function GlobalSearch({ rootPath, isOpen, onClose, onSelect }: GlobalSear
         <scrollbox
           style={{ flexDirection: "column", flexGrow: 1, backgroundColor: "#1a1a1a" }}
           onMouse={(event: any) => {
-            if (event.action === "wheel") {
-              if (event.direction === "up") {
+            // OpenTUI reports the wheel as type "scroll" with scroll.direction.
+            if (event.type === "scroll") {
+              if (event.scroll?.direction === "up") {
                 setSelectedIndex(i => Math.max(0, i - 1));
               } else {
                 setSelectedIndex(i => Math.min(results.length - 1, i + 1));

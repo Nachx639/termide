@@ -196,8 +196,9 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
         <box
           style={{ flexDirection: "column", height: 11, paddingX: 2, backgroundColor: "#050505" }}
           onMouse={(event: any) => {
-            if (event.action === "wheel") {
-              if (event.direction === "up") {
+            // OpenTUI reports the wheel as type "scroll" with scroll.direction.
+            if (event.type === "scroll") {
+              if (event.scroll?.direction === "up") {
                 setSelectedIndex(i => Math.max(0, i - 1));
               } else {
                 setSelectedIndex(i => Math.min(filteredCommands.length - 1, i + 1));
