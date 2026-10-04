@@ -3,6 +3,7 @@ import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 import * as fs from "fs";
 import * as path from "path";
+import { listProjectFiles } from "../lib/textSearch";
 
 interface FuzzyFinderProps {
   rootPath: string;
@@ -74,52 +75,24 @@ function fuzzyMatch(pattern: string, text: string): { score: number; highlights:
   return { score, highlights };
 }
 
-// Recursively collect all files
-function collectFiles(
-  dirPath: string,
-  rootPath: string,
-  maxDepth: number = 10,
-  depth: number = 0
-): string[] {
-  if (depth > maxDepth) return [];
-
-  const files: string[] = [];
-
-  try {
-    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-
-    for (const entry of entries) {
-      // Skip hidden files/folders and node_modules
-      if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
-
-      const fullPath = path.join(dirPath, entry.name);
-
-      if (entry.isDirectory()) {
-        files.push(...collectFiles(fullPath, rootPath, maxDepth, depth + 1));
-      } else {
-        files.push(fullPath);
-      }
-    }
-  } catch {
-    // Ignore permission errors
-  }
-
-  return files;
-}
-
 export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles = [] }: FuzzyFinderProps) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [allFiles, setAllFiles] = useState<string[]>([]);
 
-  // Collect files when opened
+  // Collect files when opened (rg --files / git ls-files: honours .gitignore and
+  // does not block the UI)
   useEffect(() => {
-    if (isOpen) {
-      const files = collectFiles(rootPath, rootPath);
-      setAllFiles(files);
-      setQuery("");
-      setSelectedIndex(0);
-    }
+    if (!isOpen) return;
+    setQuery("");
+    setSelectedIndex(0);
+    let cancelled = false;
+    listProjectFiles(rootPath).then((files) => {
+      if (!cancelled) setAllFiles(files);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, rootPath]);
 
   // Compute matches

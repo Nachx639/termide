@@ -167,4 +167,48 @@ export async function searchInFiles(root: string, query: string, opts: SearchOpt
   return (await viaRipgrep(root, query, o)) ?? (await viaGitGrep(root, query, o)) ?? (await viaWalk(root, query, o));
 }
 
+/**
+ * Files of the project for the file finder, honouring .gitignore (build output,
+ * virtualenvs, target/ ... used to be listed and walked synchronously).
+ * Absolute paths, at most `max`.
+ */
+export async function listProjectFiles(root: string, max = 50_000): Promise<string[]> {
+  const take = (text: string, sep: string) =>
+    text
+      .split(sep)
+      .filter(Boolean)
+      .slice(0, max)
+      .map((f) => path.resolve(root, f));
+
+  const rg = Bun.which("rg");
+  if (rg) {
+    const p = Bun.spawn([rg, "--files", "--hidden", "-g", "!.git"], { cwd: root, stdout: "pipe", stderr: "ignore" });
+    const out = await new Response(p.stdout).text();
+    if ((await p.exited) === 0 || out) return take(out, "\n");
+  }
+  const git = Bun.spawn(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd: root, stdout: "pipe", stderr: "ignore" });
+  const gitOut = await new Response(git.stdout).text();
+  if ((await git.exited) === 0) return take(gitOut, "\0").filter((f) => fs.existsSync(f));
+
+  const files: string[] = [];
+  const stack = [root];
+  while (stack.length && files.length < max) {
+    const dir = stack.pop()!;
+    let entries: fs.Dirent[] = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const e of entries) {
+      if (e.name.startsWith(".") || e.name === "node_modules") continue;
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) stack.push(full);
+      else files.push(full);
+    }
+    if (files.length % 2000 === 0) await new Promise((r) => setTimeout(r, 0));
+  }
+  return files;
+}
+
 export const __test = { viaRipgrep, viaGitGrep, viaWalk };
