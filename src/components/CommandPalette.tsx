@@ -33,6 +33,26 @@ function fuzzyMatch(pattern: string, text: string): boolean {
   return patternIdx === pattern.length;
 }
 
+/**
+ * Relevance of a command for a query (higher is better, -1 = no match):
+ * label prefix > word prefix > label substring > description/category
+ * substring > fuzzy. Typing "sett" used to select "Close Tab" (declaration
+ * order) with Quick Settings third.
+ */
+export function scoreCommand(query: string, cmd: Command): number {
+  const q = query.trim().toLowerCase();
+  if (!q) return 0;
+  const label = cmd.label.toLowerCase();
+  const rest = `${cmd.description ?? ""} ${cmd.category ?? ""}`.toLowerCase();
+  if (label.startsWith(q)) return 100;
+  if (label.split(/[\s/-]+/).some((w) => w.startsWith(q))) return 80;
+  if (label.includes(q)) return 60;
+  if (rest.includes(q)) return 40;
+  if (fuzzyMatch(q, cmd.label)) return 20;
+  if (fuzzyMatch(q, rest)) return 10;
+  return -1;
+}
+
 export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -41,12 +61,11 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
   const filteredCommands = useMemo(() => {
     if (!query.trim()) return commands;
 
-    return commands.filter(
-      (cmd) =>
-        fuzzyMatch(query, cmd.label) ||
-        fuzzyMatch(query, cmd.description || "") ||
-        fuzzyMatch(query, cmd.category || "")
-    );
+    return commands
+      .map((cmd, i) => ({ cmd, i, score: scoreCommand(query, cmd) }))
+      .filter((x) => x.score >= 0)
+      .sort((a, b) => b.score - a.score || a.i - b.i)
+      .map((x) => x.cmd);
   }, [query, commands]);
 
   // Reset when opened or query changes
@@ -84,7 +103,8 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
   const allGrouped: { [category: string]: Command[] } = {};
 
   filteredCommands.forEach((cmd, idx) => {
-    const cat = cmd.category || "General";
+    // While searching, one list in relevance order (grouping would reshuffle it).
+    const cat = query.trim() ? "Best matches" : cmd.category || "General";
     if (!allGrouped[cat]) allGrouped[cat] = [];
     allGrouped[cat].push(cmd);
   });

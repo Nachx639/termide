@@ -29,3 +29,13 @@ test("mouse wheel moves the selection; Enter runs the selected command", async (
     setup.renderer.destroy();
   }
 });
+
+test("results are ranked by relevance", async () => {
+  const { scoreCommand } = await import("./CommandPalette");
+  const cmds = ["Close Tab", "Focus Terminal", "Quick Settings", "Split Terminal", "Search Terminal Output"].map((label, i) => ({ id: `c${i}`, label, action: () => {} }));
+  const rank = (q: string) => cmds.map((c, i) => ({ c, i, s: scoreCommand(q, c) })).filter((x) => x.s >= 0).sort((a, b) => b.s - a.s || a.i - b.i).map((x) => x.c.label);
+  expect(rank("sett")[0]).toBe("Quick Settings");
+  expect(rank("split")[0]).toBe("Split Terminal");
+  expect(rank("term").slice(0, 3)).toEqual(["Focus Terminal", "Split Terminal", "Search Terminal Output"]);
+  expect(rank("zzz")).toEqual([]);
+});
