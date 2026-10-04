@@ -1,12 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import * as fs from "fs";
 
-// Debug logger - writes to /tmp/termide-debug.log
-const DEBUG_LOG = "/tmp/termide-debug.log";
-const debugLog = (msg: string) => {
-  const timestamp = new Date().toISOString();
-  fs.appendFileSync(DEBUG_LOG, `[${timestamp}] ${msg}\n`);
-};
 import { useKeyboard, useTerminalDimensions, useRenderer } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 import { FileTree } from "./components/FileTree";
