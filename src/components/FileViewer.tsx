@@ -8,7 +8,7 @@ import * as path from "path";
 import { detectLanguage } from "../lib/SyntaxHighlighter";
 import { getTermideSyntaxStyle } from "../lib/SyntaxStyles";
 import { highlightRanges } from "../lib/editorHighlight";
-import { readEditorText, looksComplete } from "../lib/editorText";
+import { readEditorText, looksComplete, readTextFile } from "../lib/editorText";
 import { onBeforeQuit } from "../lib/quit";
 import { onEditorCommand } from "../lib/editorCommands";
 import { copyToClipboard } from "../hooks/useClipboard";
@@ -122,6 +122,9 @@ export function FileViewer({
   const diskRef = useRef<{ content: string; mtimeMs: number; size: number } | null>(null);
   // Disk changed while we had unsaved edits: autosave is suspended until resolved.
   const [conflict, setConflict] = useState(false);
+  // Binary files (images...) are shown as a notice, never as editable text.
+  const [binary, setBinary] = useState<number | null>(null);
+  const binaryRef = useRef(false);
   // The file existed when loaded but is gone now (deleted, moved, renamed).
   const [missing, setMissing] = useState(false);
   const conflictRef = useRef(false);
@@ -193,6 +196,7 @@ export function FileViewer({
    * `force` (Ctrl+S during a conflict) overwrites anyway.
    */
   const saveNow = useCallback((targetPath: string, content: string, force = false): boolean => {
+    if (binaryRef.current) return false; // never write text over a binary file
     // Refuse to write a buffer that does not look complete (line count differs
     // from the editor's): a truncated read must never reach the disk.
     const ta = textareaRef.current;
@@ -245,11 +249,16 @@ export function FileViewer({
     }
 
     let content = "";
+    let binarySize: number | null = null;
     try {
-      content = fs.readFileSync(filePath, "utf8");
+      const r = readTextFile(filePath);
+      if ("binary" in r) binarySize = r.size;
+      else content = r.text;
     } catch {
       content = "";
     }
+    setBinary(binarySize);
+    binaryRef.current = binarySize !== null;
 
     setInitialContent(content);
     setLineCount(content === "" ? 0 : content.split("\n").length);
@@ -951,7 +960,15 @@ export function FileViewer({
         </box>
       )}
 
-      {/* Editor + minimap row */}
+      {binary !== null && (
+        <box style={{ flexGrow: 1, justifyContent: "center", alignItems: "center", flexDirection: "column" }}>
+          <text style={{ fg: "gray" }}>{`Binary file (${binary < 1024 ? `${binary} B` : `${Math.round(binary / 1024)} KB`}) — not opened as text`}</text>
+          <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>Editing it here would corrupt it.</text>
+        </box>
+      )}
+
+      {/* Editor + minimap row (not for binary files) */}
+      {binary === null && (
       <box style={{ flexDirection: "row", flexGrow: 1 }}>
         <line-number
           ref={lineNumberRef}
@@ -995,6 +1012,7 @@ export function FileViewer({
           />
         )}
       </box>
+      )}
 
       <SymbolPicker
         symbols={fileSymbols}
