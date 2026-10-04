@@ -29,7 +29,7 @@
     "@xterm/addon-unicode11": "0.9.0",
     "@xterm/headless": "6.0.0",
     "react": "19.3.0",
-    "ws": "8.21.0"
+    "ws": "8.22.0"
   },
   "overrides": {
     "shell-quote": "1.12.0",
