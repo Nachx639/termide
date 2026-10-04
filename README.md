@@ -119,6 +119,7 @@ bun install
 bun run dev
 bun test                 # unit + PTY + render tests
 bun scripts/smoke.ts     # run the whole app headlessly and print the screen
+bun scripts/exit-check.ts  # every way of quitting must restore your terminal
 ```
 
 ---
