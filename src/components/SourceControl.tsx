@@ -15,6 +15,7 @@ import {
     getFileDiff,
     discardFileChanges,
 } from "../lib/GitIntegration";
+import { setKeyCapture } from "../lib/keyCapture";
 
 interface SourceControlProps {
     rootPath: string;
@@ -30,6 +31,12 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
     const [showCommitModal, setShowCommitModal] = useState(false);
     const [commitMessage, setCommitMessage] = useState("");
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+    // The commit message input keeps every key while it is open.
+    useEffect(() => {
+        setKeyCapture("commit-message", showCommitModal);
+        return () => setKeyCapture("commit-message", false);
+    }, [showCommitModal]);
 
     // Pending discard (x pressed once): path + when, confirmed by a second x.
     const [pendingDiscard, setPendingDiscard] = useState<string | null>(null);

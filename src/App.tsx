@@ -37,6 +37,7 @@ import type { GitStatus } from "./lib/GitIntegration";
 import { THEMES, getTheme } from "./lib/ThemeSystem";
 import { loadPreferences, savePreferences } from "./lib/Preferences";
 import { ThemeContext } from "./lib/themeContext";
+import { isKeyCaptureActive } from "./lib/keyCapture";
 import type { Theme } from "./lib/ThemeSystem";
 import { getLayoutConfig, getScreenSizeLabel } from "./lib/ResponsiveLayout";
 import type { LayoutConfig, ScreenSize } from "./lib/ResponsiveLayout";
@@ -701,6 +702,8 @@ export function App({ rootPath }: AppProps) {
     if (event.defaultPrevented) return;
     // Don't handle keyboard if overlays are open (except help panel)
     if (showFuzzyFinder || showCommandPalette || showGlobalSearch || showThemePicker || showQuickSettings) return;
+    // Modals with their own keys / text inputs: global shortcuts stay out.
+    if (showFileOps || showCopyPanel || showDiffViewer || isKeyCaptureActive()) return;
 
     // === CTRL+C: Exit Termide when NOT focused on terminal ===
     // When terminal is focused, Ctrl+C goes to PTY (handled in Terminal.tsx)
