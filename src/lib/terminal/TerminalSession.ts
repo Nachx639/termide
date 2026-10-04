@@ -61,6 +61,21 @@ export class TerminalSession {
   }
 
   get exited() { return this._exited; }
+  get cwd() { return this.opts.cwd; }
+
+  /** The shell's current directory (it may have `cd`-ed away from where it started). */
+  async currentDir(): Promise<string | null> {
+    const pid = this.proc?.pid;
+    if (!pid || this._exited) return null;
+    try {
+      if (process.platform === "linux") return require("fs").readlinkSync(`/proc/${pid}/cwd`);
+      const out = await Bun.$`lsof -a -p ${pid} -d cwd -Fn`.quiet().nothrow().text();
+      const line = out.split("\n").find((l) => l.startsWith("n"));
+      return line ? line.slice(1) : null;
+    } catch {
+      return null;
+    }
+  }
   get exitCode() { return this._exitCode; }
   get cols() { return this.xterm.cols; }
   get rows() { return this.xterm.rows; }

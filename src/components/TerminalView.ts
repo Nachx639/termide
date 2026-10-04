@@ -18,6 +18,7 @@ import {
 import { extend } from "@opentui/react";
 import type { IBufferCell } from "@xterm/headless";
 import type { TerminalSession } from "../lib/terminal/TerminalSession";
+import { pathRefAt, type PathRef } from "../lib/terminal/pathLinks";
 import { CURSOR_BG, CURSOR_FG, DEFAULT_BG, DEFAULT_FG, paletteColor, unpackRGB, type RGB } from "../lib/terminal/palette";
 
 export interface TerminalViewOptions extends RenderableOptions<TerminalViewRenderable> {
@@ -25,6 +26,8 @@ export interface TerminalViewOptions extends RenderableOptions<TerminalViewRende
   terminalFocused?: boolean;
   /** Called with the cell size layout gives the view (used to start the PTY at the right size). */
   onTerminalSize?: (cols: number, rows: number) => void;
+  /** Double-click on a file reference in the output ("src/a.ts:12"). */
+  onOpenPath?: (ref: PathRef) => void;
 }
 
 const rgbaCache = new Map<number, RGBA>();
@@ -80,6 +83,8 @@ export class TerminalViewRenderable extends Renderable {
   private unsubscribe: (() => void) | null = null;
   private scratchCell: IBufferCell | undefined;
   onTerminalSize: ((cols: number, rows: number) => void) | null = null;
+  onOpenPath: ((ref: PathRef) => void) | null = null;
+  private lastClick = { at: 0, x: -1, y: -1 };
   /** Mouse selection in buffer coordinates so it stays put while scrolling. */
   private selAnchor: BufPoint | null = null;
   private selFocus: BufPoint | null = null;
@@ -90,6 +95,7 @@ export class TerminalViewRenderable extends Renderable {
     this.session = options.session ?? null;
     this._termFocused = options.terminalFocused ?? false;
     this.onTerminalSize = options.onTerminalSize ?? null;
+    this.onOpenPath = options.onOpenPath ?? null;
   }
 
   get session() { return this._session; }
@@ -120,6 +126,10 @@ export class TerminalViewRenderable extends Renderable {
 
   protected override onMouseEvent(event: MouseEvent): void {
     const s = this._session;
+    if (s && event.type === "down" && event.button === 0) {
+      this.handleClick(event.x - this.screenX, event.y - this.screenY);
+      return;
+    }
     if (!s || event.type !== "scroll" || !event.scroll) return;
     const dir = event.scroll.direction;
     if (dir !== "up" && dir !== "down") return;
@@ -137,6 +147,19 @@ export class TerminalViewRenderable extends Renderable {
       s.scrollBy(dir === "up" ? lines : -lines);
     }
     event.stopPropagation();
+  }
+
+  /** Double-click on a file reference opens it. */
+  private handleClick(col: number, row: number) {
+    const s = this._session;
+    if (!s) return;
+    const now = Date.now();
+    const isDouble = now - this.lastClick.at < 400 && this.lastClick.x === col && this.lastClick.y === row;
+    this.lastClick = { at: isDouble ? 0 : now, x: col, y: row };
+    if (!isDouble || !this.onOpenPath) return;
+    const text = s.xterm.buffer.active.getLine(s.viewportTop + row)?.translateToString(true) ?? "";
+    const ref = pathRefAt(text, col);
+    if (ref) this.onOpenPath(ref);
   }
 
   override shouldStartSelection(x: number, y: number): boolean {

@@ -82,3 +82,38 @@ test("mouse drag selects terminal text for copy, joining soft-wrapped lines", as
     setup.renderer.destroy();
   }
 });
+
+test("double-click on a file reference in the output opens it at that line", async () => {
+  const fsx = await import("fs");
+  const os = await import("os");
+  const path = await import("path");
+  const dir = fsx.mkdtempSync(path.join(os.tmpdir(), "termide-term-links-"));
+  fsx.mkdirSync(path.join(dir, "data"));
+  fsx.writeFileSync(path.join(dir, "data", "hello.txt"), "a\nb\nc\n");
+  let opened: [string, number | undefined] | null = null;
+  const setup = await testRender(
+    <box style={{ width: 60, height: 10 }}>
+      <Terminal
+        cwd={dir}
+        focused={true}
+        onFocusRequest={() => {}}
+        onOpenFile={(f, l) => (opened = [f, l])}
+        command={["/bin/sh", "-c", "echo 'error at data/hello.txt:3 here'; sleep 5"]}
+      />
+    </box>,
+    { width: 60, height: 12 },
+  );
+  try {
+    const frame = await waitForFrame(setup, (f) => f.includes("hello.txt:3"));
+    const lines = frame.split("\n");
+    const y = lines.findIndex((l) => l.includes("hello.txt"));
+    const x = lines[y]!.indexOf("hello.txt");
+    await setup.mockMouse.click(x, y);
+    await setup.mockMouse.click(x, y);
+    for (let i = 0; i < 50 && !opened; i++) await Bun.sleep(20);
+    expect(opened).toEqual([fsx.realpathSync(path.join(dir, "data", "hello.txt")), 3] as any);
+  } finally {
+    setup.renderer.destroy();
+    fsx.rmSync(dir, { recursive: true, force: true });
+  }
+});
