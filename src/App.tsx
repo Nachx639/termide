@@ -341,7 +341,9 @@ export function App({ rootPath }: AppProps) {
     };
 
     updateStats();
-  }, [selectedFile]);
+    // Saves, reloads and outside edits change the numbers too.
+    return onRepoChange(rootPath, updateStats);
+  }, [selectedFile, rootPath]);
 
   // Add file to recent files when selected
   const addToRecentFiles = (filePath: string) => {
