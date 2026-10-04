@@ -10,6 +10,7 @@ import { getTermideSyntaxStyle } from "../lib/SyntaxStyles";
 import { highlightRanges } from "../lib/editorHighlight";
 import { readEditorText, looksComplete } from "../lib/editorText";
 import { onBeforeQuit } from "../lib/quit";
+import { onEditorCommand } from "../lib/editorCommands";
 import { copyToClipboard } from "../hooks/useClipboard";
 import type { Theme } from "../lib/ThemeSystem";
 import { getFileLineDiffs, type LineDiffStatus } from "../lib/GitIntegration";
@@ -285,6 +286,27 @@ export function FileViewer({
       if ((pending || unsaved) && !conflictRef.current && text !== null) saveNow(filePath, text);
     };
   }, [filePath, saveNow]);
+
+  // Palette commands for the focused editor (lib/editorCommands).
+  useEffect(() => {
+    if (!focused || !filePath) return;
+    return onEditorCommand((cmd) => {
+      const ta = textareaRef.current as any;
+      if (cmd === "symbols") setShowSymbolPicker(true);
+      else if (cmd === "blame") setShowBlame((b) => !b);
+      else if (cmd === "undo" || cmd === "redo") {
+        try {
+          ta?.[cmd]?.();
+        } catch {}
+        setTimeout(() => handleContentChangeRef.current(), 0);
+      } else if (cmd === "save") {
+        if (saveNow(filePath, readEditorText(ta), conflictRef.current || missingRef.current)) {
+          setIsDirty(false);
+          setNotice("Saved");
+        }
+      }
+    });
+  }, [focused, filePath, saveNow]);
 
   // Flush a pending autosave if termide is quitting.
   useEffect(() => {

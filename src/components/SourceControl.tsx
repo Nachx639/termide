@@ -15,6 +15,7 @@ import {
     getFileDiff,
     discardFileChanges,
     invalidateGitCache,
+    getGitStatus,
 } from "../lib/GitIntegration";
 import { setKeyCapture } from "../lib/keyCapture";
 import { onRepoChange } from "../lib/repoEvents";
@@ -44,7 +45,10 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
     const [pendingDiscard, setPendingDiscard] = useState<string | null>(null);
     const scrollRef = React.useRef<any>(null);
 
+    const [isRepo, setIsRepo] = useState(true);
+
     const updateChanges = useCallback(async () => {
+        setIsRepo((await getGitStatus(rootPath)).isRepo);
         const gitChanges = await getGitChanges(rootPath);
         // Same order as on screen (staged group first), so arrow keys walk the
         // list top to bottom instead of jumping around in git's order.
@@ -226,7 +230,7 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
     const unstaged = changes.filter(c => !c.status.staged);
 
     const bottomTitle =
-        changes.length === 0 ? " clean " : ` ${staged.length} staged · ${unstaged.length} unstaged `;
+        !isRepo ? " no repo " : changes.length === 0 ? " clean " : ` ${staged.length} staged · ${unstaged.length} unstaged `;
 
     return (
         <box
@@ -274,7 +278,9 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
 
             {!showCommitModal && <box style={{ flexDirection: "column", flexGrow: 1, backgroundColor: "#0b0b0b" }}>
                 <scrollbox ref={scrollRef} style={{ flexGrow: 1, paddingX: 1, backgroundColor: "#0b0b0b" }}>
-                {changes.length === 0 ? (
+                {!isRepo ? (
+                    <text style={{ fg: "gray", attributes: TextAttributes.DIM, padding: 1 } as any}>Not a git repository</text>
+                ) : changes.length === 0 ? (
                     <text style={{ fg: "gray", attributes: TextAttributes.DIM, padding: 1 } as any}>No changes detected</text>
                 ) : (
                     <>
