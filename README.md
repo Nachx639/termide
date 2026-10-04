@@ -146,6 +146,7 @@ The terminal and the editor keep their keys (Tab completion, `Ctrl+R`, `Ctrl+W`,
 | `Tab` / `Shift+Tab` | Next / previous panel |
 | `T` · `]` · `[` · `W` | New terminal tab · next · previous · close |
 | `K` · `P` · `S` · `H` | Command palette · open file · search in files · help |
+| `/` | Search the terminal output (scrollback) |
 | `F` | Maximize / restore the focused panel |
 | `V` | Copy panel (select text with the keyboard) |
 | `Q` | Quit |

@@ -353,6 +353,7 @@ export function App({ rootPath }: AppProps) {
   };
   const terminalPasteRef = useRef<((text: string) => void) | null>(null);
   const terminalWriteRef = useRef<((data: string) => void) | null>(null);
+  const terminalSearchRef = useRef<(() => void) | null>(null);
   const terminalCopyRef = useRef<(() => string) | null>(null);
 
   // Command palette commands
@@ -756,6 +757,12 @@ export function App({ rootPath }: AppProps) {
       // F = maximize / restore the focused panel (Ctrl+F is search in the editor)
       if (event.name === "f" || event.name === "F") {
         setIsMaximized((m) => !m);
+        return;
+      }
+
+      // / = search the terminal's output (scrollback)
+      if (event.name === "/" && focusedPanel === "terminal") {
+        terminalSearchRef.current?.();
         return;
       }
 
@@ -1421,6 +1428,7 @@ export function App({ rootPath }: AppProps) {
                         onCopyReady={(copyFn) => { terminalCopyRef.current = copyFn; }}
                         onWriteReady={(writeFn) => { terminalWriteRef.current = writeFn; }}
                       onOpenFile={(file, line) => handleFileSelect(file, line)}
+                      onSearchReady={(open) => { terminalSearchRef.current = open; }}
                         height={currentTerminalHeight}
                         selectMode={terminalSelectMode}
                       />

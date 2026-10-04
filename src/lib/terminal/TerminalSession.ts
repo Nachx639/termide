@@ -211,6 +211,30 @@ export class TerminalSession {
     return Math.max(0, this.xterm.buffer.active.baseY - this._scrollOffset);
   }
 
+  /** Scroll so buffer line `line` is visible (roughly a third from the top). */
+  revealLine(line: number) {
+    const buf = this.xterm.buffer.active;
+    const top = Math.max(0, Math.min(buf.baseY, line - Math.floor(this.xterm.rows / 3)));
+    this._scrollOffset = buf.baseY - top;
+    this.clampScroll();
+    this.emitUpdate();
+  }
+
+  /** Case-insensitive matches of `query` in scrollback + screen (max 2000). */
+  find(query: string): { line: number; col: number; len: number }[] {
+    if (!query) return [];
+    const q = query.toLowerCase();
+    const buf = this.xterm.buffer.active;
+    const out: { line: number; col: number; len: number }[] = [];
+    for (let y = 0; y < buf.length && out.length < 2000; y++) {
+      const text = buf.getLine(y)?.translateToString(false).toLowerCase() ?? "";
+      for (let i = text.indexOf(q); i !== -1 && out.length < 2000; i = text.indexOf(q, i + Math.max(1, q.length))) {
+        out.push({ line: y, col: i, len: q.length });
+      }
+    }
+    return out;
+  }
+
   /** Text of the visible screen, trailing blank lines removed. */
   getVisibleText(): string {
     return this.getLines(this.viewportTop, this.xterm.rows);

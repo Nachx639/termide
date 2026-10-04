@@ -28,6 +28,15 @@ export interface TerminalViewOptions extends RenderableOptions<TerminalViewRende
   onTerminalSize?: (cols: number, rows: number) => void;
   /** Double-click on a file reference in the output ("src/a.ts:12"). */
   onOpenPath?: (ref: PathRef) => void;
+  /** Search matches to highlight (buffer coordinates); `active` is the current one. */
+  matches?: SearchMatch[];
+}
+
+export interface SearchMatch {
+  line: number;
+  col: number;
+  len: number;
+  active?: boolean;
 }
 
 const rgbaCache = new Map<number, RGBA>();
@@ -44,6 +53,8 @@ function rgba(c: RGB): RGBA {
 
 const TRANSPARENT = RGBA.fromInts(0, 0, 0, 0);
 const SELECTION_BG = RGBA.fromInts(38, 79, 120, 255);
+const MATCH_BG = RGBA.fromInts(255, 255, 0, 255);
+const MATCH_ACTIVE_BG = RGBA.fromInts(255, 140, 66, 255);
 const SELECTION_FG = RGBA.fromInts(240, 242, 245, 255);
 
 /** A point in buffer coordinates (absolute line incl. scrollback, column). */
@@ -84,6 +95,7 @@ export class TerminalViewRenderable extends Renderable {
   private scratchCell: IBufferCell | undefined;
   onTerminalSize: ((cols: number, rows: number) => void) | null = null;
   onOpenPath: ((ref: PathRef) => void) | null = null;
+  private _matches: SearchMatch[] = [];
   private lastClick = { at: 0, x: -1, y: -1 };
   /** Mouse selection in buffer coordinates so it stays put while scrolling. */
   private selAnchor: BufPoint | null = null;
@@ -96,7 +108,14 @@ export class TerminalViewRenderable extends Renderable {
     this._termFocused = options.terminalFocused ?? false;
     this.onTerminalSize = options.onTerminalSize ?? null;
     this.onOpenPath = options.onOpenPath ?? null;
+    this._matches = options.matches ?? [];
   }
+
+  set matches(m: SearchMatch[] | undefined) {
+    this._matches = m ?? [];
+    this.requestRender();
+  }
+  get matches() { return this._matches; }
 
   get session() { return this._session; }
   set session(s: TerminalSession | null) {
@@ -242,6 +261,14 @@ export class TerminalViewRenderable extends Renderable {
     const cursorX = buf.cursorX;
     const cursorY = buf.cursorY;
     const range = this.selRange();
+    // Search matches by line for the rows on screen.
+    const matchesByLine = new Map<number, SearchMatch[]>();
+    for (const m of this._matches) {
+      if (m.line < top || m.line >= top + h) continue;
+      const list = matchesByLine.get(m.line);
+      if (list) list.push(m);
+      else matchesByLine.set(m.line, [m]);
+    }
 
     for (let row = 0; row < h; row++) {
       const line = row < s.rows ? buf.getLine(top + row) : undefined;
@@ -269,7 +296,11 @@ export class TerminalViewRenderable extends Renderable {
         let attrs = cellAttributes(cell);
         if (cell.isInvisible()) fg = bg ?? TRANSPARENT;
 
-        if (range && this.isSelected(top + row, col, range)) {
+        const hit = matchesByLine.get(top + row)?.find((m) => col >= m.col && col < m.col + m.len);
+        if (hit) {
+          fg = rgba(CURSOR_FG);
+          bg = hit.active ? MATCH_ACTIVE_BG : MATCH_BG;
+        } else if (range && this.isSelected(top + row, col, range)) {
           fg = SELECTION_FG;
           bg = SELECTION_BG;
         } else if (showCursor && row === cursorY && col === cursorX) {

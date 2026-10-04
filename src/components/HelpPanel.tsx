@@ -77,6 +77,7 @@ const SHORTCUTS: ShortcutCategory[] = [
       { keys: "Ctrl+X → X", description: "Send a literal Ctrl+X" },
       { keys: "Shift+PgUp/PgDn", description: "Scroll back through output" },
       { keys: "Shift+↑/↓, wheel", description: "Scroll line by line" },
+      { keys: "Ctrl+X → /", description: "Search the output (Enter: older)" },
       { keys: "Double-click path", description: "Open file:line from the output" },
       { keys: "Drag", description: "Select and copy output" },
       { keys: "Ctrl+X → T / ] / [", description: "New tab / next / previous" },
