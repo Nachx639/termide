@@ -7,9 +7,11 @@ interface GitGraphProps {
     rootPath: string;
     focused: boolean;
     onFocus?: () => void;
+    /** Outer width of the panel in cells (defaults to an estimate from the screen). */
+    width?: number;
 }
 
-export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
+export function GitGraph({ rootPath, focused, onFocus, width }: GitGraphProps) {
     const [logLines, setLogLines] = useState<string[]>([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
@@ -173,9 +175,10 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
     }, [entries]);
 
     const panelWidth = useMemo(() => {
+        if (width && width > 0) return width;
         const totalWidth = dimensions.width || 80;
         return Math.max(24, Math.floor(totalWidth * 0.3));
-    }, [dimensions.width]);
+    }, [dimensions.width, width]);
 
     const maxSubjectWidth = useMemo(() => {
         const reserved = maxGraphWidth + 10;
@@ -188,7 +191,7 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
     };
 
     const truncateDetail = (text: string) => {
-        const maxWidth = Math.max(12, panelWidth - 2);
+        const maxWidth = Math.max(12, panelWidth - 4); // border + paddingX
         if (text.length <= maxWidth) return text;
         return `${text.slice(0, Math.max(0, maxWidth - 3))}...`;
     };
@@ -281,15 +284,15 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
                 )}
                 {entries[selectedIndex] && (
                     <box style={{ flexDirection: "column", height: 4, paddingX: 1, backgroundColor: "#111111", flexShrink: 0 }}>
-                        <text style={{ fg: focused ? "#d4a800" : "gray", attributes: TextAttributes.BOLD }}>
+                        <text wrapMode="none" style={{ height: 1, flexShrink: 0, fg: focused ? "#d4a800" : "gray", attributes: TextAttributes.BOLD }}>
                             {truncateDetail(
                                 `${entries[selectedIndex].hash}${entries[selectedIndex].author ? ` - ${entries[selectedIndex].author}` : ""}`
                             )}
                         </text>
-                        <text style={{ fg: focused ? "white" : "gray" }}>
+                        <text wrapMode="none" style={{ height: 1, flexShrink: 0, fg: focused ? "white" : "gray" }}>
                             {truncateDetail(entries[selectedIndex].subject || "No commit message")}
                         </text>
-                        <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
+                        <text wrapMode="none" style={{ height: 1, flexShrink: 0, fg: "gray", attributes: TextAttributes.DIM }}>
                             {(() => {
                                 const absolute = formatAbsoluteTime(entries[selectedIndex].timeRaw);
                                 let timeText = entries[selectedIndex].timeRelative || "unknown";
@@ -299,7 +302,7 @@ export function GitGraph({ rootPath, focused, onFocus }: GitGraphProps) {
                                 return truncateDetail(`Time: ${timeText}`);
                             })()}
                         </text>
-                        <text style={{ fg: "#4ec9b0", attributes: TextAttributes.DIM }}>
+                        <text wrapMode="none" style={{ height: 1, flexShrink: 0, fg: "#4ec9b0", attributes: TextAttributes.DIM }}>
                             {focused && entries[selectedIndex].refs ? truncateDetail(`Refs: ${entries[selectedIndex].refs}`) : ""}
                         </text>
                     </box>
