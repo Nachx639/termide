@@ -372,6 +372,12 @@ export function FileViewer({
     // Home/End and PgUp/PgDn left Ln/Col (and Ctrl+D, F12, bracket matching)
     // on a stale position. It handles the key after us: read the cursor next tick.
     setTimeout(() => handleCursorChangeRef.current(), 0);
+    // Undo/redo change the buffer without a content-change event, so they were
+    // never autosaved (the disk kept the undone text). Treat them as edits.
+    const isUndoRedo =
+      (event.ctrl && (event.name === "z" || event.name === "-" || event.name === ".")) ||
+      (event.super && event.name === "z");
+    if (isUndoRedo) setTimeout(() => handleContentChangeRef.current(), 0);
 
     // Ctrl+C copies the selection (in the editor it must not quit the IDE).
     if (event.ctrl && event.name === "c") {
@@ -731,6 +737,7 @@ export function FileViewer({
     };
   }, [filePath, initialContent, editVersion, syntaxStyle]);
 
+  const handleContentChangeRef = useRef<() => void>(() => {});
   const handleContentChange = useCallback(() => {
     // Track line count for the bottomTitle / status row.
     const ta = textareaRef.current;
@@ -772,6 +779,7 @@ export function FileViewer({
     }, SAVE_DEBOUNCE_MS);
   }, [filePath, saveNow]);
 
+  handleContentChangeRef.current = handleContentChange;
   const handleCursorChangeRef = useRef<() => void>(() => {});
   const handleCursorChange = useCallback(() => {
     const ta = textareaRef.current;

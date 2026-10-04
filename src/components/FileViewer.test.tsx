@@ -218,3 +218,21 @@ test("a file deleted or moved while open is not silently recreated; Ctrl+S recre
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("undo after the edit was saved is saved too", async () => {
+  const { dir, file, setup } = await mount("hello");
+  try {
+    await setup.mockInput.typeText("X");
+    for (let i = 0; i < 50 && fs.readFileSync(file, "utf8") !== "Xhello"; i++) await Bun.sleep(40);
+    expect(fs.readFileSync(file, "utf8")).toBe("Xhello");
+    setup.mockInput.pressKey("z", { ctrl: true });
+    for (let i = 0; i < 50 && fs.readFileSync(file, "utf8") !== "hello"; i++) {
+      await setup.renderOnce();
+      await Bun.sleep(40);
+    }
+    expect(fs.readFileSync(file, "utf8")).toBe("hello");
+  } finally {
+    setup.renderer.destroy();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
