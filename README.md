@@ -125,46 +125,67 @@ bun scripts/smoke.ts     # run the whole app headlessly and print the screen
 
 ## ⌨️ Keyboard Shortcuts
 
-Navigate like a pro:
-
 | Key | Action |
 | :--- | :--- |
-| `Tab` / `Shift+Tab` | Cycle between panels |
-| `Ctrl + F` | **Focus Mode** — maximize current panel |
+| `Tab` / `Shift+Tab` | Cycle between panels (outside the terminal/editor) |
 | `Ctrl + P` | Quick open file (fuzzy finder) |
 | `Ctrl + K` | Command Palette |
-| `Ctrl + Shift + F` | Global search in files |
-| `Ctrl + B` | Help panel |
-| `Ctrl + Shift + M` | Toggle mascot 🐜 |
+| `Ctrl + Shift + F` | Search in all files |
+| `Ctrl + Space` | Toggle the AI agent panel |
+| `F1` / `Ctrl + B` | Help panel (every shortcut) |
 | `Ctrl + Q` | Zen mode |
-| `Ctrl + X` → `Q` | Quit |
+| `Ctrl + ,` | Quick settings (word wrap, minimap, line numbers, auto save, theme) |
 
-**Inside the terminal every key goes to the shell** (Tab completion, `Ctrl+R`, `Ctrl+W`, `Ctrl+K`, …).
-Use the leader key to get out: `Ctrl+X` → `Tab` next panel, `K` palette, `P` files, `H` help, `Q` quit,
-`X` sends a literal `Ctrl+X`. Scroll back with `Shift+PgUp` / `Shift+↑` or the mouse wheel.
+### The leader key: `Ctrl + X`
+
+The terminal and the editor keep their keys (Tab completion, `Ctrl+R`, `Ctrl+W`,
+`?`, `@`…). `Ctrl+X` followed by a key reaches the IDE from anywhere:
+
+| `Ctrl+X` → | Action |
+| :--- | :--- |
+| `Tab` / `Shift+Tab` | Next / previous panel |
+| `T` · `]` · `[` · `W` | New terminal tab · next · previous · close |
+| `K` · `P` · `H` | Command palette · open file · help |
+| `F` | Maximize / restore the focused panel |
+| `V` | Copy panel (select text with the keyboard) |
+| `Q` | Quit |
+| `X` | Send a literal `Ctrl+X` to the terminal |
+
+### Terminal
+
+`Shift+PgUp/PgDn`, `Shift+↑/↓` or the wheel scroll back · drag to select (copied
+automatically) · **double-click `src/file.ts:42` in the output to open it** ·
+`Shift+Enter` inserts a newline in Claude Code · `Enter` restarts an exited shell.
+Background tabs show `•` for new output and `🔔` when a program rings the bell.
+
+### Editor
+
+Type to edit (auto saved) · `Ctrl+F` find · `Ctrl+D` highlight word · `Ctrl+G` git
+blame · `Ctrl+Shift+O` symbols · `Ctrl+S` save. If an agent changes an open file
+it reloads; if you had unsaved edits you choose (`Ctrl+R` theirs, `Ctrl+S` yours).
 
 ---
 
 ## 🎯 Features
 
-- **📁 File Explorer** — Git-aware file tree with icons
-- **📝 Code Viewer** — Syntax highlighting, line numbers
-- **💻 Embedded Terminal** — Real PTY emulated by xterm.js: truecolor, emoji/CJK, full-screen apps (vim, less, htop), mouse wheel, bracketed paste, 10k lines of scrollback
-- **🤖 AI Agent Panel** — ACP client: streaming replies, tool calls with diffs, permission prompts, agent terminals, cancel with Esc
-- **🔍 Fuzzy Finder** — Quick file navigation (Ctrl+P)
-- **🎨 Command Palette** — VS Code-style commands (Ctrl+K)
-- **🔎 Global Search** — Ripgrep-powered search
-- **🌿 Git Integration** — Branch, status, commit graph
-- **🐜 Mascot** — Because why not?
+- **💻 Embedded terminal** — real PTY emulated by xterm.js: truecolor, emoji/CJK, full-screen apps (vim, less, htop, Claude Code), mouse wheel, bracketed paste, 10k lines of scrollback, tabs. Shells keep running when panels are hidden.
+- **🤖 AI agent panel** — ACP client (Claude Code, Gemini CLI, any ACP agent): streaming replies, tool calls with diff stats, permission prompts, agent terminals, file access sandboxed to the project, `Esc` to stop.
+- **📝 Editor** — syntax highlighting (tree-sitter for TS/JS/Markdown/Zig, built-in tokenizer for Python, Rust, Go, JSON, shell, CSS, HTML…), themes, search, git gutter and blame, safe auto save.
+- **📁 Live file explorer** — follows the file system (files your agent creates appear immediately) with git status marks.
+- **🌿 Git** — stage, unstage, discard (confirmed), commit, side-by-side diffs, commit graph.
+- **🔍 Fuzzy finder, command palette, global search**
+- **📱 Responsive** — from 46×14 (phone over SSH) to ultrawide.
+- **🐜 Mascot** — because why not (`Ctrl+Shift+M`).
 
 ---
 
 ## 🛠 Roadmap
 
-- [ ] Multi-tab editing
-- [ ] Inline code editing (not just viewing)
+- [x] Inline code editing
+- [x] Themes
+- [x] Terminal tabs
+- [ ] Split terminals
 - [ ] Plugin system
-- [ ] Themes
 - [ ] LSP support
 
 ---
