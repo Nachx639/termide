@@ -47,6 +47,7 @@ export const SHORTCUTS: ShortcutCategory[] = [
       { keys: "F12", description: "Go to definition" },
       { keys: "Ctrl+Shift+O", description: "Go to symbol" },
       { keys: "Ctrl+S", description: "Save now" },
+      { keys: "Ctrl+Z / Ctrl+Shift+Z", description: "Undo / redo" },
       { keys: "Ctrl+R", description: "Load disk version (on conflict)" },
       { keys: "Ctrl+W", description: "Close tab" },
       { keys: "Ctrl+X → F", description: "Maximize / restore panel" },

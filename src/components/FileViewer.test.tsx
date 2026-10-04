@@ -184,3 +184,20 @@ test("editing a file larger than 1 MB saves all of it, without freezing", async 
     fs.rmSync(dir, { recursive: true, force: true });
   }
 }, 60000);
+
+test("IDE shortcuts (Ctrl+K/W/D/B) do not edit the buffer; Ctrl+Z undoes", async () => {
+  const { dir, file, setup } = await mount("hello world");
+  try {
+    for (const k of ["k", "w", "d", "b"]) setup.mockInput.pressKey(k, { ctrl: true }); // (Ctrl+F opens search)
+    for (let i = 0; i < 10; i++) { await setup.renderOnce(); await Bun.sleep(20); }
+    await setup.mockInput.typeText("A");
+    await waitForFrame(setup, (f) => f.includes("Ahello world"));
+    setup.mockInput.pressKey("z", { ctrl: true });
+    await waitForFrame(setup, (f) => f.includes(" hello world") && !f.includes("Ahello"));
+    await Bun.sleep(800);
+    expect(fs.readFileSync(file, "utf8")).toBe("hello world");
+  } finally {
+    setup.renderer.destroy();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
