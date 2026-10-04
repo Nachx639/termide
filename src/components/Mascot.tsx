@@ -1,33 +1,22 @@
-import React, { useEffect, useState, useSyncExternalStore } from "react";
+import React, { useEffect, useState } from "react";
+import { initialTermite, renderTermite, stepTermite, type TermiteState } from "../lib/termite";
+import { Renderable, RGBA, parseColor, type OptimizedBuffer, type RenderContext, type RenderableOptions } from "@opentui/core";
+import { extend } from "@opentui/react";
 
 /**
- * The walking ant in the header, plus the status-bar clock.
+ * The termite in the header (see lib/termite), plus the status-bar clock.
  *
  * Both used to be state in <App>, so every animation frame (300 ms) and every clock
  * tick re-rendered the whole IDE — ~5% CPU while idle. They now own their state and
  * only these tiny components re-render.
  */
 
-type AntStatus = "walking" | "dying" | "dead";
+const TICK_MS = 220;
 
-const WALK_FRAMES = [
-  ["      \\ \\", " ooO( o.o )>", "  / / / /"],
-  ["      / /", " ooO( o.o )>", "  \\ \\ \\ \\"],
-];
-
-const DEATH_FRAMES = [
-  ["      * *", "  o O ( x.x )", "    * * * *"],
-  ["       . .", "    . ( x-x ) .", "       . ."],
-  ["        *", "      . * .", "        *"],
-  ["         .", "       . .", "         ."],
-  ["", "        .", ""],
-  ["", "", ""],
-];
-
-const ANT_WIDTH = 12;
-
+/** Holds the termite simulation (lib/termite) and ticks only while it is shown. */
 class MascotStore {
-  private state = { status: "walking" as AntStatus, frame: 0, death: 0 };
+  private state: TermiteState = initialTermite();
+  private width = 40;
   private listeners = new Set<() => void>();
   private timer: ReturnType<typeof setInterval> | null = null;
 
@@ -42,8 +31,11 @@ class MascotStore {
     };
   };
 
-  private set(patch: Partial<typeof this.state>) {
-    this.state = { ...this.state, ...patch };
+  setWidth(width: number) {
+    this.width = width;
+  }
+
+  private emit() {
     this.listeners.forEach((l) => l());
   }
 
@@ -54,46 +46,98 @@ class MascotStore {
 
   private schedule() {
     this.stop();
-    if (this.state.status === "dead" || this.listeners.size === 0) return;
-    const dying = this.state.status === "dying";
+    if (this.state.mode === "gone" || this.listeners.size === 0) return;
     this.timer = setInterval(() => {
-      if (this.state.status === "walking") {
-        this.set({ frame: (this.state.frame + 1) % 4000 });
-      } else if (this.state.status === "dying") {
-        if (this.state.death >= DEATH_FRAMES.length - 1) {
-          this.set({ status: "dead" });
-          this.stop();
-        } else {
-          this.set({ death: this.state.death + 1 });
-        }
-      }
-    }, dying ? 150 : 300);
+      this.state = stepTermite(this.state, this.width);
+      if (this.state.mode === "gone") this.stop();
+      this.emit();
+    }, TICK_MS);
   }
 
   get alive() {
-    return this.state.status === "walking";
+    return this.state.mode !== "poof" && this.state.mode !== "gone";
   }
 
   /** Toggle the mascot; returns true if it is now on. */
   toggle(): boolean {
-    if (this.state.status === "walking") this.set({ status: "dying", death: 0 });
-    else this.set({ status: "walking" });
+    if (this.alive) {
+      this.state = { ...this.state, mode: "poof", poof: 0 };
+    } else {
+      this.state = { ...initialTermite(), x: Math.max(0, Math.floor((this.width - 14) / 2)) };
+    }
+    this.emit();
     this.schedule();
-    return this.state.status === "walking";
+    return this.alive;
   }
 }
 
 export const mascot = new MascotStore();
 
-/** One of the three lines of the ant, walking within `width` columns. */
+/**
+ * One row of the termite scene, drawn natively: each tick repaints a few cells
+ * instead of re-rendering React spans (that cost ~2% CPU at rest).
+ */
+class TermiteRowRenderable extends Renderable {
+  private _line: 0 | 1 | 2 = 0;
+  private _stripWidth = 40;
+  private unsubscribe: (() => void) | null;
+  private colors = new Map<string, RGBA>();
+
+  constructor(ctx: RenderContext, options: RenderableOptions<TermiteRowRenderable> & { line?: 0 | 1 | 2; stripWidth?: number }) {
+    super(ctx, { ...options, height: 1 });
+    this._line = options.line ?? 0;
+    this._stripWidth = options.stripWidth ?? 40;
+    this.unsubscribe = mascot.subscribe(() => this.requestRender());
+  }
+
+  set line(v: 0 | 1 | 2) {
+    this._line = v;
+    this.requestRender();
+  }
+  set stripWidth(v: number) {
+    this._stripWidth = v;
+    mascot.setWidth(v);
+    this.requestRender();
+  }
+
+  private color(hex: string): RGBA {
+    let c = this.colors.get(hex);
+    if (!c) {
+      c = parseColor(hex);
+      this.colors.set(hex, c);
+    }
+    return c;
+  }
+
+  protected override renderSelf(buffer: OptimizedBuffer): void {
+    const row = renderTermite(mascot.getState(), Math.min(this._stripWidth, this.width))[this._line] ?? [];
+    for (let i = 0; i < row.length; i++) {
+      const cell = row[i]!;
+      if (cell.ch !== " ") buffer.setCell(this.screenX + i, this.screenY, cell.ch, this.color(cell.fg), TRANSPARENT, 0);
+    }
+  }
+
+  protected override destroySelf(): void {
+    this.unsubscribe?.();
+    this.unsubscribe = null;
+    super.destroySelf();
+  }
+}
+
+const TRANSPARENT = RGBA.fromInts(0, 0, 0, 0);
+
+extend({ "termite-row": TermiteRowRenderable });
+
+declare module "@opentui/react" {
+  interface OpenTUIComponents {
+    "termite-row": typeof TermiteRowRenderable;
+  }
+}
+
+/** One row of the termite scene, walking within `width` columns. */
 export function MascotLine({ line, width }: { line: 0 | 1 | 2; width: number }) {
-  const { status, frame, death } = useSyncExternalStore(mascot.subscribe, mascot.getState);
-  if (status === "dead") return <text> </text>;
-  const walkSpace = Math.max(0, width - ANT_WIDTH);
-  if (walkSpace <= 0) return <text> </text>;
-  const pos = frame % (walkSpace + 1);
-  const frames = status === "dying" ? DEATH_FRAMES[death] ?? DEATH_FRAMES[DEATH_FRAMES.length - 1]! : WALK_FRAMES[frame % 2]!;
-  return <text style={{ fg: "cyan" }}>{" ".repeat(pos) + (frames[line] ?? "")}</text>;
+  useEffect(() => mascot.setWidth(width), [width]);
+  return <termite-row line={line} stripWidth={width} style={{ flexGrow: 1, height: 1 }} />;
 }
 
 /** HH:MM, refreshed on minute boundaries instead of every second. */
