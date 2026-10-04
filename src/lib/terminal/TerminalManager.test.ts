@@ -62,3 +62,25 @@ test("new tabs start at the last reported view size", async () => {
     m.disposeAll();
   }
 });
+
+test("background tabs get activity and bell marks; viewing clears them", async () => {
+  const m = new TerminalManager(process.cwd(), ["/bin/sh", "-c", "sleep 5"]);
+  const bells: number[] = [];
+  m.onBell((_tab, i) => bells.push(i));
+  try {
+    m.ensureTab();
+    const first = m.getState().activeId!;
+    m.setWatching(true);
+    // Second tab prints and rings the bell, but the user is looking at it → no marks.
+    m.newTab(["/bin/sh", "-c", "sleep 0.3; printf 'done\\a'; sleep 5"]);
+    m.activate(first); // now the second tab is in the background
+    await waitFor(() => m.getState().tabs[1]!.bell);
+    expect(m.getState().tabs[1]!.activity).toBe(true);
+    expect(bells).toEqual([1]);
+    m.cycle(1); // look at it
+    expect(m.getState().tabs[1]!.bell).toBe(false);
+    expect(m.getState().tabs[1]!.activity).toBe(false);
+  } finally {
+    m.disposeAll();
+  }
+});

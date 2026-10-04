@@ -11,6 +11,10 @@ import { TerminalSession } from "./TerminalSession";
 export interface TerminalTab {
   id: number;
   session: TerminalSession;
+  /** New output since the tab was last active. */
+  activity: boolean;
+  /** The program rang the bell (e.g. an agent waiting for input) while not watched. */
+  bell: boolean;
 }
 
 export interface TerminalManagerState {
@@ -24,6 +28,9 @@ export class TerminalManager {
   private seq = 0;
   /** Last size a view reported; new tabs start at it. */
   private size = { cols: 80, rows: 24 };
+  /** Whether the terminal panel is on screen and focused (then nothing is "unseen"). */
+  private watching = false;
+  private bellListeners = new Set<(tab: TerminalTab, index: number) => void>();
 
   constructor(private cwd: string, private command?: string[]) {}
 
@@ -56,7 +63,7 @@ export class TerminalManager {
 
   newTab(command = this.command): TerminalSession {
     const session = new TerminalSession({ cwd: this.cwd, cols: this.size.cols, rows: this.size.rows, command });
-    const tab = { id: ++this.seq, session };
+    const tab: TerminalTab = { id: ++this.seq, session, activity: false, bell: false };
     // A tab whose program exits closes itself, unless it is the last one
     // (that one offers "Enter to restart" instead).
     session.onExit(() => {
@@ -65,8 +72,41 @@ export class TerminalManager {
     // Titles and running/exited state are shown on the tab strip.
     session.onTitle(() => this.set({}));
     session.onStatus(() => this.set({}));
+    session.onUpdate(() => {
+      if (this.isSeen(tab.id)) return;
+      // Look up the current tab object: patchTab replaces it, `tab` is the original.
+      if (this.state.tabs.find((t) => t.id === tab.id)?.activity !== false) return;
+      this.patchTab(tab.id, { activity: true });
+    });
+    session.onBell(() => {
+      if (this.isSeen(tab.id)) return;
+      this.patchTab(tab.id, { bell: true });
+      const i = this.state.tabs.findIndex((t) => t.id === tab.id);
+      const current = this.state.tabs[i];
+      if (current) this.bellListeners.forEach((l) => l(current, i));
+    });
     this.set({ tabs: [...this.state.tabs, tab], activeId: tab.id });
     return session;
+  }
+
+  private isSeen(id: number) {
+    return this.watching && this.state.activeId === id;
+  }
+
+  private patchTab(id: number, patch: Partial<Pick<TerminalTab, "activity" | "bell">>) {
+    this.set({ tabs: this.state.tabs.map((t) => (t.id === id ? { ...t, ...patch } : t)) });
+  }
+
+  /** The terminal panel became visible+focused (or stopped being): clears the active tab's marks. */
+  setWatching(watching: boolean) {
+    this.watching = watching;
+    if (watching && this.state.activeId !== null) this.patchTab(this.state.activeId, { activity: false, bell: false });
+  }
+
+  /** Called when a tab rings the bell while nobody is looking at it. */
+  onBell(l: (tab: TerminalTab, index: number) => void) {
+    this.bellListeners.add(l);
+    return () => this.bellListeners.delete(l);
   }
 
   close(id: number) {
@@ -85,14 +125,16 @@ export class TerminalManager {
   }
 
   activate(id: number) {
-    if (this.state.tabs.some((t) => t.id === id)) this.set({ activeId: id });
+    if (!this.state.tabs.some((t) => t.id === id)) return;
+    this.set({ activeId: id });
+    if (this.watching) this.patchTab(id, { activity: false, bell: false });
   }
 
   cycle(delta: number) {
     const { tabs, activeId } = this.state;
     if (tabs.length < 2) return;
     const i = tabs.findIndex((t) => t.id === activeId);
-    this.set({ activeId: tabs[(i + delta + tabs.length) % tabs.length]!.id });
+    this.activate(tabs[(i + delta + tabs.length) % tabs.length]!.id);
   }
 
   disposeAll() {
