@@ -110,14 +110,17 @@ export function App({ rootPath }: AppProps) {
   const [theme, setTheme] = useState<Theme>(DARK_THEME);
   const [quickSettings, setQuickSettings] = useState<QuickSettingsState>({
     wordWrap: false,
-    indentGuides: true,
     minimap: true,
     lineNumbers: true,
-    fontSize: "normal",
-    tabSize: 2,
-    autoSave: false,
+    autoSave: true,
     theme: DARK_THEME,
   });
+  const viewerSettings = {
+    wordWrap: quickSettings.wordWrap,
+    showLineNumbers: quickSettings.lineNumbers,
+    showMinimap: quickSettings.minimap,
+    autoSave: quickSettings.autoSave,
+  };
   const dimensions = useTerminalDimensions();
   const [treeWidth, setTreeWidth] = useState(30);
   const [recentFiles, setRecentFiles] = useState<string[]>([]);
@@ -1269,6 +1272,7 @@ export function App({ rootPath }: AppProps) {
                     >
                       <PanelErrorBoundary panelName="Viewer">
                         <FileViewer
+                          {...viewerSettings}
                           filePath={selectedFile}
                           focused={!isAnyModalOpen && !leaderMode && focusedPanel === "viewer" && activeSplit === "left"}
                           rootPath={rootPath}
@@ -1290,6 +1294,7 @@ export function App({ rootPath }: AppProps) {
                     >
                       <PanelErrorBoundary panelName="Viewer">
                         <FileViewer
+                          {...viewerSettings}
                           filePath={splitFile}
                           focused={!isAnyModalOpen && !leaderMode && focusedPanel === "viewer" && activeSplit === "right"}
                           rootPath={rootPath}
@@ -1315,6 +1320,7 @@ export function App({ rootPath }: AppProps) {
                     >
                       <PanelErrorBoundary panelName="Viewer">
                         <FileViewer
+                          {...viewerSettings}
                           filePath={selectedFile}
                           focused={!isAnyModalOpen && !leaderMode && focusedPanel === "viewer" && activeSplit === "left"}
                           rootPath={rootPath}
@@ -1336,6 +1342,7 @@ export function App({ rootPath }: AppProps) {
                     >
                       <PanelErrorBoundary panelName="Viewer">
                         <FileViewer
+                          {...viewerSettings}
                           filePath={splitFile}
                           focused={!isAnyModalOpen && !leaderMode && focusedPanel === "viewer" && activeSplit === "right"}
                           rootPath={rootPath}
@@ -1355,6 +1362,7 @@ export function App({ rootPath }: AppProps) {
                 ) : (
                   <PanelErrorBoundary panelName="Viewer">
                     <FileViewer
+                      {...viewerSettings}
                       filePath={selectedFile}
                       focused={!isAnyModalOpen && !leaderMode && focusedPanel === "viewer"}
                       rootPath={rootPath}

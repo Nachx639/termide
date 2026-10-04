@@ -25,6 +25,11 @@ interface FileViewerProps {
   onSelectionChange?: (selectedText: string) => void;
   /** 1-indexed line to jump to when the file opens. */
   initialLine?: number;
+  wordWrap?: boolean;
+  showLineNumbers?: boolean;
+  showMinimap?: boolean;
+  /** Off: save with Ctrl+S, or when switching files / unmounting. */
+  autoSave?: boolean;
   /**
    * Called when the user clicks anywhere inside this viewer. Lets the parent
    * focus this pane — needed because the inner <textarea> captures mouse
@@ -63,6 +68,10 @@ export function FileViewer({
   onSelectionChange,
   initialLine,
   onFocus,
+  wordWrap = false,
+  showLineNumbers = true,
+  showMinimap = true,
+  autoSave = true,
 }: FileViewerProps) {
   const textareaRef = useRef<TextareaRenderable | null>(null);
   const lineNumberRef = useRef<LineNumberRenderable | null>(null);
@@ -82,6 +91,8 @@ export function FileViewer({
   // effect cleanups run, and reading it there yielded "" — which was then written
   // over the file.
   const latestTextRef = useRef<string | null>(null);
+  const autoSaveRef = useRef(autoSave);
+  autoSaveRef.current = autoSave;
 
   const [isDirty, setIsDirty] = useState(false);
   const [initialContent, setInitialContent] = useState<string>("");
@@ -200,12 +211,14 @@ export function FileViewer({
     return () => {
       // When filePath changes (or we unmount), pending edits land on the previous
       // file — never silently dropped, never written over someone else's change.
+      const pending = saveTimerRef.current !== null;
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
-        const text = latestTextRef.current;
-        if (!conflictRef.current && text !== null) saveNow(filePath, text);
       }
+      const text = latestTextRef.current;
+      const unsaved = text !== null && diskRef.current !== null && text !== diskRef.current.content;
+      if ((pending || unsaved) && !conflictRef.current && text !== null) saveNow(filePath, text);
     };
   }, [filePath, saveNow]);
 
@@ -622,6 +635,7 @@ export function FileViewer({
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     const targetPath = filePath;
     if (conflictRef.current) return; // resolve the conflict first (Ctrl+S / Ctrl+R)
+    if (!autoSaveRef.current) return; // manual mode: Ctrl+S, or flushed on file switch / unmount
     saveTimerRef.current = setTimeout(() => {
       saveTimerRef.current = null;
       const latest = textareaRef.current?.plainText ?? "";
@@ -751,7 +765,7 @@ export function FileViewer({
           bg="#0b0b0b"
           minWidth={4}
           paddingRight={1}
-          showLineNumbers
+          showLineNumbers={showLineNumbers}
           style={{ flexGrow: 1, height: "100%" }}
         >
           <textarea
@@ -761,6 +775,7 @@ export function FileViewer({
             syntaxStyle={syntaxStyle}
             onContentChange={handleContentChange}
             onCursorChange={handleCursorChange}
+            wrapMode={wordWrap ? "word" : "none"}
             style={{ width: "100%", flexGrow: 1, backgroundColor: "#050505" }}
           />
         </line-number>
@@ -768,7 +783,7 @@ export function FileViewer({
             spare 12 columns. The component reads from initialContent (after
             load) plus tracks edits via lineCount; for live edits we'd need to
             poll plainText, but the legacy minimap was also coarse. */}
-        {height > 8 && lineCount > 0 && (
+        {showMinimap && height > 8 && lineCount > 0 && (
           <Minimap
             content={initialContent.split("\n")}
             scrollOffset={Math.max(0, cursorLine - Math.floor(height / 2))}
