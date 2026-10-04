@@ -17,7 +17,8 @@ interface ShortcutCategory {
   shortcuts: Shortcut[];
 }
 
-const SHORTCUTS: ShortcutCategory[] = [
+/** The single source of truth for shortcut help (also used by KeyboardShortcuts). */
+export const SHORTCUTS: ShortcutCategory[] = [
   {
     title: "Navigation",
     shortcuts: [
