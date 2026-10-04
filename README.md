@@ -11,6 +11,7 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/termide"><img src="https://img.shields.io/npm/v/termide?color=blue&label=npm" alt="npm version"></a>
   <a href="https://github.com/Nachx639/termide/stargazers"><img src="https://img.shields.io/github/stars/Nachx639/termide?style=social" alt="GitHub stars"></a>
+  <a href="https://github.com/Nachx639/termide/actions/workflows/ci.yml"><img src="https://github.com/Nachx639/termide/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/Nachx639/termide/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Nachx639/termide" alt="License"></a>
   <img src="https://img.shields.io/badge/built%20with-Bun-orange" alt="Built with Bun">
   <img src="https://img.shields.io/badge/UI-OpenTUI-cyan" alt="OpenTUI">
@@ -19,7 +20,11 @@
 ---
 
 <p align="center">
-  <img src="assets/demo.gif" width="800" alt="termide demo" />
+  <img src="assets/termide-demo.gif" width="900" alt="termide demo: fuzzy finder, syntax highlighting, embedded terminal, split panes, command palette" />
+</p>
+
+<p align="center">
+  <img src="assets/screenshot.png" width="900" alt="termide: editor, git panels and a split terminal" />
 </p>
 
 ---
@@ -120,6 +125,7 @@ bun run dev
 bun run test             # unit + PTY + render tests (bun test --isolate)
 bun scripts/smoke.ts     # run the whole app headlessly and print the screen
 bun scripts/exit-check.ts  # every way of quitting must restore your terminal
+scripts/demo/make-demo.sh  # re-record the demo GIF and screenshot (needs vhs + ffmpeg)
 ```
 
 ---
