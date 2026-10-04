@@ -411,3 +411,13 @@ describe("status formatting", () => {
     }
   });
 });
+
+describe("untracked diff", () => {
+  test("getFileDiff shows an untracked file as all added", async () => {
+    const repo = makeRepo({ "a.txt": "a\n" });
+    write(repo, { "new.txt": "line1\nline2\n" });
+    const diff = await getFileDiff("new.txt", repo);
+    expect(diff).toContain("+line1");
+    expect(diff).toContain("+line2");
+  });
+});

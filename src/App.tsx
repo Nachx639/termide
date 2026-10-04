@@ -39,6 +39,7 @@ import { loadPreferences, savePreferences } from "./lib/Preferences";
 import { ThemeContext } from "./lib/themeContext";
 import { isKeyCaptureActive } from "./lib/keyCapture";
 import { onRepoChange } from "./lib/repoEvents";
+import { runEditorCommand } from "./lib/editorCommands";
 import type { Theme } from "./lib/ThemeSystem";
 import { getLayoutConfig, getScreenSizeLabel } from "./lib/ResponsiveLayout";
 import type { LayoutConfig, ScreenSize } from "./lib/ResponsiveLayout";
@@ -531,6 +532,25 @@ export function App({ rootPath }: AppProps) {
         setGitStatus(status);
       },
     },
+    // Editor (some shortcuts need the kitty keyboard protocol; these always work)
+    ...([
+      ["editor-symbols", "Go to Symbol", "Jump to a function, class... in this file", "Ctrl+Shift+O", "symbols"],
+      ["editor-blame", "Toggle Git Blame", "Show who last changed each line", "Ctrl+G", "blame"],
+      ["editor-undo", "Undo", "Undo the last edit", "Ctrl+Z", "undo"],
+      ["editor-redo", "Redo", "Redo the last undone edit", "Ctrl+Shift+Z", "redo"],
+      ["editor-save", "Save File", "Write the editor to disk now", "Ctrl+S", "save"],
+    ] as const).map(([id, label, description, shortcut, cmd]) => ({
+      id,
+      label,
+      description,
+      shortcut,
+      category: "Editor",
+      action: () => {
+        setFocusedPanel("viewer");
+        // Delivered once the editor has focus again (see lib/editorCommands).
+        runEditorCommand(cmd);
+      },
+    })),
     // Terminal
     {
       id: "terminal-new-tab",
@@ -634,7 +654,7 @@ export function App({ rootPath }: AppProps) {
       id: "quick-settings",
       label: "Quick Settings",
       description: "Open quick settings panel",
-      shortcut: "Ctrl+,",
+      shortcut: "Ctrl+X ,",
       category: "View",
       action: () => setShowQuickSettings(true),
     },
@@ -821,6 +841,12 @@ export function App({ rootPath }: AppProps) {
       // X = send a literal Ctrl+X to the terminal (Ctrl+X Ctrl+X also works)
       if (event.name === "x" || event.name === "X") {
         if (focusedPanel === "terminal") terminalWriteRef.current?.("\x18");
+        return;
+      }
+
+      // , = quick settings (Ctrl+, needs the kitty keyboard protocol)
+      if (event.name === ",") {
+        setShowQuickSettings(true);
         return;
       }
 

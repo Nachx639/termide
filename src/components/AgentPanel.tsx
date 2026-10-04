@@ -50,7 +50,9 @@ const INSTALL_HINTS: Record<string, string> = {
 function installHint(error: string | null): string | null {
     const m = error?.match(/not found[^"]*"([^"]+)"/i) ?? error?.match(/Executable not found in \$PATH: "?([^"\s]+)/);
     const bin = m?.[1]?.split("/").pop();
-    return bin && INSTALL_HINTS[bin] ? `Install it with: ${INSTALL_HINTS[bin]}` : null;
+    if (bin && INSTALL_HINTS[bin]) return `Install it with: ${INSTALL_HINTS[bin]}`;
+    if (bin || /not found|ENOENT/i.test(error ?? "")) return "Check that the command is installed and on your PATH.";
+    return null;
 }
 
 // Predefined agents with their commands

@@ -364,7 +364,24 @@ export async function getFileDiff(filePath: string, cwd: string, staged: boolean
     ? ["diff", "--cached", "--color=never", "--", filePath]
     : ["diff", "--color=never", "--", filePath];
   const result = await runGitCommand(args, cwd);
-  return result || "";
+  if (result || staged) return result || "";
+  const tracked = await runGitCommand(["ls-files", "--", filePath], cwd);
+  if (tracked === null || tracked.trim()) return ""; // not a repo, or tracked and unchanged
+  // Untracked files have no diff against the index: show the whole file as
+  // added (`--no-index` exits 1 when there are differences, so not runGitCommand).
+  try {
+    const proc = Bun.spawn(["git", "diff", "--no-index", "--color=never", "--", "/dev/null", filePath], {
+      cwd,
+      stdout: "pipe",
+      stderr: "ignore",
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
+    });
+    const out = await new Response(proc.stdout).text();
+    await proc.exited;
+    return out;
+  } catch {
+    return "";
+  }
 }
 
 // Discard changes to a file (checkout HEAD version)
