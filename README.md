@@ -9,7 +9,6 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@nachx639/termide"><img src="https://img.shields.io/npm/v/@nachx639/termide?color=blue&label=npm" alt="npm version"></a>
   <a href="https://github.com/Nachx639/termide/stargazers"><img src="https://img.shields.io/github/stars/Nachx639/termide?style=social" alt="GitHub stars"></a>
   <a href="https://github.com/Nachx639/termide/actions/workflows/ci.yml"><img src="https://github.com/Nachx639/termide/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/Nachx639/termide/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Nachx639/termide" alt="License"></a>
@@ -90,14 +89,15 @@ termide includes a dedicated **Agent Panel** that connects to AI coding agents u
 
 ## 🚀 Quick Start
 
-Run it directly using **Bun** (no install needed):
+Run it straight from GitHub with **Bun** (no install needed). termide is not on npm:
+the `termide` package there is an unrelated project.
 
 ```bash
 # Open current directory
-bunx @nachx639/termide
+bunx github:Nachx639/termide
 
 # Open a specific project
-bunx @nachx639/termide ./my-project
+bunx github:Nachx639/termide ./my-project
 ```
 
 ## 📦 Installation
@@ -105,7 +105,7 @@ bunx @nachx639/termide ./my-project
 ### Global Install (Recommended)
 
 ```bash
-bun install -g @nachx639/termide
+bun install -g github:Nachx639/termide
 ```
 
 Then use it anywhere:
