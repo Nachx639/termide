@@ -48,6 +48,31 @@ export function WelcomeScreen({
     );
   }
 
+  // Everything must fit in `height`: Yoga shrinks rows that don't fit and they end
+  // up painted on top of each other, so we budget lines and drop what doesn't fit.
+  const shortcuts: [string, string][] = [
+    ["Ctrl+P", "Open file..."],
+    ["Ctrl+K", "Command palette"],
+    ["Ctrl+B", "Show help"],
+    ["Ctrl+Space", "Toggle AI agent"],
+    ["Tab/Shift+Tab", "Navigate panels (Ctrl+X Tab from the terminal)"],
+    ["Ctrl+Q", "Zen mode (full screen)"],
+    ["Ctrl+\\", "Toggle split view"],
+    ["Ctrl+Shift+G", "Go to definition"],
+  ];
+  const keyWidth = Math.max(...shortcuts.map(([k]) => k.length)) + 2;
+  let budget = height - 2; // paddingY
+  const take = (n: number) => (budget >= n ? ((budget -= n), true) : false);
+  const showProject = take(2);
+  const showQuickHeader = take(2);
+  const shownShortcuts = shortcuts.slice(0, Math.max(0, Math.min(shortcuts.length, budget)));
+  budget -= shownShortcuts.length;
+  const showLogo = take(7);
+  const recent = recentFiles.slice(0, Math.max(0, Math.min(5, budget - 3)));
+  const showRecent = recent.length > 0 && take(recent.length + 3);
+  const showFooter = take(2);
+  const row = { flexDirection: "row" as const, flexShrink: 0, height: 1 };
+
   return (
     <box
       style={{
@@ -56,84 +81,48 @@ export function WelcomeScreen({
         paddingX: 2,
         paddingY: 1,
         backgroundColor: "#0b0b0b",
+        overflow: "hidden",
       }}
     >
-      {/* Logo */}
-      <box style={{ flexDirection: "column", alignItems: "center", marginBottom: 1, height: 5 }}>
-        <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>
-          {` _____ _____ ____  __  __ ___ ____  _____
+      {showLogo && (
+        <box style={{ flexDirection: "column", alignItems: "center", height: 5, flexShrink: 0, marginBottom: 2 }}>
+          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>
+            {` _____ _____ ____  __  __ ___ ____  _____
 |_   _| ____|  _ \\|  \\/  |_ _|  _ \\| ____|
   | | |  _| | |_) | |\\/| || || | | |  _|
   | | | |___|  _ <| |  | || || |_| | |___
   |_| |_____|_| \\_\\_|  |_|___|____/|_____|`}
-        </text>
-      </box>
-
-      <box style={{ height: 1 }} />
-
-      {/* Project Info */}
-      <box style={{ flexDirection: "row", justifyContent: "center" }}>
-        <text style={{ fg: "white", attributes: TextAttributes.BOLD }}>{projectName}</text>
-      </box>
-
-      <box style={{ height: 1 }} />
-
-      {/* Quick Actions */}
-      <box style={{ flexDirection: "column", paddingX: 2 }}>
-        <text style={{ fg: "yellow", attributes: TextAttributes.BOLD }}>Quick Start</text>
-        <box style={{ height: 1 }} />
-
-        <box style={{ flexDirection: "row" }}>
-          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Ctrl+P</text>
-          <text style={{ fg: "gray" }}> - Open file...</text>
+          </text>
         </box>
+      )}
 
-        <box style={{ flexDirection: "row" }}>
-          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Ctrl+K</text>
-          <text style={{ fg: "gray" }}> - Command palette</text>
+      {showProject && (
+        <box style={{ ...row, justifyContent: "center", marginBottom: 1 }}>
+          <text style={{ fg: "white", attributes: TextAttributes.BOLD }}>{projectName}</text>
         </box>
+      )}
 
-        <box style={{ flexDirection: "row" }}>
-          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Ctrl+B</text>
-          <text style={{ fg: "gray" }}> - Show help</text>
+      {showQuickHeader && (
+        <box style={{ flexDirection: "column", paddingX: 2, flexShrink: 0 }}>
+          <box style={{ ...row, marginBottom: 1 }}>
+            <text style={{ fg: "yellow", attributes: TextAttributes.BOLD }}>Quick Start</text>
+          </box>
+          {shownShortcuts.map(([key, label]) => (
+            <box key={key} style={row}>
+              <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>{key.padEnd(keyWidth)}</text>
+              <text style={{ fg: "gray" }}>{label}</text>
+            </box>
+          ))}
         </box>
+      )}
 
-        <box style={{ flexDirection: "row" }}>
-          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Ctrl+Q</text>
-          <text style={{ fg: "gray" }}> - Zen mode (full screen)</text>
-        </box>
-
-        <box style={{ flexDirection: "row" }}>
-          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Ctrl+Space</text>
-          <text style={{ fg: "gray" }}> - Toggle AI agent</text>
-        </box>
-
-        <box style={{ flexDirection: "row" }}>
-          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Ctrl+Shift+G</text>
-          <text style={{ fg: "gray" }}> - Go to definition</text>
-        </box>
-
-        <box style={{ flexDirection: "row" }}>
-          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Ctrl+\</text>
-          <text style={{ fg: "gray" }}> - Toggle split view</text>
-        </box>
-
-        <box style={{ flexDirection: "row" }}>
-          <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Tab/Shift+Tab</text>
-          <text style={{ fg: "gray" }}> - Navigate panels</text>
-        </box>
-      </box>
-
-      <box style={{ height: 1 }} />
-
-      {/* Recent Files */}
-      {recentFiles.length > 0 && (
-        <box style={{ flexDirection: "column", paddingX: 2, flexGrow: 1 }}>
-          <text style={{ fg: "yellow", attributes: TextAttributes.BOLD }}>Recent Files</text>
-          <box style={{ height: 1 }} />
-
-          {recentFiles.slice(0, 5).map((file, index) => (
-            <box key={file} style={{ flexDirection: "row" }}>
+      {showRecent && (
+        <box style={{ flexDirection: "column", paddingX: 2, marginTop: 1, flexShrink: 0 }}>
+          <box style={{ ...row, marginBottom: 1 }}>
+            <text style={{ fg: "yellow", attributes: TextAttributes.BOLD }}>Recent Files</text>
+          </box>
+          {recent.map((file, index) => (
+            <box key={file} style={row} onMouseDown={() => onOpenRecentFile(file)}>
               <text style={{ fg: "gray" }}>{index + 1}. </text>
               <text style={{ fg: "white" }}>{truncatePath(file)}</text>
             </box>
@@ -141,15 +130,11 @@ export function WelcomeScreen({
         </box>
       )}
 
-      {/* Footer */}
-      <box style={{ flexDirection: "column", marginTop: 1, alignItems: "center" }}>
-        <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
-          Terminal IDE for the AI era
-        </text>
-        <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
-          Built with OpenTUI
-        </text>
-      </box>
+      {showFooter && (
+        <box style={{ ...row, marginTop: 1, justifyContent: "center" }}>
+          <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>Terminal IDE for the AI era · Built with OpenTUI</text>
+        </box>
+      )}
     </box>
   );
 }
