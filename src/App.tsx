@@ -12,6 +12,7 @@ import { TextAttributes } from "@opentui/core";
 import { FileTree } from "./components/FileTree";
 import { FileViewer } from "./components/FileViewer";
 import { Terminal } from "./components/Terminal";
+import { PanelErrorBoundary } from "./components/ErrorBoundary";
 import { MascotLine, Clock, mascot } from "./components/Mascot";
 import { isTerminalHostKey } from "./lib/terminal/keyRouting";
 import { getTerminalManager } from "./lib/terminal/TerminalManager";
@@ -1178,39 +1179,45 @@ export function App({ rootPath }: AppProps) {
           >
             {/* FileTree - Always visible, takes full height in compact mode */}
             <box style={{ flexGrow: isCompactMode ? 1 : 4 }}>
-              <FileTree
-                key={treeRefreshKey}
-                rootPath={rootPath}
-                onFileSelect={handleFileSelect}
-                focused={!isAnyModalOpen && focusedPanel === "tree"}
-                onFocus={() => setFocusedPanel("tree")}
-                onFileOperation={handleFileOperation}
-              />
+              <PanelErrorBoundary panelName="Explorer">
+                <FileTree
+                  key={treeRefreshKey}
+                  rootPath={rootPath}
+                  onFileSelect={handleFileSelect}
+                  focused={!isAnyModalOpen && focusedPanel === "tree"}
+                  onFocus={() => setFocusedPanel("tree")}
+                  onFileOperation={handleFileOperation}
+                />
+              </PanelErrorBoundary>
             </box>
             {/* Source Control - Hidden in compact mode */}
             {!isCompactMode && layoutConfig.panelsVisible.sourceControl && (
               <box style={{ flexGrow: 3 }}>
-                <SourceControl
-                  rootPath={rootPath}
-                  focused={!isAnyModalOpen && focusedPanel === "source"}
-                  onFocus={() => setFocusedPanel("source")}
-                  onShowDiff={(diff, filePath) => {
-                    setDiffContent(diff);
-                    setDiffFilePath(filePath);
-                    setShowDiffViewer(true);
-                  }}
-                />
+                <PanelErrorBoundary panelName="Source Control">
+                  <SourceControl
+                    rootPath={rootPath}
+                    focused={!isAnyModalOpen && focusedPanel === "source"}
+                    onFocus={() => setFocusedPanel("source")}
+                    onShowDiff={(diff, filePath) => {
+                      setDiffContent(diff);
+                      setDiffFilePath(filePath);
+                      setShowDiffViewer(true);
+                    }}
+                  />
+                </PanelErrorBoundary>
               </box>
             )}
             {/* Git Graph - Hidden in compact mode */}
             {!isCompactMode && layoutConfig.panelsVisible.gitGraph && (
               <box style={{ flexGrow: 3 }}>
-                <GitGraph
-                  rootPath={rootPath}
-                  focused={!isAnyModalOpen && focusedPanel === "graph"}
-                  onFocus={() => setFocusedPanel("graph")}
-                  width={currentTreeWidth}
-                />
+                <PanelErrorBoundary panelName="Git Graph">
+                  <GitGraph
+                    rootPath={rootPath}
+                    focused={!isAnyModalOpen && focusedPanel === "graph"}
+                    onFocus={() => setFocusedPanel("graph")}
+                    width={currentTreeWidth}
+                  />
+                </PanelErrorBoundary>
               </box>
             )}
           </box>
@@ -1252,39 +1259,43 @@ export function App({ rootPath }: AppProps) {
                       style={{ width: "50%", height: "100%" }}
                       onMouseDown={() => setActiveSplit("left")}
                     >
-                      <FileViewer
-                        filePath={selectedFile}
-                        focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "left"}
-                        rootPath={rootPath}
-                        treeWidth={responsiveTreeWidth}
-                        height={currentViewerHeight}
-                        onCursorChange={activeSplit === "left" ? handleCursorChange : undefined}
-                        onFocus={() => { setFocusedPanel("viewer"); setActiveSplit("left"); }}
-                        onJumpToFile={(targetPath, line) => {
-                          handleFileSelect(targetPath, line);
-                        }}
-                        initialLine={activeSplit === "left" ? targetLine : undefined}
-                      />
+                      <PanelErrorBoundary panelName="Viewer">
+                        <FileViewer
+                          filePath={selectedFile}
+                          focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "left"}
+                          rootPath={rootPath}
+                          treeWidth={responsiveTreeWidth}
+                          height={currentViewerHeight}
+                          onCursorChange={activeSplit === "left" ? handleCursorChange : undefined}
+                          onFocus={() => { setFocusedPanel("viewer"); setActiveSplit("left"); }}
+                          onJumpToFile={(targetPath, line) => {
+                            handleFileSelect(targetPath, line);
+                          }}
+                          initialLine={activeSplit === "left" ? targetLine : undefined}
+                        />
+                      </PanelErrorBoundary>
                     </box>
                     {/* Right split */}
                     <box
                       style={{ width: "50%", height: "100%" }}
                       onMouseDown={() => setActiveSplit("right")}
                     >
-                      <FileViewer
-                        filePath={splitFile}
-                        focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "right"}
-                        rootPath={rootPath}
-                        treeWidth={responsiveTreeWidth}
-                        height={currentViewerHeight}
-                        onCursorChange={activeSplit === "right" ? handleCursorChange : undefined}
-                        onFocus={() => { setFocusedPanel("viewer"); setActiveSplit("right"); }}
-                        onJumpToFile={(targetPath, line) => {
-                          setSplitFile(targetPath);
-                          setTargetLine(line);
-                        }}
-                        initialLine={activeSplit === "right" ? targetLine : undefined}
-                      />
+                      <PanelErrorBoundary panelName="Viewer">
+                        <FileViewer
+                          filePath={splitFile}
+                          focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "right"}
+                          rootPath={rootPath}
+                          treeWidth={responsiveTreeWidth}
+                          height={currentViewerHeight}
+                          onCursorChange={activeSplit === "right" ? handleCursorChange : undefined}
+                          onFocus={() => { setFocusedPanel("viewer"); setActiveSplit("right"); }}
+                          onJumpToFile={(targetPath, line) => {
+                            setSplitFile(targetPath);
+                            setTargetLine(line);
+                          }}
+                          initialLine={activeSplit === "right" ? targetLine : undefined}
+                        />
+                      </PanelErrorBoundary>
                     </box>
                   </box>
                 ) : splitMode === "horizontal" && splitFile ? (
@@ -1294,55 +1305,61 @@ export function App({ rootPath }: AppProps) {
                       style={{ height: "50%", width: "100%" }}
                       onMouseDown={() => setActiveSplit("left")}
                     >
-                      <FileViewer
-                        filePath={selectedFile}
-                        focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "left"}
-                        rootPath={rootPath}
-                        treeWidth={responsiveTreeWidth}
-                        height={Math.floor(currentViewerHeight / 2)}
-                        onCursorChange={activeSplit === "left" ? handleCursorChange : undefined}
-                        onFocus={() => { setFocusedPanel("viewer"); setActiveSplit("left"); }}
-                        onJumpToFile={(targetPath, line) => {
-                          handleFileSelect(targetPath, line);
-                        }}
-                        initialLine={activeSplit === "left" ? targetLine : undefined}
-                      />
+                      <PanelErrorBoundary panelName="Viewer">
+                        <FileViewer
+                          filePath={selectedFile}
+                          focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "left"}
+                          rootPath={rootPath}
+                          treeWidth={responsiveTreeWidth}
+                          height={Math.floor(currentViewerHeight / 2)}
+                          onCursorChange={activeSplit === "left" ? handleCursorChange : undefined}
+                          onFocus={() => { setFocusedPanel("viewer"); setActiveSplit("left"); }}
+                          onJumpToFile={(targetPath, line) => {
+                            handleFileSelect(targetPath, line);
+                          }}
+                          initialLine={activeSplit === "left" ? targetLine : undefined}
+                        />
+                      </PanelErrorBoundary>
                     </box>
                     {/* Bottom split */}
                     <box
                       style={{ height: "50%", width: "100%" }}
                       onMouseDown={() => setActiveSplit("right")}
                     >
-                      <FileViewer
-                        filePath={splitFile}
-                        focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "right"}
-                        rootPath={rootPath}
-                        treeWidth={responsiveTreeWidth}
-                        height={Math.floor(currentViewerHeight / 2)}
-                        onCursorChange={activeSplit === "right" ? handleCursorChange : undefined}
-                        onFocus={() => { setFocusedPanel("viewer"); setActiveSplit("right"); }}
-                        onJumpToFile={(targetPath, line) => {
-                          setSplitFile(targetPath);
-                          setTargetLine(line);
-                        }}
-                        initialLine={activeSplit === "right" ? targetLine : undefined}
-                      />
+                      <PanelErrorBoundary panelName="Viewer">
+                        <FileViewer
+                          filePath={splitFile}
+                          focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "right"}
+                          rootPath={rootPath}
+                          treeWidth={responsiveTreeWidth}
+                          height={Math.floor(currentViewerHeight / 2)}
+                          onCursorChange={activeSplit === "right" ? handleCursorChange : undefined}
+                          onFocus={() => { setFocusedPanel("viewer"); setActiveSplit("right"); }}
+                          onJumpToFile={(targetPath, line) => {
+                            setSplitFile(targetPath);
+                            setTargetLine(line);
+                          }}
+                          initialLine={activeSplit === "right" ? targetLine : undefined}
+                        />
+                      </PanelErrorBoundary>
                     </box>
                   </box>
                 ) : (
-                  <FileViewer
-                    filePath={selectedFile}
-                    focused={!isAnyModalOpen && focusedPanel === "viewer"}
-                    rootPath={rootPath}
-                    treeWidth={responsiveTreeWidth}
-                    height={currentViewerHeight}
-                    onCursorChange={handleCursorChange}
-                    onFocus={() => setFocusedPanel("viewer")}
-                    onJumpToFile={(targetPath, line) => {
-                      handleFileSelect(targetPath, line);
-                    }}
-                    initialLine={targetLine}
-                  />
+                  <PanelErrorBoundary panelName="Viewer">
+                    <FileViewer
+                      filePath={selectedFile}
+                      focused={!isAnyModalOpen && focusedPanel === "viewer"}
+                      rootPath={rootPath}
+                      treeWidth={responsiveTreeWidth}
+                      height={currentViewerHeight}
+                      onCursorChange={handleCursorChange}
+                      onFocus={() => setFocusedPanel("viewer")}
+                      onJumpToFile={(targetPath, line) => {
+                        handleFileSelect(targetPath, line);
+                      }}
+                      initialLine={targetLine}
+                    />
+                  </PanelErrorBoundary>
                 )}
               </box>
             )}
@@ -1351,23 +1368,27 @@ export function App({ rootPath }: AppProps) {
             {currentTerminalHeight > 0 && !zenMode && (
               <box style={{ height: currentTerminalHeight }}>
                 {showAgent ? (
-                  <AgentPanel
-                    rootPath={rootPath}
-                    focused={!isAnyModalOpen && focusedPanel === "agent"}
-                    onFocus={() => setFocusedPanel("agent")}
-                  />
+                  <PanelErrorBoundary panelName="AI Agent">
+                    <AgentPanel
+                      rootPath={rootPath}
+                      focused={!isAnyModalOpen && focusedPanel === "agent"}
+                      onFocus={() => setFocusedPanel("agent")}
+                    />
+                  </PanelErrorBoundary>
                 ) : (
                   <box onMouseDown={() => setFocusedPanel("terminal")} style={{ height: "100%" }}>
-                    <Terminal
-                      cwd={rootPath}
-                      focused={!isAnyModalOpen && focusedPanel === "terminal" && !leaderMode}
-                      onFocusRequest={() => setFocusedPanel("terminal")}
-                      onPasteReady={(pasteFn) => { terminalPasteRef.current = pasteFn; }}
-                      onCopyReady={(copyFn) => { terminalCopyRef.current = copyFn; }}
-                      onWriteReady={(writeFn) => { terminalWriteRef.current = writeFn; }}
-                      height={currentTerminalHeight}
-                      selectMode={terminalSelectMode}
-                    />
+                    <PanelErrorBoundary panelName="Terminal">
+                      <Terminal
+                        cwd={rootPath}
+                        focused={!isAnyModalOpen && focusedPanel === "terminal" && !leaderMode}
+                        onFocusRequest={() => setFocusedPanel("terminal")}
+                        onPasteReady={(pasteFn) => { terminalPasteRef.current = pasteFn; }}
+                        onCopyReady={(copyFn) => { terminalCopyRef.current = copyFn; }}
+                        onWriteReady={(writeFn) => { terminalWriteRef.current = writeFn; }}
+                        height={currentTerminalHeight}
+                        selectMode={terminalSelectMode}
+                      />
+                    </PanelErrorBoundary>
                   </box>
                 )}
               </box>
