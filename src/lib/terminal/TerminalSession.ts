@@ -30,6 +30,8 @@ export class TerminalSession {
   private exitListeners = new Set<Listener<[number | null]>>();
   private titleListeners = new Set<Listener<[string]>>();
   private bellListeners = new Set<Listener>();
+  /** Fired when the program starts or exits (not on every output chunk). */
+  private statusListeners = new Set<Listener>();
   private disposed = false;
   /** Lines scrolled back from the bottom (0 = following output). */
   private _scrollOffset = 0;
@@ -72,6 +74,7 @@ export class TerminalSession {
     const command = this.opts.command ?? [process.env.SHELL || "/bin/zsh", "-l"];
     this._exited = false;
     this._exitCode = null;
+    this.statusListeners.forEach((l) => l());
     try {
       this.proc = Bun.spawn(command, {
         cwd: this.opts.cwd,
@@ -97,6 +100,7 @@ export class TerminalSession {
         this._exited = true;
         this._exitCode = code;
         this.exitListeners.forEach((l) => l(code));
+        this.statusListeners.forEach((l) => l());
         this.emitUpdate();
       });
     } catch (err: any) {
@@ -220,6 +224,7 @@ export class TerminalSession {
   onUpdate(l: Listener) { this.updateListeners.add(l); return () => this.updateListeners.delete(l); }
   onExit(l: Listener<[number | null]>) { this.exitListeners.add(l); return () => this.exitListeners.delete(l); }
   onTitle(l: Listener<[string]>) { this.titleListeners.add(l); return () => this.titleListeners.delete(l); }
+  onStatus(l: Listener) { this.statusListeners.add(l); return () => this.statusListeners.delete(l); }
   onBell(l: Listener) { this.bellListeners.add(l); return () => this.bellListeners.delete(l); }
 
   dispose() {
@@ -229,6 +234,7 @@ export class TerminalSession {
     this.exitListeners.clear();
     this.titleListeners.clear();
     this.bellListeners.clear();
+    this.statusListeners.clear();
     try { this.proc?.kill(); } catch {}
     try { this.proc?.terminal?.close(); } catch {}
     this.xterm.dispose();
