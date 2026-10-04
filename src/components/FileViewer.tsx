@@ -10,7 +10,7 @@ import { highlightRanges } from "../lib/editorHighlight";
 import type { Theme } from "../lib/ThemeSystem";
 import { getFileLineDiffs, type LineDiffStatus } from "../lib/GitIntegration";
 import { findMatchingBracket } from "../lib/BracketMatcher";
-import { getWordAtPosition, getAllSymbols, type SymbolLocation } from "../lib/SymbolFinder";
+import { getWordAtPosition, getAllSymbols, findDefinition, type SymbolLocation } from "../lib/SymbolFinder";
 import { getGitBlame, type BlameLine } from "../lib/GitBlame";
 import { SymbolPicker } from "./SymbolPicker";
 import { Minimap } from "./Minimap";
@@ -70,6 +70,7 @@ export function FileViewer({
   focused,
   rootPath,
   height,
+  onJumpToFile,
   onCursorChange,
   onSelectionChange,
   initialLine,
@@ -312,6 +313,10 @@ export function FileViewer({
   // Ctrl+F inline search. Esc clears the topmost overlay.
   useKeyboard((event) => {
     if (!focused) return;
+    // The textarea only reports cursor moves that come with an edit, so arrows,
+    // Home/End and PgUp/PgDn left Ln/Col (and Ctrl+D, F12, bracket matching)
+    // on a stale position. It handles the key after us: read the cursor next tick.
+    setTimeout(() => handleCursorChangeRef.current(), 0);
 
     // Ctrl+S: save now (during a conflict: keep my version and overwrite disk).
     if (event.ctrl && event.name === "s" && filePath) {
@@ -377,6 +382,28 @@ export function FileViewer({
         return;
       }
       // Other keys fall through (so e.g. Ctrl+F still toggles).
+    }
+
+    // F12 / Ctrl+Shift+G: go to the definition of the word under the cursor
+    // (same file, or the file it is imported from).
+    if (event.name === "f12" || (event.ctrl && event.shift && event.name === "g")) {
+      const ta = textareaRef.current;
+      if (!ta || !filePath) return;
+      const text = ta.plainText ?? "";
+      const w = getWordAtPosition(text.split("\n")[cursorLine] ?? "", cursorColumn);
+      if (!w) return;
+      const def = findDefinition(text, filePath, w.word);
+      if (!def) {
+        setNotice(`No definition found for ${w.word}`);
+      } else if (path.resolve(def.filePath) === path.resolve(filePath)) {
+        // SymbolFinder lines are 0-indexed, like gotoLine.
+        try {
+          ta.gotoLine(Math.max(0, def.line));
+        } catch {}
+      } else {
+        onJumpToFile?.(def.filePath, def.line + 1); // App's initialLine is 1-indexed
+      }
+      return;
     }
 
     if (event.ctrl && event.name === "d") {
@@ -682,6 +709,7 @@ export function FileViewer({
     }, SAVE_DEBOUNCE_MS);
   }, [filePath, saveNow]);
 
+  const handleCursorChangeRef = useRef<() => void>(() => {});
   const handleCursorChange = useCallback(() => {
     const ta = textareaRef.current;
     if (!ta) return;
@@ -704,6 +732,7 @@ export function FileViewer({
       }
     }
   }, [onCursorChange, onSelectionChange]);
+  handleCursorChangeRef.current = handleCursorChange;
 
   const borderColor = focused ? "cyan" : "gray";
 
@@ -736,6 +765,7 @@ export function FileViewer({
       bottomTitle={bottomTitle}
       bottomTitleAlignment="right"
       onMouseDown={onFocus}
+      onMouseUp={() => setTimeout(() => handleCursorChangeRef.current(), 0)}
     >
       {/* Header row: FOCUS badge, dirty dot, breadcrumbs, lang indicator */}
       <box style={{ height: 1, paddingX: 1, flexDirection: "row", justifyContent: "space-between" }}>
@@ -839,9 +869,10 @@ export function FileViewer({
         onClose={() => setShowSymbolPicker(false)}
         onSelect={(sym) => {
           setShowSymbolPicker(false);
-          // SymbolLocation.line is 1-indexed in the legacy library, gotoLine is 0-indexed.
+          // SymbolLocation.line is 0-indexed, like gotoLine (the old "- 1" landed
+          // one line above every symbol).
           try {
-            textareaRef.current?.gotoLine(Math.max(0, sym.line - 1));
+            textareaRef.current?.gotoLine(Math.max(0, sym.line));
           } catch {
             // ignore
           }
