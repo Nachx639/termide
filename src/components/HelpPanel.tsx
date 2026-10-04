@@ -89,6 +89,17 @@ export const SHORTCUTS: ShortcutCategory[] = [
     ],
   },
   {
+    title: "Git",
+    shortcuts: [
+      { keys: "s / u", description: "Stage / unstage file" },
+      { keys: "S / U", description: "Stage all / unstage all" },
+      { keys: "x x", description: "Discard file changes (asks twice)" },
+      { keys: "c", description: "Commit staged changes" },
+      { keys: "Enter", description: "Diff of the file / commit" },
+      { keys: "e", description: "Git graph: expand commit message" },
+    ],
+  },
+  {
     title: "AI Agent Panel",
     shortcuts: [
       { keys: "Enter", description: "Send prompt" },
