@@ -1555,57 +1555,30 @@ export function App({ rootPath }: AppProps) {
 
       {/* Status bar (hidden in Zen Mode) */}
       {!zenMode && <box style={{ height: 1, paddingX: 1, backgroundColor: "black", flexDirection: "row" }}>
-        <box style={{ flexDirection: "row", flexShrink: 1 }}>
-          {/* Git branch */}
-          {gitStatus?.isRepo && (
-            <box style={{ flexDirection: "row", flexShrink: 0 }}>
-              <text style={{ fg: "#d4a800" }}>{formatGitBranch(gitStatus)}</text>
-              <text style={{ fg: gitStatus.clean ? "green" : "yellow" as any }}>
-                {" "}{formatGitStatus(gitStatus)}
-              </text>
-              <text style={{ fg: "gray" }}> │ </text>
-            </box>
-          )}
-          {/* File path - with truncation */}
-          <box style={{ flexShrink: 1 }}>
-            <text style={{ fg: "#d4a800" }}>
-              {selectedFile ? path.relative(rootPath, selectedFile) : "No file"}
-            </text>
-          </box>
-          {/* File stats */}
-          {fileStats && (
-            <box style={{ flexDirection: "row", flexShrink: 0 }}>
-              <text style={{ fg: "gray" }}> │ </text>
-              <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
-                {fileStats.lineCount} lines, {formatFileSize(fileStats.size)}
-              </text>
-            </box>
-          )}
-          {/* File encoding info */}
-          {fileInfo && !isCompactMode && (
-            <box style={{ flexDirection: "row", flexShrink: 0 }}>
-              <text style={{ fg: "gray" }}> │ </text>
-              <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
-                {formatEncoding(fileInfo)}
-              </text>
-              <text style={{ fg: "gray" }}> </text>
-              <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
-                {formatLineEnding(fileInfo.lineEnding)}
-              </text>
-              {formatIndent(fileInfo) && (
-                <>
-                  <text style={{ fg: "gray" }}> </text>
-                  <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
-                    {formatIndent(fileInfo)}
-                  </text>
-                </>
-              )}
-            </box>
-          )}
+        {/* Left: one text that is cut at the end when narrow (separate boxes
+            refused to shrink and spilled into the right-hand group, e.g.
+            "Spc:2Ln 1, Col 1"). */}
+        <box style={{ flexShrink: 1, overflow: "hidden" }}>
+          <text wrapMode="none">
+            {gitStatus?.isRepo && (
+              <>
+                <span fg="#d4a800">{formatGitBranch(gitStatus)}</span>
+                <span fg={gitStatus.clean ? "green" : "yellow"}>{` ${formatGitStatus(gitStatus)}`}</span>
+                <span fg="gray">{" │ "}</span>
+              </>
+            )}
+            <span fg="#d4a800">{selectedFile ? path.relative(rootPath, selectedFile) : "No file"}</span>
+            {fileStats && <span fg="gray">{` │ ${fileStats.lineCount} lines, ${formatFileSize(fileStats.size)}`}</span>}
+            {fileInfo && !isCompactMode && (
+              <span fg="gray">
+                {` │ ${formatEncoding(fileInfo)} ${formatLineEnding(fileInfo.lineEnding)}${formatIndent(fileInfo) ? ` ${formatIndent(fileInfo)}` : ""}`}
+              </span>
+            )}
+          </text>
         </box>
 
         {/* Spacer to push content to the right */}
-        <box style={{ flexGrow: 1 }} />
+        <box style={{ flexGrow: 1, minWidth: 1 }} />
 
         <box style={{ flexDirection: "row", gap: 2, flexShrink: 0 }}>
           {/* Cursor position */}
