@@ -117,6 +117,8 @@ git clone https://github.com/Nachx639/termide.git
 cd termide
 bun install
 bun run dev
+bun test                 # unit + PTY + render tests
+bun scripts/smoke.ts     # run the whole app headlessly and print the screen
 ```
 
 ---
@@ -133,8 +135,13 @@ Navigate like a pro:
 | `Ctrl + K` | Command Palette |
 | `Ctrl + Shift + F` | Global search in files |
 | `Ctrl + B` | Help panel |
-| `Ctrl + G` | Toggle mascot 🐜 |
-| `Ctrl + Q` | Quit |
+| `Ctrl + Shift + M` | Toggle mascot 🐜 |
+| `Ctrl + Q` | Zen mode |
+| `Ctrl + X` → `Q` | Quit |
+
+**Inside the terminal every key goes to the shell** (Tab completion, `Ctrl+R`, `Ctrl+W`, `Ctrl+K`, …).
+Use the leader key to get out: `Ctrl+X` → `Tab` next panel, `K` palette, `P` files, `H` help, `Q` quit,
+`X` sends a literal `Ctrl+X`. Scroll back with `Shift+PgUp` / `Shift+↑` or the mouse wheel.
 
 ---
 
@@ -142,7 +149,8 @@ Navigate like a pro:
 
 - **📁 File Explorer** — Git-aware file tree with icons
 - **📝 Code Viewer** — Syntax highlighting, line numbers
-- **💻 Embedded Terminal** — Full PTY with scrollback
+- **💻 Embedded Terminal** — Real PTY emulated by xterm.js: truecolor, emoji/CJK, full-screen apps (vim, less, htop), mouse wheel, bracketed paste, 10k lines of scrollback
+- **🤖 AI Agent Panel** — ACP client: streaming replies, tool calls with diffs, permission prompts, agent terminals, cancel with Esc
 - **🔍 Fuzzy Finder** — Quick file navigation (Ctrl+P)
 - **🎨 Command Palette** — VS Code-style commands (Ctrl+K)
 - **🔎 Global Search** — Ripgrep-powered search
