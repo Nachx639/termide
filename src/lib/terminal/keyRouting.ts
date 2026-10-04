@@ -18,3 +18,17 @@ export function isTerminalHostKey(k: KeyLike): boolean {
   if (k.ctrl && k.shift && (k.name === "c" || k.name === "v")) return true;
   return false;
 }
+
+/**
+ * Keys the focused file editor owns: anything that types text, plus its own
+ * shortcuts (Ctrl+F search, Ctrl+D word highlight, Ctrl+G blame, Ctrl+S save,
+ * Ctrl+R reload). Typing "?" in code used to open the help panel and Ctrl+F also
+ * maximized the panel.
+ */
+export function isEditorOwnedKey(k: KeyLike): boolean {
+  if (k.eventType === "release") return false;
+  if (k.ctrl && !k.shift && ["f", "d", "g", "s", "r"].includes(k.name)) return true;
+  if (k.ctrl || k.meta || k.super) return false;
+  if (k.name === "space") return true;
+  return !!k.sequence && k.sequence.length >= 1 && !/[\x00-\x1f\x7f]/.test(k.sequence);
+}
