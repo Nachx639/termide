@@ -224,6 +224,20 @@ export function App({ rootPath }: AppProps) {
   const isMiniMode = layoutConfig.isMiniMode;
   const isCompactMode = layoutConfig.screenSize === "compact";
 
+  // A terminal tab rang the bell while nobody was looking (e.g. an agent in it
+  // finished or is waiting for input).
+  const notifyRef = useRef(notify);
+  notifyRef.current = notify;
+  useEffect(() => {
+    const off = getTerminalManager(rootPath).onBell((tab, index) => {
+      const name = tab.session.title || `terminal ${index + 1}`;
+      notifyRef.current(`🔔 ${name} needs attention (Ctrl+X ] to switch)`, "info", 4000);
+    });
+    return () => {
+      off();
+    };
+  }, [rootPath]);
+
   // Load session on mount
   useEffect(() => {
     const session = loadSession(rootPath);

@@ -31,6 +31,12 @@ export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyRea
     if (command) manager.disposeAll();
   }, [manager, command]);
 
+  // While the terminal is on screen and focused, its active tab is "seen".
+  useEffect(() => {
+    manager.setWatching(focused);
+    return () => manager.setWatching(false);
+  }, [manager, focused]);
+
   // The first shell starts once layout tells us the real size, so its first
   // prompt is drawn for the right width (later resizes go through the view).
   const onTerminalSize = useCallback(
@@ -129,7 +135,7 @@ export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyRea
                   onMouseDown={() => manager.activate(t.id)}
                   style={{ fg: on ? "black" : t.session.exited ? "gray" : "white", bg: on ? "#d4a800" : undefined, attributes: on ? TextAttributes.BOLD : 0, flexShrink: 0 }}
                 >
-                  {` ${i + 1} ${tabLabel(t.session.title)} `}
+                  {` ${i + 1} ${tabLabel(t.session.title)}${t.bell ? " 🔔" : t.activity ? " •" : ""} `}
                 </text>
               );
             })
