@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { execFileSync } from "child_process";
-import { searchInFiles, __test } from "./textSearch";
+import { searchInFiles, listProjectFiles, __test } from "./textSearch";
 
 let root: string;
 const opts = { maxResults: 100, maxPerFile: 10 };
@@ -40,4 +40,11 @@ test("unicode offsets survive ripgrep's byte offsets", async () => {
 
 test("respects maxResults", async () => {
   expect((await searchInFiles(root, "needle", { maxResults: 2 })).length).toBe(2);
+});
+
+test("listProjectFiles honours .gitignore", async () => {
+  const files = (await listProjectFiles(root)).map((f) => path.relative(root, f)).sort();
+  expect(files).toContain("src/a.ts");
+  expect(files).toContain("dir with space.txt");
+  expect(files.some((f) => f.startsWith("node_modules"))).toBe(false);
 });
