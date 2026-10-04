@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useTheme } from "../lib/themeContext";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 import { getGitLog } from "../lib/GitIntegration";
@@ -12,6 +13,7 @@ interface GitGraphProps {
 }
 
 export function GitGraph({ rootPath, focused, onFocus, width }: GitGraphProps) {
+    const theme = useTheme();
     const [logLines, setLogLines] = useState<string[]>([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
@@ -29,7 +31,7 @@ export function GitGraph({ rootPath, focused, onFocus, width }: GitGraphProps) {
         return () => clearInterval(interval);
     }, [updateLog]);
 
-    const borderColor = focused ? "cyan" : "gray";
+    const borderColor = focused ? theme.borderFocused : theme.border;
 
     const formatRelativeTime = (unixSecondsText: string) => {
         const unixSeconds = parseInt(unixSecondsText, 10);
@@ -233,7 +235,7 @@ export function GitGraph({ rootPath, focused, onFocus, width }: GitGraphProps) {
             onMouseDown={onFocus}
         >
             <box style={{ paddingX: 1, height: 1, backgroundColor: "#1a1a1a", flexDirection: "row" }}>
-                {focused && <text style={{ fg: "black", bg: "cyan", attributes: TextAttributes.BOLD }}> FOCUS </text>}
+                {focused && <text style={{ fg: "black", bg: theme.accent, attributes: TextAttributes.BOLD }}> FOCUS </text>}
                 <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>Git Graph</text>
                 {focused && <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#1a1a1a" }}> j/k:move e:expand</text>}
             </box>

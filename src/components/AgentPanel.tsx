@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useTheme } from "../lib/themeContext";
 import * as path from "path";
 import { useKeyboard } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
@@ -100,6 +101,7 @@ interface AgentPanelProps {
 }
 
 export function AgentPanel({ rootPath, focused, onFocus, isolated = false, onOpenFile }: AgentPanelProps) {
+    const theme = useTheme();
     const { state, connect, disconnect, prompt, cancel, respondPermission } = useACP(rootPath, isolated);
     const { status, timeline, busy, permission, plan, error } = state;
     const [inputValue, setInputValue] = useState("");
@@ -330,7 +332,7 @@ export function AgentPanel({ rootPath, focused, onFocus, isolated = false, onOpe
 
     return (
         <box
-            style={{ flexDirection: "column", height: "100%", border: true, borderColor: focused ? "cyan" : "gray" }}
+            style={{ flexDirection: "column", height: "100%", border: true, borderColor: focused ? theme.borderFocused : theme.border }}
             bottomTitle={bottomTitle}
             bottomTitleAlignment="right"
             onMouseDown={onFocus}
@@ -338,7 +340,7 @@ export function AgentPanel({ rootPath, focused, onFocus, isolated = false, onOpe
             {/* Header */}
             <box style={{ height: 1, paddingX: 1, flexDirection: "row", justifyContent: "space-between", flexShrink: 0 }}>
                 <box style={{ flexDirection: "row" }}>
-                    {focused && <text style={{ fg: "black", bg: "cyan", attributes: TextAttributes.BOLD }}> FOCUS </text>}
+                    {focused && <text style={{ fg: "black", bg: theme.accent, attributes: TextAttributes.BOLD }}> FOCUS </text>}
                     <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>AI Agent </text>
                     <text style={{ fg: status === "connected" ? "green" : status === "connecting" ? "yellow" : "red" }}>({status})</text>
                 </box>

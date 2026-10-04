@@ -93,3 +93,28 @@ test("dotfiles are listed, .git and node_modules are not", async () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("focused panel border follows the colour theme", async () => {
+  const { ThemeContext } = await import("../lib/themeContext");
+  const { THEMES } = await import("../lib/ThemeSystem");
+  const { parseColor } = await import("@opentui/core");
+  const nord = THEMES.find((t) => t.id === "nord")!;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "termide-tree-"));
+  const setup = await testRender(
+    <ThemeContext.Provider value={nord}>
+      <box style={{ width: 30, height: 6 }}>
+        <FileTree rootPath={dir} onFileSelect={() => {}} focused={true} />
+      </box>
+    </ThemeContext.Provider>,
+    { width: 30, height: 6 },
+  );
+  try {
+    await setup.renderOnce();
+    const corner = setup.captureSpans().lines[0]!.spans[0]!;
+    expect(corner.text.startsWith("┌")).toBe(true);
+    expect(corner.fg.toInts().slice(0, 3)).toEqual(parseColor(nord.borderFocused).toInts().slice(0, 3));
+  } finally {
+    setup.renderer.destroy();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

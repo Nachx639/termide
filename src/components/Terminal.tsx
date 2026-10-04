@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useTheme } from "../lib/themeContext";
 import { useKeyboard, useRenderer } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 import { getTerminalManager, TerminalManager } from "../lib/terminal/TerminalManager";
@@ -25,6 +26,7 @@ interface TerminalProps {
 }
 
 export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyReady, onWriteReady, selectMode = false, command, onOpenFile, onSearchReady }: TerminalProps) {
+  const theme = useTheme();
   const renderer = useRenderer();
   // Shared, app-lifetime sessions: unmounting this component must not kill the shell.
   const [manager] = useState(() => (command ? new TerminalManager(cwd, command) : getTerminalManager(cwd)));
@@ -176,7 +178,7 @@ export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyRea
     if (s.sendKey(event)) event.preventDefault();
   });
 
-  const borderColor = focused ? "cyan" : "gray";
+  const borderColor = focused ? theme.borderFocused : theme.border;
   const shellName = (process.env.SHELL || "/bin/zsh").split("/").pop() || "zsh";
   const cwdShort = cwd.replace(process.env.HOME || "", "~");
   const tabLabel = (title: string) => (title || shellName).slice(0, 24);
@@ -192,7 +194,7 @@ export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyRea
     >
       {(focused || tabs.length > 1) && (
         <box style={{ paddingX: 1, height: 1, flexDirection: "row", flexShrink: 0 }}>
-          {focused && <text style={{ fg: "black", bg: "cyan", attributes: TextAttributes.BOLD, flexShrink: 0 }}> FOCUS </text>}
+          {focused && <text style={{ fg: "black", bg: theme.accent, attributes: TextAttributes.BOLD, flexShrink: 0 }}> FOCUS </text>}
           {tabs.length > 1 ? (
             tabs.map((t, i) => {
               const on = t.id === activeId;
@@ -244,7 +246,7 @@ export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyRea
             const isActive = id === activeId;
             return (
               <React.Fragment key={id}>
-                {i === 1 && <box style={{ width: 1, border: ["left"], borderColor: focused ? "cyan" : "gray", flexShrink: 0 }} />}
+                {i === 1 && <box style={{ width: 1, border: ["left"], borderColor: focused ? theme.borderFocused : theme.border, flexShrink: 0 }} />}
                 <box style={{ flexGrow: 1, flexBasis: 0 }} onMouseDown={() => manager.activate(id)}>
                   <terminal-view
                     session={session}
