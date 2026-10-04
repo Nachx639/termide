@@ -1,4 +1,5 @@
-export { useACP, type Message } from "./useACP";
+export { useACP } from "./useACP";
+export type { TimelineEntry as Message } from "../lib/acp/AcpSession";
 export {
   useInterval,
   useTimeout,

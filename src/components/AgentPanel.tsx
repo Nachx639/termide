@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
+import * as path from "path";
 import { useKeyboard } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 import { useACP } from "../hooks/useACP";
 import { getTermideSyntaxStyle } from "../lib/SyntaxStyles";
+import type { TimelineEntry, ToolStatus } from "../lib/acp/AcpSession";
 
 // Agent configuration with optional environment variables
 interface AgentConfig {
@@ -25,6 +27,9 @@ const ANTIGRAVITY_MODELS = [
     { id: "gemini-3-pro-high", name: "Gemini 3 Pro (High)", icon: "💎" },
 ];
 
+// Bundled with termide, not with the project being edited.
+const ANTIGRAVITY_BIN = path.join(import.meta.dir, "..", "..", "bin", "claude-antigravity");
+
 // Predefined agents with their commands
 const AGENTS: AgentConfig[] = [
     { id: "claude", name: "Claude", icon: "🤖", command: "claude-code-acp", description: "Anthropic Claude Code" },
@@ -32,13 +37,35 @@ const AGENTS: AgentConfig[] = [
         id: "claude-antigravity",
         name: "Claude (Antigravity)",
         icon: "🌀",
-        command: "./bin/claude-antigravity",
+        command: ANTIGRAVITY_BIN,
         description: "Claude via Antigravity proxy",
         proxyCommand: "antigravity-claude-proxy start"
     },
     { id: "gemini", name: "Gemini", icon: "✨", command: "gemini --experimental-acp", description: "Google Gemini CLI" },
     { id: "custom", name: "Custom...", icon: "⚙️", command: "", description: "Enter custom command" },
 ];
+
+const STATUS_ICON: Record<ToolStatus, { icon: string; color: string }> = {
+    pending: { icon: "○", color: "gray" },
+    in_progress: { icon: "◐", color: "yellow" },
+    completed: { icon: "✓", color: "green" },
+    failed: { icon: "✗", color: "red" },
+    cancelled: { icon: "⊘", color: "gray" },
+};
+
+const PLAN_ICON: Record<string, string> = { pending: "○", in_progress: "◐", completed: "✓" };
+
+function diffStats(oldText: string | null, newText: string) {
+    const a = oldText ? oldText.split("\n") : [];
+    const b = newText.split("\n");
+    const setA = new Set(a);
+    const setB = new Set(b);
+    return { added: b.filter((l) => !setA.has(l)).length, removed: a.filter((l) => !setB.has(l)).length };
+}
+
+function lastLines(text: string, n: number) {
+    return text.replace(/\s+$/, "").split("\n").slice(-n);
+}
 
 interface AgentPanelProps {
     rootPath: string;
@@ -47,70 +74,59 @@ interface AgentPanelProps {
 }
 
 export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
-    const { connect, disconnect, sendMessage, messages, status, error } = useACP();
+    const { state, connect, disconnect, prompt, cancel, respondPermission } = useACP(rootPath);
+    const { status, timeline, busy, permission, plan, error } = state;
     const [inputValue, setInputValue] = useState("");
-    const [isSetup, setIsSetup] = useState(true);
     const [selectedAgentIndex, setSelectedAgentIndex] = useState(0);
     const [isCustomMode, setIsCustomMode] = useState(false);
     const [customCommand, setCustomCommand] = useState("");
+    const [permissionIndex, setPermissionIndex] = useState(0);
+    const [showThoughts, setShowThoughts] = useState(false);
 
-    const lastEscapeRef = React.useRef<number>(0);
-    const scrollBoxRef = useRef<any>(null);
+    const lastEscapeRef = useRef<number>(0);
     // Model selection for Antigravity
     const [isModelSelectMode, setIsModelSelectMode] = useState(false);
     const [selectedModelIndex, setSelectedModelIndex] = useState(0);
 
-    // Switch to chat mode automatically if connected
-    useEffect(() => {
-        if (status === 'connected') {
-            setIsSetup(false);
-        } else if (status === 'disconnected') {
-            setIsSetup(true);
-        }
-        // Don't change isSetup when status is 'connecting' - we'll handle that in the UI
-    }, [status]);
+    const isSetup = status !== "connected";
 
-    // Auto-scroll to bottom when messages change
-    useEffect(() => {
-        if (scrollBoxRef.current && messages.length > 0) {
-            // Reset manual scroll flag and force scroll to bottom
-            const scrollBox = scrollBoxRef.current;
-            if (scrollBox._hasManualScroll !== undefined) {
-                scrollBox._hasManualScroll = false;
-            }
-            // Calculate max scroll position and scroll to it
-            const maxScroll = Math.max(0, scrollBox.scrollHeight - (scrollBox.viewport?.height || 0));
-            if (scrollBox.scrollTo) {
-                scrollBox.scrollTo(maxScroll);
-            } else if (scrollBox.scrollTop !== undefined) {
-                scrollBox.scrollTop = maxScroll;
-            }
-        }
-    }, [messages]);
+    useEffect(() => setPermissionIndex(0), [permission]);
 
-    // Release scrollbox focus when AgentPanel loses focus
-    useEffect(() => {
-        if (!focused && scrollBoxRef.current) {
-            const scrollBox = scrollBoxRef.current;
-            if (scrollBox.blur) {
-                scrollBox.blur();
-            }
-            // Also reset any internal focus state
-            if (scrollBox._focused !== undefined) {
-                scrollBox._focused = false;
-            }
-        }
-    }, [focused]);
+    const connectAgent = (agent: AgentConfig, commandLine = agent.command) => {
+        const [cmd, ...args] = commandLine.trim().split(/\s+/);
+        if (cmd) connect(cmd, args, agent.env, agent.proxyCommand);
+    };
+
+    // The native input hands us its value; our state may lag a render behind.
+    const submit = (value?: string) => {
+        const text = (typeof value === "string" ? value : inputValue).trim();
+        if (!text || busy) return;
+        prompt(text);
+        setInputValue("");
+    };
 
     useKeyboard((event) => {
         if (!focused) return;
 
-        // Double Escape to disconnect agent (within 500ms)
+        // Permission prompt takes over the keyboard until answered.
+        if (permission) {
+            const n = permission.options.length;
+            if (event.name === "left" || event.name === "up") setPermissionIndex((i) => (i - 1 + n) % n);
+            else if (event.name === "right" || event.name === "down" || event.name === "tab") setPermissionIndex((i) => (i + 1) % n);
+            else if (event.name === "return") respondPermission(permission.options[permissionIndex]?.optionId ?? null);
+            else if (event.name === "escape") respondPermission(null);
+            else if (/^[1-9]$/.test(event.name) && Number(event.name) <= n) respondPermission(permission.options[Number(event.name) - 1]!.optionId);
+            return;
+        }
+
         if (event.name === "escape") {
             const now = Date.now();
-            if (now - lastEscapeRef.current < 500) {
+            if (busy) {
+                // Esc stops the running turn; Esc Esc disconnects.
+                if (now - lastEscapeRef.current < 500) disconnect();
+                else cancel();
+            } else if (now - lastEscapeRef.current < 500) {
                 disconnect();
-                setIsSetup(true);
                 setIsCustomMode(false);
                 setIsModelSelectMode(false);
             } else if (isCustomMode) {
@@ -122,137 +138,149 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
             return;
         }
 
+        if (!isSetup) {
+            // Chat input is the native <input>; only panel-level shortcuts here.
+            if (event.ctrl && event.name === "t") setShowThoughts((v) => !v);
+            return;
+        }
+
+        if (status === "connecting") return;
+
         if (event.name === "return") {
-            if (isSetup) {
-                // Model selection mode for Antigravity
-                if (isModelSelectMode) {
-                    const selectedModel = ANTIGRAVITY_MODELS[selectedModelIndex];
-                    if (selectedModel) {
-                        // Write selected model to settings.json
-                        const homeDir = process.env.HOME || process.env.USERPROFILE || "";
-                        const settingsPath = `${homeDir}/.claude-antigravity-home/.claude/settings.json`;
-                        const settings = {
-                            env: {
-                                ANTHROPIC_AUTH_TOKEN: "test",
-                                ANTHROPIC_BASE_URL: "http://localhost:8080",
-                                ANTHROPIC_MODEL: selectedModel.id,
-                                ANTHROPIC_DEFAULT_OPUS_MODEL: selectedModel.id,
-                                ANTHROPIC_DEFAULT_SONNET_MODEL: selectedModel.id,
-                                ANTHROPIC_DEFAULT_HAIKU_MODEL: selectedModel.id,
-                            }
-                        };
-                        // Write synchronously using Bun
-                        try {
-                            Bun.write(settingsPath, JSON.stringify(settings, null, 2));
-                        } catch (e) {
-                            console.error("Failed to write settings:", e);
-                        }
-
-                        // Now connect with the Antigravity agent
-                        const selectedAgent = AGENTS.find(a => a.id === "claude-antigravity");
-                        if (selectedAgent) {
-                            const parts = selectedAgent.command.split(" ");
-                            const cmd = parts[0]!;
-                            const args = parts.slice(1);
-                            connect(cmd, args, selectedAgent.env, selectedAgent.proxyCommand);
-                        }
-                        setIsModelSelectMode(false);
-                    }
-                    return;
+            if (isModelSelectMode) {
+                const selectedModel = ANTIGRAVITY_MODELS[selectedModelIndex];
+                const agent = AGENTS.find((a) => a.id === "claude-antigravity");
+                if (selectedModel && agent) {
+                    const homeDir = process.env.HOME || process.env.USERPROFILE || "";
+                    const settingsPath = `${homeDir}/.claude-antigravity-home/.claude/settings.json`;
+                    const settings = {
+                        env: {
+                            ANTHROPIC_AUTH_TOKEN: "test",
+                            ANTHROPIC_BASE_URL: "http://localhost:8080",
+                            ANTHROPIC_MODEL: selectedModel.id,
+                            ANTHROPIC_DEFAULT_OPUS_MODEL: selectedModel.id,
+                            ANTHROPIC_DEFAULT_SONNET_MODEL: selectedModel.id,
+                            ANTHROPIC_DEFAULT_HAIKU_MODEL: selectedModel.id,
+                        },
+                    };
+                    Bun.write(settingsPath, JSON.stringify(settings, null, 2))
+                        .catch(() => {})
+                        .finally(() => connectAgent(agent));
+                    setIsModelSelectMode(false);
                 }
+                return;
+            }
 
-                const selectedAgent = AGENTS[selectedAgentIndex];
-                if (!selectedAgent) return;
-
-                // If selecting Antigravity, show model selector
-                if (selectedAgent.id === "claude-antigravity") {
-                    setIsModelSelectMode(true);
-                    setSelectedModelIndex(0);
-                    return;
-                }
-
-                if (selectedAgent.id === "custom") {
-                    if (isCustomMode && customCommand.trim()) {
-                        const parts = customCommand.trim().split(" ");
-                        const cmd = parts[0]!;
-                        const args = parts.slice(1);
-                        connect(cmd, args);
-                    } else {
-                        setIsCustomMode(true);
-                    }
-                } else if (status !== 'connected') {
-                    const parts = selectedAgent.command.split(" ");
-                    const cmd = parts[0]!;
-                    const args = parts.slice(1);
-                    connect(cmd, args, selectedAgent.env, selectedAgent.proxyCommand);
-                }
+            const selectedAgent = AGENTS[selectedAgentIndex];
+            if (!selectedAgent) return;
+            if (selectedAgent.id === "claude-antigravity") {
+                setIsModelSelectMode(true);
+                setSelectedModelIndex(0);
+            } else if (selectedAgent.id === "custom") {
+                if (isCustomMode && customCommand.trim()) connectAgent(selectedAgent, customCommand);
+                else setIsCustomMode(true);
             } else {
-                if (inputValue.trim()) {
-                    sendMessage(inputValue);
-                    setInputValue("");
-                }
+                connectAgent(selectedAgent);
             }
             return;
         }
 
-        if (event.name === "backspace") {
-            if (isSetup && isCustomMode) {
-                setCustomCommand(prev => prev.slice(0, -1));
-            } else if (!isSetup) {
-                setInputValue(prev => prev.slice(0, -1));
+        if (isCustomMode) {
+            if (event.name === "backspace") setCustomCommand((prev) => prev.slice(0, -1));
+            else if (event.name === "space") setCustomCommand((prev) => prev + " ");
+            else if (event.sequence && !event.ctrl && !event.meta && !/[\x00-\x1f\x7f]/.test(event.sequence)) {
+                setCustomCommand((prev) => prev + event.sequence);
             }
             return;
         }
 
-        // Handle space key explicitly
-        if (event.name === "space") {
-            if (isSetup && isCustomMode) {
-                setCustomCommand(prev => prev + " ");
-            } else if (!isSetup) {
-                setInputValue(prev => prev + " ");
-            }
-            return;
-        }
-
-        // Handle arrow keys
         if (event.name === "up" || event.name === "down") {
-            if (isSetup && isModelSelectMode) {
-                // Navigate model selector
-                setSelectedModelIndex(prev => {
-                    if (event.name === "up") {
-                        return prev > 0 ? prev - 1 : ANTIGRAVITY_MODELS.length - 1;
-                    } else {
-                        return prev < ANTIGRAVITY_MODELS.length - 1 ? prev + 1 : 0;
-                    }
-                });
-            } else if (isSetup && !isCustomMode) {
-                // Navigate agent selector
-                setSelectedAgentIndex(prev => {
-                    if (event.name === "up") {
-                        return prev > 0 ? prev - 1 : AGENTS.length - 1;
-                    } else {
-                        return prev < AGENTS.length - 1 ? prev + 1 : 0;
-                    }
-                });
-            }
-            return;
-        }
-
-        if (event.name && event.name.length === 1 && !event.ctrl && !event.meta) {
-            if (isSetup && isCustomMode) {
-                setCustomCommand(prev => prev + event.name);
-            } else if (!isSetup) {
-                setInputValue(prev => prev + event.name);
+            const delta = event.name === "up" ? -1 : 1;
+            if (isModelSelectMode) {
+                setSelectedModelIndex((prev) => (prev + delta + ANTIGRAVITY_MODELS.length) % ANTIGRAVITY_MODELS.length);
+            } else {
+                setSelectedAgentIndex((prev) => (prev + delta + AGENTS.length) % AGENTS.length);
             }
         }
     });
 
+    const toolCount = timeline.filter((e) => e.kind === "tool").length;
     const bottomTitle =
         status === "connected"
-            ? ` ${messages.length} msgs · connected `
+            ? ` ${busy ? "working… · Esc: stop · " : ""}${toolCount} tools · ${state.agentName} `
             : status === "connecting"
             ? " connecting… "
             : " disconnected ";
+
+    const renderEntry = (entry: TimelineEntry, isLast: boolean) => {
+        switch (entry.kind) {
+            case "user":
+                return (
+                    <box key={entry.id} style={{ flexDirection: "row" }}>
+                        <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>{"> "}</text>
+                        <text style={{ fg: "cyan" }}>{entry.text}</text>
+                    </box>
+                );
+            case "assistant":
+                return (
+                    <markdown
+                        key={entry.id}
+                        content={entry.text}
+                        syntaxStyle={getTermideSyntaxStyle()}
+                        conceal
+                        streaming={isLast && busy}
+                        tableOptions={{ widthMode: "content", borders: true, borderStyle: "rounded", selectable: true }}
+                    />
+                );
+            case "thought": {
+                if (!showThoughts && !(isLast && busy)) return null;
+                const text = showThoughts ? entry.text : lastLines(entry.text, 1)[0] ?? "";
+                return (
+                    <text key={entry.id} style={{ fg: "gray", attributes: TextAttributes.ITALIC | TextAttributes.DIM }}>
+                        {`✻ ${text}`}
+                    </text>
+                );
+            }
+            case "system":
+                return (
+                    <text key={entry.id} style={{ fg: entry.level === "error" ? "red" : "gray", attributes: entry.level === "error" ? 0 : TextAttributes.DIM }}>
+                        {entry.text}
+                    </text>
+                );
+            case "tool": {
+                const st = STATUS_ICON[entry.status] ?? STATUS_ICON.pending;
+                const where = entry.locations[0];
+                const output = entry.diffs.length === 0 && entry.text ? lastLines(entry.text, entry.status === "in_progress" ? 3 : 2) : [];
+                return (
+                    <box key={entry.id} style={{ flexDirection: "column" }}>
+                        <box style={{ flexDirection: "row" }}>
+                            <text style={{ fg: st.color, attributes: TextAttributes.BOLD }}>{`${st.icon} `}</text>
+                            <text style={{ fg: "white", attributes: TextAttributes.BOLD }}>{entry.title}</text>
+                            {where && !entry.title.includes(path.basename(where.path)) && (
+                                <text style={{ fg: "gray" }}>{`  ${path.relative(rootPath, where.path) || where.path}${where.line ? `:${where.line}` : ""}`}</text>
+                            )}
+                        </box>
+                        {entry.diffs.map((d) => {
+                            const { added, removed } = diffStats(d.oldText, d.newText);
+                            return (
+                                <box key={d.path} style={{ flexDirection: "row", paddingLeft: 2 }}>
+                                    <text style={{ fg: "gray" }}>{`${path.relative(rootPath, path.resolve(rootPath, d.path))} `}</text>
+                                    <text style={{ fg: "green" }}>{`+${added} `}</text>
+                                    <text style={{ fg: "red" }}>{`-${removed}`}</text>
+                                    {d.oldText === null && <text style={{ fg: "gray" }}> (new file)</text>}
+                                </box>
+                            );
+                        })}
+                        {output.map((line, i) => (
+                            <text key={i} wrapMode="none" style={{ fg: "gray", attributes: TextAttributes.DIM, paddingLeft: 2 } as any}>
+                                {`│ ${line}`}
+                            </text>
+                        ))}
+                    </box>
+                );
+            }
+        }
+    };
 
     return (
         <box
@@ -262,53 +290,47 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
             onMouseDown={onFocus}
         >
             {/* Header */}
-            <box style={{ height: 1, paddingX: 1, flexDirection: "row", justifyContent: "space-between", marginBottom: 1 }}>
+            <box style={{ height: 1, paddingX: 1, flexDirection: "row", justifyContent: "space-between", flexShrink: 0 }}>
                 <box style={{ flexDirection: "row" }}>
                     {focused && <text style={{ fg: "black", bg: "cyan", attributes: TextAttributes.BOLD }}> FOCUS </text>}
                     <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>AI Agent </text>
-                    <text style={{ fg: status === 'connected' ? 'green' : (status === 'connecting' ? 'yellow' : 'red') }}>({status})</text>
+                    <text style={{ fg: status === "connected" ? "green" : status === "connecting" ? "yellow" : "red" }}>({status})</text>
                 </box>
-                <text style={{ fg: "gray" }}>Esc Esc: disconnect</text>
+                <text style={{ fg: "gray" }}>{busy ? "Esc: stop · Esc Esc: disconnect" : "Ctrl+T: thoughts · Esc Esc: disconnect"}</text>
             </box>
 
             {/* Content */}
-            <box style={{ flexGrow: 1, flexDirection: "column", padding: 1 }}>
-                {status === 'connecting' ? (
-                    // Show loading screen when connecting
+            <box style={{ flexGrow: 1, flexDirection: "column", paddingX: 1 }}>
+                {status === "connecting" ? (
                     <box style={{ flexGrow: 1, justifyContent: "center", alignItems: "center", flexDirection: "column" }}>
-                        <text style={{ fg: "yellow", attributes: TextAttributes.BOLD, marginBottom: 1 }}>Starting agent...</text>
-                        <text style={{ fg: "gray" }}>Please wait while the AI agent initializes</text>
-                        <text style={{ fg: "gray", marginTop: 1 }}>Press Esc Esc to cancel</text>
+                        <text style={{ fg: "yellow", attributes: TextAttributes.BOLD }}>Starting agent...</text>
+                        <text style={{ fg: "gray" }}>{state.agentName}</text>
+                        <text style={{ fg: "gray" }}>Press Esc Esc to cancel</text>
                     </box>
                 ) : isSetup ? (
-                    <box style={{ flexDirection: "column" }}>
+                    <box style={{ flexDirection: "column", paddingTop: 1 }}>
                         {isModelSelectMode ? (
                             <>
                                 <text style={{ fg: "yellow", marginBottom: 1 }}>Select Antigravity Model:</text>
-
-                                {/* Model List */}
                                 {ANTIGRAVITY_MODELS.map((model, index) => {
                                     const isSelected = index === selectedModelIndex;
                                     return (
-                                        <box key={model.id} style={{ flexDirection: "row", paddingY: 0, backgroundColor: isSelected ? "#1a2a35" : undefined }}>
+                                        <box key={model.id} style={{ flexDirection: "row", backgroundColor: isSelected ? "#1a2a35" : undefined }}>
                                             <text style={{ fg: isSelected ? "cyan" : "white" }}>
                                                 {isSelected ? "▸ " : "  "}{model.icon} {model.name}
                                             </text>
                                         </box>
                                     );
                                 })}
-
                                 <text style={{ fg: "gray", marginTop: 1 }}>↑↓ to select | Enter to connect | Esc to go back</text>
                             </>
                         ) : (
                             <>
                                 <text style={{ fg: "yellow", marginBottom: 1 }}>Select an AI Agent:</text>
-
-                                {/* Agent List */}
                                 {AGENTS.map((agent, index) => {
                                     const isSelected = index === selectedAgentIndex;
                                     return (
-                                        <box key={agent.id} style={{ flexDirection: "row", paddingY: 0, backgroundColor: isSelected ? "#1a2a35" : undefined }}>
+                                        <box key={agent.id} style={{ flexDirection: "row", backgroundColor: isSelected ? "#1a2a35" : undefined }}>
                                             <text style={{ fg: isSelected ? "cyan" : "white" }}>
                                                 {isSelected ? "▸ " : "  "}{agent.icon} {agent.name}
                                             </text>
@@ -316,74 +338,65 @@ export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
                                         </box>
                                     );
                                 })}
-
-                                {/* Custom command input */}
                                 {isCustomMode && (
-                                    <box style={{ marginTop: 1 }}>
-                                        <text style={{ fg: "yellow" }}>Command: </text>
-                                        <text style={{ fg: "white" }}>{customCommand}</text>
-                                        <text style={{ fg: "gray" }}>█</text>
-                                    </box>
+                                    <text style={{ fg: "white", marginTop: 1 }}>
+                                        <span fg="yellow">Command: </span>
+                                        {customCommand}
+                                        <span fg="gray">█</span>
+                                    </text>
                                 )}
-
                                 <text style={{ fg: "gray", marginTop: 1 }}>↑↓ to select | Enter to connect{isCustomMode ? " | Esc to cancel" : ""}</text>
                                 {error && <text style={{ fg: "red", marginTop: 1 }}>Error: {error}</text>}
                             </>
                         )}
                     </box>
                 ) : (
-                    <box style={{ flexDirection: "column", flexGrow: 1, justifyContent: "space-between" }}>
-                        {/* Chat History with native Markdown rendering */}
-                        <scrollbox ref={scrollBoxRef} style={{ flexGrow: 1 }} stickyScroll stickyStart="bottom">
+                    <box style={{ flexDirection: "column", flexGrow: 1 }}>
+                        <scrollbox style={{ flexGrow: 1 }} stickyScroll stickyStart="bottom">
                             <box style={{ flexDirection: "column", gap: 1 }}>
-                                {messages
-                                    .filter(msg => {
-                                        if (msg.role === 'system') {
-                                            return msg.content.startsWith('Error:');
-                                        }
-                                        return true;
-                                    })
-                                    .slice(-20)
-                                    .map((msg, idx) => {
-                                        if (msg.role === 'user') {
-                                            return (
-                                                <box key={idx} style={{ flexDirection: "row" }}>
-                                                    <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>{'> '}</text>
-                                                    <text style={{ fg: "cyan" }}>{msg.content}</text>
-                                                </box>
-                                            );
-                                        }
-                                        if (msg.role === 'system') {
-                                            return (
-                                                <text key={idx} style={{ fg: "red" }}>{msg.content}</text>
-                                            );
-                                        }
-                                        // Assistant messages: full native markdown with streaming
-                                        return (
-                                            <markdown
-                                                key={idx}
-                                                content={msg.content}
-                                                syntaxStyle={getTermideSyntaxStyle()}
-                                                conceal
-                                                streaming={idx === messages.length - 1 && status === 'connected'}
-                                                tableOptions={{
-                                                    widthMode: "content",
-                                                    borders: true,
-                                                    borderStyle: "rounded",
-                                                    selectable: true,
-                                                }}
-                                            />
-                                        );
-                                    })}
+                                {timeline.slice(-60).map((e, i, arr) => renderEntry(e, i === arr.length - 1))}
                             </box>
                         </scrollbox>
 
-                        {/* Input Area - at bottom */}
-                        <box style={{ height: 1, flexDirection: "row" }}>
-                            <text style={{ fg: "gray" as any }}>{'> '}</text>
-                            <text style={{ fg: "cyan" as any }}>{inputValue}</text>
-                            <text style={{ fg: "gray" as any }}>█</text>
-                        </box>
+                        {plan.length > 0 && busy && (
+                            <box style={{ flexDirection: "column", flexShrink: 0, borderColor: "gray", border: ["top"] }}>
+                                {plan.slice(0, 6).map((p, i) => (
+                                    <text key={i} wrapMode="none" style={{ fg: p.status === "completed" ? "gray" : p.status === "in_progress" ? "yellow" : "white" }}>
+                                        {`${PLAN_ICON[p.status] ?? "○"} ${p.content}`}
+                                    </text>
+                                ))}
+                            </box>
+                        )}
+
+                        {permission ? (
+                            <box style={{ flexDirection: "column", flexShrink: 0, height: 5, border: true, borderColor: "yellow", paddingX: 1 }}>
+                                <text wrapMode="none" style={{ fg: "yellow", attributes: TextAttributes.BOLD, height: 1, flexShrink: 0 }}>{`Allow ${permission.title}?`}</text>
+                                <box style={{ flexDirection: "row", gap: 2, height: 1, flexShrink: 0 }}>
+                                    {permission.options.map((o, i) => {
+                                        const sel = i === permissionIndex;
+                                        const color = o.kind.startsWith("allow") ? "green" : "red";
+                                        return (
+                                            <text key={o.optionId} style={{ fg: sel ? "black" : color, bg: sel ? color : undefined, attributes: TextAttributes.BOLD }}>
+                                                {` ${i + 1}. ${o.name} `}
+                                            </text>
+                                        );
+                                    })}
+                                </box>
+                                <text wrapMode="none" style={{ fg: "gray", height: 1, flexShrink: 0 }}>←→ choose · Enter confirm · 1-9 pick · Esc reject</text>
+                            </box>
+                        ) : (
+                            <box style={{ height: 1, flexDirection: "row", flexShrink: 0 }}>
+                                <text style={{ fg: busy ? "yellow" : "cyan" }}>{busy ? "◐ " : "> "}</text>
+                                <input
+                                    focused={focused && !permission}
+                                    value={inputValue}
+                                    placeholder={busy ? "Agent is working… (Esc to stop)" : "Ask the agent…"}
+                                    onInput={(v: string) => setInputValue(v)}
+                                    onSubmit={(v: any) => submit(typeof v === "string" ? v : undefined)}
+                                    style={{ flexGrow: 1, textColor: "white", placeholderColor: "gray", cursorColor: "cyan" }}
+                                />
+                            </box>
+                        )}
                     </box>
                 )}
             </box>
