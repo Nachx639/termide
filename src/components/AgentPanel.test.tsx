@@ -36,6 +36,16 @@ test("custom agent: connect, prompt, approve a write, see the tool result", asyn
     setup.mockInput.pressEnter();
     await waitForFrame(setup, (f) => f.includes("Connected to Mock Agent"));
 
+    // "/" lists the agent's commands; Tab completes the first match.
+    await setup.mockInput.typeText("/re");
+    const sugg = await waitForFrame(setup, (f) => f.includes("/review"));
+    expect(sugg).toContain("Review the changes");
+    expect(sugg).not.toContain("/compact");
+    setup.mockInput.pressTab();
+    await waitForFrame(setup, (f) => f.includes("> /review") && !f.includes("Tab: complete"));
+    for (let i = 0; i < 8; i++) setup.mockInput.pressBackspace();
+    await waitForFrame(setup, (f) => f.includes("Ask the agent"));
+
     await setup.mockInput.typeText("write Notes.md Hola Mundo");
     await waitForFrame(setup, (f) => f.includes("Hola Mundo"));
     setup.mockInput.pressEnter();

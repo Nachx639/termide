@@ -106,7 +106,10 @@ for await (const chunk of Bun.stdin.stream()) {
       continue;
     }
     if (msg.method === "initialize") send({ id: msg.id, result: { protocolVersion: 1, agentCapabilities: {}, authMethods: [], agentInfo: { name: "mock", title: "Mock Agent" } } });
-    else if (msg.method === "session/new") send({ id: msg.id, result: { sessionId: "sess_1" } });
+    else if (msg.method === "session/new") {
+      send({ id: msg.id, result: { sessionId: "sess_1" } });
+      update("sess_1", { sessionUpdate: "available_commands_update", availableCommands: [{ name: "review", description: "Review the changes" }, { name: "compact", description: "Compact the conversation" }] });
+    }
     else if (msg.method === "session/cancel") cancelled = true;
     else if (msg.method === "session/prompt") {
       const text = msg.params.prompt.map((b: any) => b.text).join("");

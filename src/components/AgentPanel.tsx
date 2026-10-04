@@ -114,6 +114,12 @@ export function AgentPanel({ rootPath, focused, onFocus, isolated = false }: Age
 
     const isSetup = status !== "connected";
 
+    // "/" suggestions from the commands the agent advertises.
+    const slashSuggestions =
+        !isSetup && inputValue.startsWith("/") && !inputValue.includes(" ")
+            ? state.commands.filter((c) => c.name.toLowerCase().startsWith(inputValue.slice(1).toLowerCase())).slice(0, 6)
+            : [];
+
     useEffect(() => setPermissionIndex(0), [permission]);
 
     const connectAgent = (agent: AgentConfig, commandLine = agent.command) => {
@@ -165,6 +171,11 @@ export function AgentPanel({ rootPath, focused, onFocus, isolated = false }: Age
         if (!isSetup) {
             // Chat input is the native <input>; only panel-level shortcuts here.
             if (event.ctrl && event.name === "t") setShowThoughts((v) => !v);
+            // Tab completes the first "/" suggestion.
+            if (event.name === "tab" && slashSuggestions[0]) {
+                setInputValue(`/${slashSuggestions[0].name} `);
+                event.preventDefault();
+            }
             return;
         }
 
@@ -410,6 +421,18 @@ export function AgentPanel({ rootPath, focused, onFocus, isolated = false }: Age
                                 <text wrapMode="none" style={{ fg: "gray", height: 1, flexShrink: 0 }}>←→ choose · Enter confirm · 1-9 pick · Esc reject</text>
                             </box>
                         ) : (
+                            <>
+                            {slashSuggestions.length > 0 && (
+                                <box style={{ flexDirection: "column", flexShrink: 0, border: ["top"], borderColor: "gray" }}>
+                                    {slashSuggestions.map((c, i) => (
+                                        <text key={c.name} wrapMode="none" style={{ fg: i === 0 ? "cyan" : "white" }}>
+                                            {`/${c.name}`}
+                                            <span fg="gray">{c.description ? `  ${c.description}` : ""}</span>
+                                        </text>
+                                    ))}
+                                    <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>Tab: complete</text>
+                                </box>
+                            )}
                             <box style={{ height: 1, flexDirection: "row", flexShrink: 0 }}>
                                 <text style={{ fg: busy ? "yellow" : "cyan" }}>{busy ? "◐ " : "> "}</text>
                                 <input
@@ -421,6 +444,7 @@ export function AgentPanel({ rootPath, focused, onFocus, isolated = false }: Age
                                     style={{ flexGrow: 1, textColor: "white", placeholderColor: "gray", cursorColor: "cyan" }}
                                 />
                             </box>
+                            </>
                         )}
                     </box>
                 )}

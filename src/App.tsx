@@ -14,7 +14,7 @@ import { FileViewer } from "./components/FileViewer";
 import { Terminal } from "./components/Terminal";
 import { PanelErrorBoundary } from "./components/ErrorBoundary";
 import { MascotLine, Clock, mascot } from "./components/Mascot";
-import { isTerminalHostKey, isEditorOwnedKey } from "./lib/terminal/keyRouting";
+import { isTerminalHostKey, isEditorOwnedKey, isTextKey } from "./lib/terminal/keyRouting";
 import { getTerminalManager } from "./lib/terminal/TerminalManager";
 import { quit } from "./lib/quit";
 import { FuzzyFinder } from "./components/FuzzyFinder";
@@ -650,6 +650,8 @@ export function App({ rootPath }: AppProps) {
   useKeyboard(async (event) => {
     // Mini mode handles its own keys (see MiniMode).
     if (isMiniMode) return;
+    // A panel already consumed this key (child handlers run first).
+    if (event.defaultPrevented) return;
     // Don't handle keyboard if overlays are open (except help panel)
     if (showFuzzyFinder || showCommandPalette || showGlobalSearch || showThemePicker || showQuickSettings) return;
 
@@ -665,6 +667,8 @@ export function App({ rootPath }: AppProps) {
     if (focusedPanel === "terminal" && !showAgent && !leaderMode && !isTerminalHostKey(event)) return;
     // Same for the editor: typed text and its own shortcuts are not IDE commands.
     if (focusedPanel === "viewer" && selectedFile && !leaderMode && isEditorOwnedKey(event)) return;
+    // And for the agent prompt: "?" or "@" typed there are text, not commands.
+    if (focusedPanel === "agent" && showAgent && !leaderMode && isTextKey(event)) return;
 
     // === COPY SELECTION with Ctrl+Y ===
     // Try to copy OpenTUI selection when user presses Ctrl+Y
