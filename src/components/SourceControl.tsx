@@ -29,9 +29,17 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
     const [commitMessage, setCommitMessage] = useState("");
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
+    // Pending discard (x pressed once): path + when, confirmed by a second x.
+    const [pendingDiscard, setPendingDiscard] = useState<string | null>(null);
+    const scrollRef = React.useRef<any>(null);
+
     const updateChanges = useCallback(async () => {
         const gitChanges = await getGitChanges(rootPath);
-        setChanges(gitChanges);
+        // Same order as on screen (staged group first), so arrow keys walk the
+        // list top to bottom instead of jumping around in git's order.
+        const ordered = [...gitChanges.filter((c) => c.status.staged), ...gitChanges.filter((c) => !c.status.staged)];
+        setChanges(ordered);
+        setSelectedIndex((i) => Math.min(i, Math.max(0, ordered.length - 1)));
     }, [rootPath]);
 
     useEffect(() => {
@@ -84,18 +92,35 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
         }
     };
 
+    // Discarding cannot be undone: it needs a second x on the same file.
     const handleDiscard = async () => {
         const selected = changes[selectedIndex];
         if (!selected || selected.status.staged) return;
-
-        await discardFileChanges(selected.path, rootPath);
-        setStatusMessage(`Discarded: ${selected.path}`);
+        if (selected.status.status === "?") {
+            setStatusMessage("Untracked file: delete it from the Explorer instead");
+            return;
+        }
+        if (pendingDiscard !== selected.path) {
+            setPendingDiscard(selected.path);
+            setStatusMessage(`x again to discard changes in ${selected.path} (cannot be undone)`);
+            return;
+        }
+        setPendingDiscard(null);
+        const ok = await discardFileChanges(selected.path, rootPath);
+        setStatusMessage(ok ? `Discarded: ${selected.path}` : `Could not discard ${selected.path}`);
         await updateChanges();
     };
 
-    const handleCommit = async () => {
-        if (!commitMessage.trim()) return;
-        const success = await createCommit(commitMessage, rootPath);
+    useEffect(() => {
+        if (!pendingDiscard) return;
+        const t = setTimeout(() => setPendingDiscard(null), 3000);
+        return () => clearTimeout(t);
+    }, [pendingDiscard]);
+
+    const handleCommit = async (submitted?: string) => {
+        const message = (submitted ?? commitMessage).trim();
+        if (!message) return;
+        const success = await createCommit(message, rootPath);
         if (success) {
             setStatusMessage("Committed successfully!");
             setCommitMessage("");
@@ -109,30 +134,13 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
     useKeyboard((event) => {
         if (!focused) return;
 
-        // Commit modal handling
+        // Commit modal: the message is a native <input> (Enter commits). Ctrl+Enter
+        // used to be required, which most terminals cannot tell apart from Enter,
+        // so Enter typed a "\r" into the message and committing was impossible.
         if (showCommitModal) {
             if (event.name === "escape") {
                 setShowCommitModal(false);
                 setCommitMessage("");
-                return;
-            }
-            if (event.name === "return" && event.ctrl) {
-                handleCommit();
-                return;
-            }
-            if (event.name === "backspace") {
-                setCommitMessage((msg) => msg.slice(0, -1));
-                return;
-            }
-            // Handle regular character input
-            if (event.sequence && event.sequence.length === 1 && !event.ctrl && !event.meta) {
-                setCommitMessage((msg) => msg + event.sequence);
-                return;
-            }
-            // Handle space
-            if (event.name === "space") {
-                setCommitMessage((msg) => msg + " ");
-                return;
             }
             return;
         }
@@ -162,7 +170,7 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
         } else if (event.name === "return" || event.name === "d") {
             // Show diff
             handleShowDiff();
-        } else if (event.name === "x") {
+        } else if (event.name === "x" && !event.ctrl) {
             // Discard changes
             handleDiscard();
         } else if (event.name === "c") {
@@ -175,6 +183,12 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
             }
         }
     });
+
+    useEffect(() => {
+        try {
+            scrollRef.current?.scrollChildIntoView(`sc:${selectedIndex}`);
+        } catch {}
+    }, [selectedIndex, changes.length]);
 
     const borderColor = focused ? "cyan" : "gray";
 
@@ -212,12 +226,18 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
                 <box style={{ flexDirection: "column", paddingX: 1, paddingY: 1, backgroundColor: "#1e1e1e", border: true, borderColor: "cyan" }}>
                     <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Commit Message</text>
                     <box style={{ height: 1 }} />
-                    <box style={{ flexDirection: "row", backgroundColor: "#2a2a2a", paddingX: 1 }}>
-                        <text style={{ fg: "white" }}>{commitMessage || " "}</text>
-                        <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>│</text>
+                    <box style={{ flexDirection: "row", backgroundColor: "#2a2a2a", paddingX: 1, height: 1 }}>
+                        <input
+                            focused={focused && showCommitModal}
+                            value={commitMessage}
+                            placeholder="Describe the change…"
+                            onInput={(v: string) => setCommitMessage(v)}
+                            onSubmit={(v: any) => handleCommit(typeof v === "string" ? v : undefined)}
+                            style={{ flexGrow: 1, backgroundColor: "#2a2a2a", textColor: "white", placeholderColor: "gray", cursorColor: "cyan" }}
+                        />
                     </box>
                     <box style={{ height: 1 }} />
-                    <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>Ctrl+Enter to commit, Esc to cancel</text>
+                    <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>Enter to commit, Esc to cancel</text>
                     <box style={{ flexDirection: "row", marginTop: 1 }}>
                         <text style={{ fg: "green" }}>Staged: {staged.length} files</text>
                     </box>
@@ -225,7 +245,7 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
             )}
 
             <box style={{ flexDirection: "column", flexGrow: 1, backgroundColor: "#0b0b0b" }}>
-                <scrollbox style={{ flexGrow: 1, paddingX: 1, backgroundColor: "#0b0b0b" }}>
+                <scrollbox ref={scrollRef} style={{ flexGrow: 1, paddingX: 1, backgroundColor: "#0b0b0b" }}>
                 {changes.length === 0 ? (
                     <text style={{ fg: "gray", attributes: TextAttributes.DIM, padding: 1 } as any}>No changes detected</text>
                 ) : (
@@ -239,7 +259,7 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
                                 {staged.map((change, idx) => {
                                     const isSelected = changes.indexOf(change) === selectedIndex && focused;
                                     return (
-                                        <box key={`staged-${change.path}`} style={{ flexDirection: "row", backgroundColor: isSelected ? "blue" : undefined as any }}>
+                                        <box key={`staged-${change.path}`} id={`sc:${changes.indexOf(change)}`} style={{ flexDirection: "row", backgroundColor: isSelected ? "blue" : undefined as any }}>
                                             <text style={{ fg: getFileStatusColor(change.status) as any }}>
                                                 {getFileStatusIcon(change.status)}
                                             </text>
@@ -258,7 +278,7 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
                                 {unstaged.map((change, idx) => {
                                     const isSelected = changes.indexOf(change) === selectedIndex && focused;
                                     return (
-                                        <box key={`unstaged-${change.path}`} style={{ flexDirection: "row", backgroundColor: isSelected ? "blue" : undefined as any }}>
+                                        <box key={`unstaged-${change.path}`} id={`sc:${changes.indexOf(change)}`} style={{ flexDirection: "row", backgroundColor: isSelected ? "blue" : undefined as any }}>
                                             <text style={{ fg: getFileStatusColor(change.status) as any }}>
                                                 {getFileStatusIcon(change.status)}
                                             </text>
