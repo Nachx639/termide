@@ -8,6 +8,7 @@
  * --keys accepts JS escapes (\r, \t, \x18...). Exit code 1 if the screen shows an error.
  */
 import { TerminalSession } from "../src/lib/terminal/TerminalSession";
+import { harnessEnv } from "./harnessEnv";
 import { parseArgs } from "node:util";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -35,7 +36,7 @@ const s = new TerminalSession({
   rows: Number(values.rows),
   command: ["bun", `${root}src/index.tsx`, values.dir!],
   // Never read or write the user's real sessions in ~/.termide.
-  env: { TERMIDE_SESSION_DIR: mkdtempSync(join(tmpdir(), "termide-smoke-")) },
+  env: harnessEnv("termide-smoke-"),
 });
 
 await Bun.sleep(Number(values.wait));
