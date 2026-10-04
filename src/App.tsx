@@ -685,7 +685,7 @@ export function App({ rootPath }: AppProps) {
         setLeaderMode(false);
         notify("Leader mode cancelled", "info", 1000);
       }, 2000);
-      notify("Ctrl+X → Tab panels · T new term · ]/[ switch · K palette · P files · H help · Q quit", "info", 2000);
+      notify("Ctrl+X → Tab panels · T term · K palette · P files · S search · H help · Q quit", "info", 2000);
       return;
     }
 
@@ -756,6 +756,13 @@ export function App({ rootPath }: AppProps) {
       // F = maximize / restore the focused panel (Ctrl+F is search in the editor)
       if (event.name === "f" || event.name === "F") {
         setIsMaximized((m) => !m);
+        return;
+      }
+
+      // S = search in all files (Ctrl+Shift+F is indistinguishable from Ctrl+F
+      // in terminals without the kitty keyboard protocol)
+      if (event.name === "s" || event.name === "S") {
+        setShowGlobalSearch(true);
         return;
       }
 
