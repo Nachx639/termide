@@ -9,6 +9,8 @@ import { detectLanguage } from "../lib/SyntaxHighlighter";
 import { getTermideSyntaxStyle } from "../lib/SyntaxStyles";
 import { highlightRanges } from "../lib/editorHighlight";
 import { readEditorText, looksComplete } from "../lib/editorText";
+import { onBeforeQuit } from "../lib/quit";
+import { copyToClipboard } from "../hooks/useClipboard";
 import type { Theme } from "../lib/ThemeSystem";
 import { getFileLineDiffs, type LineDiffStatus } from "../lib/GitIntegration";
 import { findMatchingBracket } from "../lib/BracketMatcher";
@@ -269,6 +271,18 @@ export function FileViewer({
     };
   }, [filePath, saveNow]);
 
+  // Flush a pending autosave if termide is quitting.
+  useEffect(() => {
+    if (!filePath) return;
+    return onBeforeQuit(() => {
+      if (!saveTimerRef.current || conflictRef.current || missingRef.current) return;
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+      const text = latestTextRef.current;
+      if (text !== null) saveNow(filePath, text);
+    });
+  }, [filePath, saveNow]);
+
   // Follow changes made on disk by other programs (agents, git, formatters).
   // Polling mtime/size is cheap and, unlike fs.watch on macOS, survives the
   // write-temp-then-rename saves most tools do.
@@ -358,6 +372,16 @@ export function FileViewer({
     // Home/End and PgUp/PgDn left Ln/Col (and Ctrl+D, F12, bracket matching)
     // on a stale position. It handles the key after us: read the cursor next tick.
     setTimeout(() => handleCursorChangeRef.current(), 0);
+
+    // Ctrl+C copies the selection (in the editor it must not quit the IDE).
+    if (event.ctrl && event.name === "c") {
+      const ta = textareaRef.current as any;
+      const text = ta?.hasSelection?.() ? ta.getSelectedText?.() : "";
+      if (text) {
+        copyToClipboard(text).then((ok) => ok && setNotice("Copied"));
+      }
+      return;
+    }
 
     // Ctrl+S: save now (during a conflict: keep my version and overwrite disk).
     if (event.ctrl && event.name === "s" && filePath) {
@@ -751,7 +775,7 @@ export function FileViewer({
   const handleCursorChangeRef = useRef<() => void>(() => {});
   const handleCursorChange = useCallback(() => {
     const ta = textareaRef.current;
-    if (!ta) return;
+    if (!ta || (ta as any).isDestroyed) return;
     const v = ta.visualCursor;
     if (!v) return;
     // Use logical row/col so reported values match line/column in the file as

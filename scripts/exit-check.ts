@@ -41,4 +41,30 @@ for (const [label, how] of paths) {
   console.log(ok ? "ok  " : "FAIL", label, JSON.stringify(state));
   s.dispose();
 }
+// Quitting right after typing (inside the 500 ms autosave delay) must keep the edit.
+{
+  const proj = mkdtempSync(join(tmpdir(), "termide-exit-proj-"));
+  await Bun.write(join(proj, "main.ts"), "original");
+  const s = new TerminalSession({
+    cwd: proj,
+    cols: 100,
+    rows: 30,
+    command: ["bun", `${root}src/index.tsx`, proj],
+    env: { TERMIDE_SESSION_DIR: mkdtempSync(join(tmpdir(), "termide-exit-")) },
+  });
+  await Bun.sleep(3000);
+  for (const k of ["\x18", "p", "main", "\r"]) { s.write(k); await Bun.sleep(900); }
+  s.write("KEPT");
+  await Bun.sleep(100);
+  s.write("\x18");
+  await Bun.sleep(150);
+  s.write("q");
+  for (let i = 0; i < 50 && !s.exited; i++) await Bun.sleep(100);
+  const content = await Bun.file(join(proj, "main.ts")).text();
+  const ok = s.exited && content === "KEPToriginal" && !/destroyed|Error/.test(s.getAllText());
+  if (!ok) bad++;
+  console.log(ok ? "ok  " : "FAIL", "edit just before quitting is saved", JSON.stringify({ exited: s.exited, content }));
+  s.dispose();
+}
+
 process.exit(bad ? 1 : 0);
