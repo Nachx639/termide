@@ -34,6 +34,20 @@ export function isBinaryFile(filePath: string): boolean {
 }
 
 /**
+ * Check if file content looks binary (NUL byte in the first 8KB, the same
+ * heuristic git uses). Catches binaries without a known extension
+ * (executables, .DS_Store, sqlite dbs, ...).
+ */
+export async function isBinaryContent(filePath: string): Promise<boolean> {
+  try {
+    const head = await Bun.file(filePath).slice(0, 8000).bytes();
+    return head.includes(0);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Check if a file/directory should be ignored
  */
 export function shouldIgnore(name: string): boolean {
@@ -101,6 +115,13 @@ export async function readFileSafe(filePath: string): Promise<string | null> {
 
     if (isFileTooLarge(filePath)) {
       logger.warn("file", `File too large: ${filePath}`);
+      return null;
+    }
+
+    // 2026-10-04: binaries without a known extension were read as text and
+    // shown as garbage; sniff the content too.
+    if (await isBinaryContent(filePath)) {
+      logger.debug("file", `Skipping binary content: ${filePath}`);
       return null;
     }
 

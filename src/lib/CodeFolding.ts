@@ -19,24 +19,32 @@ export function detectFoldableRegions(lines: string[], language: string | null):
   // Track bracket depth to find matching braces
   const bracketStack: { char: string; line: number; indent: number }[] = [];
 
-  // Detect import blocks (consecutive imports at the start)
+  // Detect import blocks (consecutive imports at the start, after any
+  // leading comments/blank lines).
+  // 2026-10-04: the region always started at line 0 (even after a license
+  // header), a file made only of imports got no region, and a stray `import`
+  // deep in the file could create a bogus 0..N region.
+  let importStart = -1;
   let importEnd = -1;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!.trim();
-    if (line.startsWith("import ") || line.startsWith("from ") || line === "") {
-      if (line.startsWith("import ") || line.startsWith("from ")) {
-        importEnd = i;
-      }
-    } else if (importEnd > 0) {
-      regions.push({
-        startLine: 0,
-        endLine: importEnd,
-        indent: 0,
-        type: "import",
-        collapsed: false,
-      });
+    if (line.startsWith("import ") || line.startsWith("from ")) {
+      if (importStart < 0) importStart = i;
+      importEnd = i;
+    } else if (line === "" || (importStart < 0 && isCommentLine(line))) {
+      continue;
+    } else {
       break;
     }
+  }
+  if (importStart >= 0 && importEnd > importStart) {
+    regions.push({
+      startLine: importStart,
+      endLine: importEnd,
+      indent: 0,
+      type: "import",
+      collapsed: false,
+    });
   }
 
   // Detect multi-line comments
@@ -59,31 +67,20 @@ export function detectFoldableRegions(lines: string[], language: string | null):
     }
   }
 
-  // Detect bracket-based regions (functions, classes, objects, arrays)
+  // Detect bracket-based regions (functions, classes, objects, arrays).
+  // 2026-10-04: brackets inside strings and comments are ignored; before, a
+  // `}` in a string or comment closed the wrong block.
+  const scanState = { inBlockComment: false };
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
     const indent = getIndentLevel(line);
+    const mask = codeMask(line, scanState);
 
     for (let j = 0; j < line.length; j++) {
       const char = line[j]!;
+      if (!mask[j]) continue;
 
       if (char === "{" || char === "[" || char === "(") {
-        // Check if this is the start of a multi-line block
-        const lineText = line.trim();
-        let type: FoldableRegion["type"] = "block";
-
-        if (lineText.match(/^\s*(function|async\s+function|class|interface|type)\s/)) {
-          type = lineText.startsWith("class") ? "class" : "function";
-        } else if (lineText.match(/^\s*(const|let|var)\s+\w+\s*=\s*\{/)) {
-          type = "object";
-        } else if (lineText.match(/^\s*(const|let|var)\s+\w+\s*=\s*\[/)) {
-          type = "array";
-        } else if (char === "{") {
-          type = "block";
-        } else if (char === "[") {
-          type = "array";
-        }
-
         bracketStack.push({ char, line: i, indent });
       } else if (char === "}" || char === "]" || char === ")") {
         const openBracket = char === "}" ? "{" : char === "]" ? "[" : "(";
@@ -129,6 +126,56 @@ export function detectFoldableRegions(lines: string[], language: string | null):
   return regions;
 }
 
+function isCommentLine(trimmed: string): boolean {
+  return (
+    trimmed.startsWith("//") ||
+    trimmed.startsWith("/*") ||
+    trimmed.startsWith("*") ||
+    trimmed.startsWith("#")
+  );
+}
+
+/**
+ * Mark which columns of a line are code (true) vs string/comment (false).
+ * Tracks block comments across lines through `state`.
+ */
+function codeMask(line: string, state: { inBlockComment: boolean }): boolean[] {
+  const mask = new Array<boolean>(line.length).fill(true);
+  let i = 0;
+  while (i < line.length) {
+    if (state.inBlockComment) {
+      const close = line.indexOf("*/", i);
+      const end = close === -1 ? line.length : close + 2;
+      for (let k = i; k < end; k++) mask[k] = false;
+      if (close !== -1) state.inBlockComment = false;
+      i = end;
+      continue;
+    }
+    const ch = line[i]!;
+    if (ch === "/" && line[i + 1] === "/") {
+      for (let k = i; k < line.length; k++) mask[k] = false;
+      break;
+    }
+    if (ch === "/" && line[i + 1] === "*") {
+      state.inBlockComment = true;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      let k = i + 1;
+      while (k < line.length && line[k] !== ch) {
+        if (line[k] === "\\") k++;
+        k++;
+      }
+      const end = Math.min(k + 1, line.length);
+      for (let m = i; m < end; m++) mask[m] = false;
+      i = end;
+      continue;
+    }
+    i++;
+  }
+  return mask;
+}
+
 /**
  * Find the last open bracket of a specific type
  */
@@ -159,14 +206,29 @@ function getIndentLevel(line: string): number {
  */
 export function getVisibleLines(
   lines: string[],
-  foldedRegions: Set<number> // Start lines of folded regions
+  foldedRegions: Set<number>, // Start lines of folded regions
+  regions?: FoldableRegion[]
 ): { line: string; originalIndex: number; foldedCount?: number }[] {
   const result: { line: string; originalIndex: number; foldedCount?: number }[] = [];
   let i = 0;
 
+  // 2026-10-04: the end of a folded region used to be re-derived by naive
+  // bracket counting from the first bracket on the line, so
+  // `function f(a) {` "ended" at its own `)` and folding hid nothing (and
+  // comment/import regions could never fold). Use the detected regions.
+  const endByStart = new Map<number, number>();
+  if (foldedRegions.size > 0) {
+    for (const r of regions ?? detectFoldableRegions(lines, null)) {
+      if (r.endLine > (endByStart.get(r.startLine) ?? -1)) {
+        endByStart.set(r.startLine, r.endLine);
+      }
+    }
+  }
+
   while (i < lines.length) {
     // Check if this line starts a folded region
-    const foldInfo = findFoldedRegionAt(i, foldedRegions, lines);
+    const endLine = foldedRegions.has(i) ? endByStart.get(i) : undefined;
+    const foldInfo = endLine !== undefined && endLine > i ? { endLine } : null;
 
     if (foldInfo) {
       // Show the first line with fold indicator
@@ -186,39 +248,6 @@ export function getVisibleLines(
   }
 
   return result;
-}
-
-/**
- * Find if a line is the start of a folded region
- */
-function findFoldedRegionAt(
-  lineIndex: number,
-  foldedRegions: Set<number>,
-  lines: string[]
-): { endLine: number } | null {
-  if (!foldedRegions.has(lineIndex)) return null;
-
-  // Find the matching end bracket
-  const line = lines[lineIndex]!;
-  let depth = 0;
-  let foundOpen = false;
-
-  for (let i = lineIndex; i < lines.length; i++) {
-    const currentLine = lines[i]!;
-    for (const char of currentLine) {
-      if (char === "{" || char === "[" || char === "(") {
-        depth++;
-        foundOpen = true;
-      } else if (char === "}" || char === "]" || char === ")") {
-        depth--;
-        if (foundOpen && depth === 0) {
-          return { endLine: i };
-        }
-      }
-    }
-  }
-
-  return null;
 }
 
 /**

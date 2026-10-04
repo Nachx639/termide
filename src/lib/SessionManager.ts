@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { createHash } from "crypto";
 
 /**
  * Session state to persist between sessions
@@ -18,25 +19,63 @@ export interface SessionState {
 }
 
 const SESSION_VERSION = 1;
-const SESSION_DIR = path.join(os.homedir(), ".termide");
+const DEFAULT_SESSION_DIR = path.join(os.homedir(), ".termide");
 const SESSION_FILE = "session.json";
+
+// Overridable for tests (and TERMIDE_SESSION_DIR); defaults to ~/.termide.
+let sessionDirOverride: string | null = null;
+
+/**
+ * Directory where session files live.
+ */
+export function getSessionDir(): string {
+  return sessionDirOverride ?? process.env.TERMIDE_SESSION_DIR ?? DEFAULT_SESSION_DIR;
+}
+
+/**
+ * Point session storage somewhere else (null restores the default).
+ */
+export function setSessionDir(dir: string | null): void {
+  sessionDirOverride = dir;
+}
 
 /**
  * Get session file path for a project
  */
-function getSessionPath(projectPath: string): string {
-  // Create a hash of the project path for the session file name
-  const hash = Buffer.from(projectPath).toString("base64").replace(/[/+=]/g, "_").slice(0, 32);
-  return path.join(SESSION_DIR, `${hash}_${SESSION_FILE}`);
+export function getSessionPath(projectPath: string): string {
+  // 2026-10-04: this used a base64 prefix of the path truncated to 32 chars
+  // (= the first 24 bytes of the path), so every project under the same
+  // parent directory (e.g. /Users/<name>/projects/...) shared one session
+  // file and restored each other's tabs. Use a real hash of the full path.
+  const hash = createHash("sha256").update(path.resolve(projectPath)).digest("hex").slice(0, 32);
+  return path.join(getSessionDir(), `${hash}_${SESSION_FILE}`);
 }
 
 /**
  * Ensure session directory exists
  */
 function ensureSessionDir(): void {
-  if (!fs.existsSync(SESSION_DIR)) {
-    fs.mkdirSync(SESSION_DIR, { recursive: true });
+  const dir = getSessionDir();
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
+}
+
+/**
+ * Parse a stored session, filling any missing/invalid fields with defaults.
+ * Returns null if the data is not a session object at all.
+ */
+function parseStoredSession(data: string): SessionState | null {
+  const parsed: unknown = JSON.parse(data);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+  const raw = parsed as Partial<SessionState>;
+  const session: SessionState = { ...createDefaultSession(), ...raw };
+  const strings = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  session.openTabs = strings(raw.openTabs);
+  session.recentFiles = strings(raw.recentFiles);
+  if (typeof session.activeTab !== "string") session.activeTab = null;
+  return session;
 }
 
 /**
@@ -68,10 +107,10 @@ export function loadSession(projectPath: string): SessionState {
     }
 
     const data = fs.readFileSync(sessionPath, "utf-8");
-    const session = JSON.parse(data) as SessionState;
+    const session = parseStoredSession(data);
 
     // Validate version
-    if (session.version !== SESSION_VERSION) {
+    if (!session || session.version !== SESSION_VERSION) {
       // In future, could migrate old sessions
       return createDefaultSession();
     }
@@ -113,12 +152,15 @@ export function saveSession(projectPath: string, state: Partial<SessionState>): 
     ensureSessionDir();
     const sessionPath = getSessionPath(projectPath);
 
-    // Load existing or create new
+    // Load existing or create new.
+    // 2026-10-04: a stored file missing fields (e.g. `{"version":1}`) made
+    // `updated.recentFiles.length` throw, so every later save failed and the
+    // broken file was never replaced. Missing fields now fall back to defaults.
     let session = createDefaultSession();
     try {
       if (fs.existsSync(sessionPath)) {
         const data = fs.readFileSync(sessionPath, "utf-8");
-        session = JSON.parse(data) as SessionState;
+        session = parseStoredSession(data) ?? session;
       }
     } catch {}
 
@@ -180,13 +222,13 @@ export function clearSession(projectPath: string): void {
 export function listSessions(): { path: string; lastOpened: number }[] {
   try {
     ensureSessionDir();
-    const files = fs.readdirSync(SESSION_DIR);
+    const files = fs.readdirSync(getSessionDir());
     const sessions: { path: string; lastOpened: number }[] = [];
 
     for (const file of files) {
       if (file.endsWith(`_${SESSION_FILE}`)) {
         try {
-          const data = fs.readFileSync(path.join(SESSION_DIR, file), "utf-8");
+          const data = fs.readFileSync(path.join(getSessionDir(), file), "utf-8");
           const session = JSON.parse(data) as SessionState;
           sessions.push({ path: file, lastOpened: session.lastOpened });
         } catch {}

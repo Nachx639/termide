@@ -44,6 +44,10 @@ function detectEncoding(buffer: Buffer): string {
   if (buffer.length >= 2 && buffer[0] === 0xfe && buffer[1] === 0xff) {
     return "utf-16-be";
   }
+  // UTF-32-LE's BOM (FF FE 00 00) starts with UTF-16-LE's, so check it first
+  if (buffer.length >= 4 && buffer[0] === 0xff && buffer[1] === 0xfe && buffer[2] === 0 && buffer[3] === 0) {
+    return "utf-32-le";
+  }
   if (buffer.length >= 2 && buffer[0] === 0xff && buffer[1] === 0xfe) {
     return "utf-16-le";
   }
@@ -158,29 +162,46 @@ function detectLineEnding(text: string): "LF" | "CRLF" | "CR" | "Mixed" {
  * Detect indentation style and size
  */
 function detectIndentation(text: string): { indentStyle: "spaces" | "tabs" | "mixed" | "none"; indentSize: number } {
-  const lines = text.split(/\r?\n/);
+  const lines = text.split(/\r\n|\r|\n/);
+  // Histogram of indentation *changes* between consecutive lines.
+  // 2026-10-04: this used to histogram absolute indent widths, so a 2-space
+  // file whose deepest lines sit at 4 spaces (method bodies) was reported as
+  // "Spc:4", and JSDoc " * " lines (1 space) skewed it further.
   let spaceIndentCounts: Record<number, number> = {};
   let tabCount = 0;
   let spaceCount = 0;
+  let prevSpaceIndent: number | null = 0;
 
   for (const line of lines) {
+    if (line.trim() === "") continue;
     const leadingWhitespace = line.match(/^[\t ]+/);
-    if (!leadingWhitespace) continue;
+    if (!leadingWhitespace) {
+      prevSpaceIndent = 0;
+      continue;
+    }
 
     const ws = leadingWhitespace[0];
+    // Block-comment continuation lines (" * foo", "\t * foo") are aligned,
+    // not indented; they made tab-indented files with JSDoc look "mixed".
+    if (line.slice(ws.length).startsWith("*")) continue;
     if (ws.includes("\t") && ws.includes(" ")) {
       // Mixed indentation on this line
       tabCount++;
       spaceCount++;
+      prevSpaceIndent = null;
     } else if (ws.startsWith("\t")) {
       tabCount++;
+      prevSpaceIndent = null;
     } else {
       spaceCount++;
-      // Count the indent size
       const indent = ws.length;
-      if (indent > 0 && indent <= 8) {
-        spaceIndentCounts[indent] = (spaceIndentCounts[indent] || 0) + 1;
+      if (prevSpaceIndent !== null) {
+        const delta = Math.abs(indent - prevSpaceIndent);
+        if (delta > 0 && delta <= 8) {
+          spaceIndentCounts[delta] = (spaceIndentCounts[delta] || 0) + 1;
+        }
       }
+      prevSpaceIndent = indent;
     }
   }
 

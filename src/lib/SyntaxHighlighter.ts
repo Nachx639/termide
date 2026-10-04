@@ -255,8 +255,21 @@ const EXT_TO_LANG: Record<string, string> = {
 };
 
 export function detectLanguage(filename: string): string | null {
-  const ext = filename.slice(filename.lastIndexOf(".")).toLowerCase();
+  const dot = filename.lastIndexOf(".");
+  // No dot (or the dot belongs to a directory): no extension
+  if (dot === -1 || filename.indexOf("/", dot) !== -1 || filename.indexOf("\\", dot) !== -1) return null;
+  const ext = filename.slice(dot).toLowerCase();
   return EXT_TO_LANG[ext] || null;
+}
+
+const delimiterCache = new WeakMap<LanguageDefinition, string[]>();
+function sortedDelimiters(def: LanguageDefinition): string[] {
+  let sorted = delimiterCache.get(def);
+  if (!sorted) {
+    sorted = [...def.stringDelimiters].sort((a, b) => b.length - a.length);
+    delimiterCache.set(def, sorted);
+  }
+  return sorted;
 }
 
 export function tokenizeLine(line: string, lang: string | null): Token[] {
@@ -269,8 +282,14 @@ export function tokenizeLine(line: string, lang: string | null): Token[] {
   let i = 0;
 
   while (i < line.length) {
-    // Check for single-line comment
-    if (def.commentPatterns.single && line.slice(i).startsWith(def.commentPatterns.single)) {
+    // Check for single-line comment. In shell, `#` only starts a comment at
+    // the start of a word (2026-10-04: `${#arr[@]}` / `foo#bar` were turned
+    // into comments).
+    if (
+      def.commentPatterns.single &&
+      line.startsWith(def.commentPatterns.single, i) &&
+      !(lang === "shell" && i > 0 && !/\s/.test(line.charAt(i - 1)))
+    ) {
       tokens.push({ text: line.slice(i), type: "comment" });
       break;
     }
@@ -288,9 +307,10 @@ export function tokenizeLine(line: string, lang: string | null): Token[] {
       }
     }
 
-    // Check for strings
+    // Check for strings. Longest delimiter first so Python triple quotes win
+    // over single quotes (2026-10-04: `"""a"b"""` split into broken pieces).
     let stringMatch = false;
-    for (const delim of def.stringDelimiters) {
+    for (const delim of sortedDelimiters(def)) {
       if (line.slice(i).startsWith(delim)) {
         const isTriple = delim.length === 3;
         let endIdx = i + delim.length;

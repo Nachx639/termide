@@ -213,6 +213,14 @@ const SPECIAL_FILES: Record<string, FileIcon> = {
   "postcss.config.js": { icon: "🎨", color: "red" },
 };
 
+// Lower-cased index of SPECIAL_FILES for case-insensitive fallback lookups.
+// 2026-10-04: the fallback looked up the lower-cased name in SPECIAL_FILES,
+// whose keys are mixed-case, so "readme.md", "Readme.md", "dockerfile" or
+// "makefile" never got their special icon.
+const SPECIAL_FILES_LOWER: Record<string, FileIcon> = Object.fromEntries(
+  Object.entries(SPECIAL_FILES).map(([name, icon]) => [name.toLowerCase(), icon])
+);
+
 export function getFileIcon(filename: string, isDirectory: boolean, isExpanded: boolean = false): FileIcon {
   const lowerName = filename.toLowerCase();
 
@@ -221,7 +229,8 @@ export function getFileIcon(filename: string, isDirectory: boolean, isExpanded: 
     // Check for special folder names
     if (FOLDER_ICONS[lowerName]) {
       const icon = FOLDER_ICONS[lowerName];
-      return isExpanded ? { ...icon, icon: icon.icon } : icon;
+      // Folders that use the generic closed-folder glyph show it open when expanded
+      return isExpanded && icon.icon === DEFAULT_FOLDER.icon ? { ...icon, icon: DEFAULT_FOLDER_OPEN.icon } : icon;
     }
     return isExpanded ? DEFAULT_FOLDER_OPEN : DEFAULT_FOLDER;
   }
@@ -230,8 +239,8 @@ export function getFileIcon(filename: string, isDirectory: boolean, isExpanded: 
   if (SPECIAL_FILES[filename]) {
     return SPECIAL_FILES[filename];
   }
-  if (SPECIAL_FILES[lowerName]) {
-    return SPECIAL_FILES[lowerName];
+  if (SPECIAL_FILES_LOWER[lowerName]) {
+    return SPECIAL_FILES_LOWER[lowerName];
   }
 
   // Check by extension
