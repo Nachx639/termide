@@ -9,6 +9,9 @@
  */
 import { TerminalSession } from "../src/lib/terminal/TerminalSession";
 import { parseArgs } from "node:util";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const { values } = parseArgs({
   options: {
@@ -31,6 +34,8 @@ const s = new TerminalSession({
   cols: Number(values.cols),
   rows: Number(values.rows),
   command: ["bun", `${root}src/index.tsx`, values.dir!],
+  // Never read or write the user's real sessions in ~/.termide.
+  env: { TERMIDE_SESSION_DIR: mkdtempSync(join(tmpdir(), "termide-smoke-")) },
 });
 
 await Bun.sleep(Number(values.wait));
