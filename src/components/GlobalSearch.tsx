@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
-import * as fs from "fs";
-import * as path from "path";
+import { searchInFiles, type TextMatch } from "../lib/textSearch";
 
 interface GlobalSearchProps {
   rootPath: string;
@@ -11,132 +10,46 @@ interface GlobalSearchProps {
   onSelect: (filePath: string, lineNumber: number) => void;
 }
 
-interface SearchResult {
-  filePath: string;
-  relativePath: string;
-  lineNumber: number;
-  lineContent: string;
-  matchStart: number;
-  matchEnd: number;
-}
-
-// Collect all text files recursively
-function collectTextFiles(
-  dirPath: string,
-  rootPath: string,
-  maxDepth: number = 10,
-  depth: number = 0
-): string[] {
-  if (depth > maxDepth) return [];
-
-  const files: string[] = [];
-  const textExtensions = new Set([
-    ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".mts", ".cts",
-    ".json", ".jsonc", ".yaml", ".yml", ".toml", ".xml",
-    ".html", ".htm", ".css", ".scss", ".sass", ".less",
-    ".md", ".markdown", ".txt", ".rst",
-    ".py", ".rs", ".go", ".rb", ".php", ".java", ".kt", ".swift",
-    ".c", ".cpp", ".h", ".hpp", ".cs", ".lua", ".zig",
-    ".sh", ".bash", ".zsh", ".fish",
-    ".sql", ".graphql", ".gql",
-    ".env", ".gitignore", ".dockerignore",
-  ]);
-
-  try {
-    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-
-    for (const entry of entries) {
-      if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
-
-      const fullPath = path.join(dirPath, entry.name);
-
-      if (entry.isDirectory()) {
-        files.push(...collectTextFiles(fullPath, rootPath, maxDepth, depth + 1));
-      } else {
-        const ext = path.extname(entry.name).toLowerCase();
-        if (textExtensions.has(ext) || entry.name.includes(".")) {
-          files.push(fullPath);
-        }
-      }
-    }
-  } catch {
-    // Ignore permission errors
-  }
-
-  return files;
-}
+type SearchResult = TextMatch;
 
 export function GlobalSearch({ rootPath, isOpen, onClose, onSelect }: GlobalSearchProps) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [allFiles, setAllFiles] = useState<string[]>([]);
 
-  // Collect files when opened
+  // Reset when opened
   useEffect(() => {
     if (isOpen) {
-      const files = collectTextFiles(rootPath, rootPath);
-      setAllFiles(files);
       setQuery("");
       setResults([]);
       setSelectedIndex(0);
     }
   }, [isOpen, rootPath]);
 
-  // Debounced search
+  // Debounced search: ripgrep / git grep in a subprocess (it used to read every
+  // file synchronously on the UI thread for each query). A newer query cancels
+  // the running one.
   useEffect(() => {
     if (!query.trim() || query.length < 2) {
       setResults([]);
       return;
     }
-
+    const controller = new AbortController();
     const timeoutId = setTimeout(async () => {
       setIsSearching(true);
-
-      const searchResults: SearchResult[] = [];
-      const queryLower = query.toLowerCase();
-      const maxResults = 100;
-      const maxResultsPerFile = 10;
-
-      for (const filePath of allFiles) {
-        if (searchResults.length >= maxResults) break;
-
-        try {
-          const content = fs.readFileSync(filePath, "utf-8");
-          const lines = content.split("\n");
-          let fileResults = 0;
-
-          for (let i = 0; i < lines.length && fileResults < maxResultsPerFile; i++) {
-            const line = lines[i] ?? "";
-            const lineLower = line.toLowerCase();
-            const matchIndex = lineLower.indexOf(queryLower);
-
-            if (matchIndex !== -1) {
-              searchResults.push({
-                filePath,
-                relativePath: path.relative(rootPath, filePath),
-                lineNumber: i + 1,
-                lineContent: line.trim().slice(0, 100),
-                matchStart: matchIndex,
-                matchEnd: matchIndex + query.length,
-              });
-              fileResults++;
-
-              if (searchResults.length >= maxResults) break;
-            }
-          }
-        } catch {
-          // Ignore unreadable files
-        }
-      }
-
-      setResults(searchResults);
+      const found = await searchInFiles(rootPath, query, { maxResults: 100, maxPerFile: 10, signal: controller.signal });
+      if (controller.signal.aborted) return;
+      setResults(found);
+      setSelectedIndex(0);
       setIsSearching(false);
-    }, 200);
+    }, 150);
 
-    return () => clearTimeout(timeoutId);
-  }, [query, allFiles, rootPath]);
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [query, rootPath]);
 
   // Navigation + close (input handles typing/backspace/paste natively)
   useKeyboard((event) => {
