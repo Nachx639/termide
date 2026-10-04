@@ -1,42 +1,48 @@
 # Agent Client Protocol (ACP) Support
 
-Termide now supports the Agent Client Protocol (ACP), allowing you to integrate AI agents directly into the terminal IDE.
+termide's agent panel is an [ACP](https://agentclientprotocol.com) client: it runs an
+ACP agent as a subprocess (JSON-RPC over stdio) and gives it access to the project.
 
-## Getting Started
+## Using it
 
-1.  **Open the Agent Panel**:
-    - Press `Ctrl+Space`.
-    - Or open the Command Palette (`Ctrl+K`) and select "Toggle AI Agent".
+1. `Ctrl+Space` (or `Ctrl+K` → "Toggle AI Agent") opens the panel.
+2. Pick an agent with `↑↓` and `Enter`:
+   - **Claude** — uses `claude-agent-acp` if installed, otherwise runs
+     `bunx @agentclientprotocol/claude-agent-acp` (no setup needed).
+   - **Gemini** — `gemini --experimental-acp` (`npm install -g @google/gemini-cli`).
+   - **Custom…** — any command that speaks ACP over stdio.
+3. Type a prompt and press `Enter`. `/` lists the agent's slash commands (`Tab` completes).
 
-2.  **Connect to an Agent**:
-    - When the panel opens, you will be prompted to enter a command.
-    - Enter the command to launch your ACP-compliant agent.
-    - Examples:
-        - `npx claude-code` (Claude Code)
-        - `goose` (Goose Agent)
-        - Custom scripts that speak ACP over stdio.
+| Key | Action |
+| :--- | :--- |
+| `Esc` | Stop the running turn (`session/cancel`) |
+| `Esc Esc` | Disconnect |
+| `←/→` `Enter`, `1`-`9`, `Esc` | Answer a permission request (Esc rejects) |
+| `Ctrl+T` | Show / hide the agent's thinking |
 
-3.  **Chat**:
-    - Once connected, use the input box to send messages to the agent.
-    - The agent's responses will appear in the chat history.
-    - To stop the agent, press `Ctrl+C` while the agent panel is focused.
+The agent keeps running when the panel is hidden (Zen mode, `Ctrl+Space`, small
+screens); it stops when termide exits.
+
+## What the agent can do
+
+termide implements the ACP v1 client methods:
+
+- `fs/read_text_file` (with `line` / `limit`) and `fs/write_text_file` (creates
+  directories). Paths are resolved against the project and **cannot leave it**.
+- `session/request_permission` — shown as a dialog; you choose the option.
+- `terminal/create`, `terminal/output`, `terminal/wait_for_exit`, `terminal/kill`,
+  `terminal/release` — commands run in the project with an output byte limit.
+
+The timeline shows streamed replies (Markdown), tool calls with their status,
+locations (click to open) and diff stats (click to open the file), live terminal
+output, and the agent's plan while it works. If the agent dies, pending requests
+fail and the last lines of its stderr are shown.
 
 ## Architecture
 
-The ACP implementation consists of:
-
--   `src/lib/ACP.ts`: The low-level JSON-RPC client that handles communication over `stdio`.
--   `src/hooks/useACP.ts`: A React hook managing the agent lifecycle and message state.
--   `src/components/AgentPanel.tsx`: The UI component for the chat interface.
-
-## Supported Features
-
--   **Stdio Transport**: Launches agents as subprocesses using standard input/output.
--   **JSON-RPC 2.0**: Full support for requests, responses, and notifications.
--   **Chat Interface**: Basic conversational UI.
-
-## Future Roadmap
-
--   **Tool Integration**: Expose Termide's file system and editor capabilities to the agent (e.g., `read_file`, `open_tab`).
--   **Mcp Support**: Enhanced support for Model Context Protocol features.
--   **Config**: Save preferred agent commands in user settings.
+- `src/lib/ACP.ts` — JSON-RPC 2.0 over stdio (requests, notifications, agent →
+  client requests, stderr capture, exit handling).
+- `src/lib/acp/AcpSession.ts` — the protocol: handshake, timeline, client methods,
+  permissions, cancellation. UI-free; tested against `src/lib/acp/fixtures/mock-agent.ts`.
+- `src/hooks/useACP.ts` — one session per project for the app's lifetime.
+- `src/components/AgentPanel.tsx` — the UI.
