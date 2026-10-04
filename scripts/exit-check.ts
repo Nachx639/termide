@@ -5,6 +5,7 @@
  * bracketed paste). Exit code 1 if any path leaves the terminal broken.
  */
 import { TerminalSession } from "../src/lib/terminal/TerminalSession";
+import { harnessEnv } from "./harnessEnv";
 import { mkdtempSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -22,7 +23,7 @@ for (const [label, how] of paths) {
     cols: 100,
     rows: 30,
     command: ["bun", `${root}src/index.tsx`, root],
-    env: { TERMIDE_SESSION_DIR: mkdtempSync(join(tmpdir(), "termide-exit-")) },
+    env: harnessEnv("termide-exit-"),
   });
   await Bun.sleep(3000);
   if (how === "SIGTERM") (s as any).proc.kill("SIGTERM");
@@ -50,7 +51,7 @@ for (const [label, how] of paths) {
     cols: 100,
     rows: 30,
     command: ["bun", `${root}src/index.tsx`, proj],
-    env: { TERMIDE_SESSION_DIR: mkdtempSync(join(tmpdir(), "termide-exit-")) },
+    env: harnessEnv("termide-exit-"),
   });
   await Bun.sleep(3000);
   for (const k of ["\x18", "p", "main", "\r"]) { s.write(k); await Bun.sleep(900); }
