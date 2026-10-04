@@ -68,3 +68,43 @@ test("rename starts from the current name; delete asks for confirmation", async 
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("case-only rename works; nested new file paths create folders", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "termide-fileops-"));
+  const file = path.join(dir, "data.json");
+  fs.writeFileSync(file, "{}");
+  let errorMsg = "";
+  const setup = await testRender(
+    <FileOperationsModal isOpen operation="rename" targetPath={file} onClose={() => {}} onSuccess={() => {}} onError={(m) => (errorMsg = m)} />,
+    { width: 80, height: 20 },
+  );
+  try {
+    await setup.renderOnce();
+    for (let i = 0; i < 9; i++) setup.mockInput.pressBackspace();
+    await setup.mockInput.typeText("Data.json");
+    await setup.renderOnce();
+    setup.mockInput.pressEnter();
+    await setup.renderOnce();
+    expect(errorMsg).toBe("");
+    expect(fs.readdirSync(dir)).toEqual(["Data.json"]);
+  } finally {
+    setup.renderer.destroy();
+  }
+  let created = "";
+  const c = await testRender(
+    <FileOperationsModal isOpen operation="create-file" targetPath={dir} onClose={() => {}} onSuccess={(p) => (created = p ?? "")} onError={(m) => (errorMsg = m)} />,
+    { width: 80, height: 20 },
+  );
+  try {
+    await c.renderOnce();
+    await c.mockInput.typeText("new/deep/file.ts");
+    await c.renderOnce();
+    c.mockInput.pressEnter();
+    await c.renderOnce();
+    expect(errorMsg).toBe("");
+    expect(fs.existsSync(path.join(dir, "new", "deep", "file.ts"))).toBe(true);
+  } finally {
+    c.renderer.destroy();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

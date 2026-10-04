@@ -1152,6 +1152,23 @@ export function App({ rootPath }: AppProps) {
     }[fileOpsOperation];
     success(opName, 2000);
 
+    // Tabs follow renames (also of a parent folder) and close on deletion; they
+    // used to keep the old path, and the next edit recreated the old file.
+    const target = fileOpsTarget;
+    const under = (p: string) => p === target || p.startsWith(target + path.sep);
+    if (fileOpsOperation === "rename" && newPath) {
+      const moved = (p: string) => (under(p) ? newPath + p.slice(target.length) : p);
+      setOpenTabs((tabs) => tabs.map((t) => ({ ...t, filePath: moved(t.filePath) })));
+      setSplitFile((f) => (f ? moved(f) : f));
+    } else if (fileOpsOperation === "delete") {
+      setOpenTabs((tabs) => {
+        const kept = tabs.filter((t) => !under(t.filePath));
+        setActiveTabIndex((i) => Math.max(0, Math.min(i, kept.length - 1)));
+        return kept;
+      });
+      setSplitFile((f) => (f && under(f) ? null : f));
+    }
+
     // Open newly created file
     if (newPath && fileOpsOperation === "create-file") {
       handleFileSelect(newPath);

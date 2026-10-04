@@ -105,6 +105,8 @@ export function FileViewer({
   const diskRef = useRef<{ content: string; mtimeMs: number; size: number } | null>(null);
   // Disk changed while we had unsaved edits: autosave is suspended until resolved.
   const [conflict, setConflict] = useState(false);
+  // The file existed when loaded but is gone now (deleted, moved, renamed).
+  const [missing, setMissing] = useState(false);
   const conflictRef = useRef(false);
   conflictRef.current = conflict;
   const [notice, setNotice] = useState<string | null>(null);
@@ -112,6 +114,8 @@ export function FileViewer({
   // effect cleanups run, and reading it there yielded "" — which was then written
   // over the file.
   const latestTextRef = useRef<string | null>(null);
+  const missingRef = useRef(false);
+  missingRef.current = missing;
   const autoSaveRef = useRef(autoSave);
   autoSaveRef.current = autoSave;
 
@@ -180,6 +184,12 @@ export function FileViewer({
     }
     const known = diskRef.current;
     const st = statDisk(targetPath);
+    // Never silently bring back a file that was deleted or moved away (renaming
+    // an open file used to recreate it under the old name on the next autosave).
+    if (!force && known && known.mtimeMs > 0 && !st) {
+      setMissing(true);
+      return false;
+    }
     if (!force && known && st && (st.mtimeMs !== known.mtimeMs || st.size !== known.size)) {
       let onDisk = "";
       try {
@@ -191,12 +201,15 @@ export function FileViewer({
       }
     }
     try {
+      fs.mkdirSync(path.dirname(targetPath), { recursive: true });
       fs.writeFileSync(targetPath, content);
       const after = statDisk(targetPath);
       diskRef.current = { content, mtimeMs: after?.mtimeMs ?? 0, size: after?.size ?? 0 };
       setConflict(false);
+      setMissing(false);
       return true;
-    } catch {
+    } catch (err: any) {
+      setNotice(`Could not save: ${err?.message ?? err}`);
       return false;
     }
   }, []);
@@ -224,6 +237,7 @@ export function FileViewer({
     setLineCount(content === "" ? 0 : content.split("\n").length);
     setIsDirty(false);
     setConflict(false);
+    setMissing(false);
     latestTextRef.current = content;
     const st = statDisk(filePath);
     diskRef.current = { content, mtimeMs: st?.mtimeMs ?? 0, size: st?.size ?? 0 };
@@ -263,6 +277,11 @@ export function FileViewer({
     const timer = setInterval(() => {
       const known = diskRef.current;
       const st = statDisk(filePath);
+      if (known && known.mtimeMs > 0 && !st) {
+        setMissing(true);
+        return;
+      }
+      if (st) setMissing(false);
       if (!known || !st || (st.mtimeMs === known.mtimeMs && st.size === known.size)) return;
       let onDisk: string;
       try {
@@ -346,9 +365,9 @@ export function FileViewer({
         clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
       }
-      if (saveNow(filePath, readEditorText(textareaRef.current), conflict)) {
+      if (saveNow(filePath, readEditorText(textareaRef.current), conflict || missing)) {
         setIsDirty(false);
-        setNotice(conflict ? "Saved your version over the disk copy" : "Saved");
+        setNotice(conflict ? "Saved your version over the disk copy" : missing ? "Saved (file recreated)" : "Saved");
       }
       return;
     }
@@ -720,6 +739,7 @@ export function FileViewer({
     const targetPath = filePath;
     if (conflictRef.current) return; // resolve the conflict first (Ctrl+S / Ctrl+R)
     if (!autoSaveRef.current) return; // manual mode: Ctrl+S, or flushed on file switch / unmount
+    if (missingRef.current) return; // file deleted/moved: only an explicit Ctrl+S recreates it
     saveTimerRef.current = setTimeout(() => {
       saveTimerRef.current = null;
       const latest = readEditorText(textareaRef.current);
@@ -817,6 +837,13 @@ export function FileViewer({
         <box style={{ height: 1, paddingX: 1, flexDirection: "row", backgroundColor: "#5a1d1d", flexShrink: 0 }}>
           <text wrapMode="none" style={{ fg: "white", bg: "#5a1d1d", attributes: TextAttributes.BOLD }}>
             {"Changed on disk by another program while you were editing — Ctrl+R: load disk version · Ctrl+S: keep yours"}
+          </text>
+        </box>
+      )}
+      {missing && !conflict && (
+        <box style={{ height: 1, paddingX: 1, flexDirection: "row", backgroundColor: "#5a3d1d", flexShrink: 0 }}>
+          <text wrapMode="none" style={{ fg: "white", bg: "#5a3d1d", attributes: TextAttributes.BOLD }}>
+            {"Deleted or moved on disk — edits are not saved here (Ctrl+S to save it again)"}
           </text>
         </box>
       )}

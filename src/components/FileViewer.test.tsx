@@ -201,3 +201,20 @@ test("IDE shortcuts (Ctrl+K/W/D/B) do not edit the buffer; Ctrl+Z undoes", async
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("a file deleted or moved while open is not silently recreated; Ctrl+S recreates it", async () => {
+  const { dir, file, setup } = await mount("keep me");
+  try {
+    fs.rmSync(file);
+    await waitForFrame(setup, (f) => f.includes("Deleted or moved on disk"));
+    await setup.mockInput.typeText("X");
+    await Bun.sleep(900);
+    expect(fs.existsSync(file)).toBe(false);
+    setup.mockInput.pressKey("s", { ctrl: true });
+    await waitForFrame(setup, (f) => f.includes("recreated"));
+    expect(fs.readFileSync(file, "utf8")).toBe("Xkeep me");
+  } finally {
+    setup.renderer.destroy();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

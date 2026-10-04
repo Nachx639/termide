@@ -68,6 +68,8 @@ export function FileOperationsModal({
             onError("File already exists");
             return;
           }
+          // "dir/sub/file.ts" creates the folders too.
+          fs.mkdirSync(path.dirname(newPath), { recursive: true });
           fs.writeFileSync(newPath, "");
           onSuccess(newPath);
           break;
@@ -95,7 +97,16 @@ export function FileOperationsModal({
           }
           const parentDir = path.dirname(targetPath);
           const newPath = path.join(parentDir, inputValue.trim());
-          if (fs.existsSync(newPath) && newPath !== targetPath) {
+          // On case-insensitive file systems (macOS) "data.json" → "Data.json"
+          // finds the same file: that is a case-only rename, not a clash.
+          const sameFile = (() => {
+            try {
+              return fs.statSync(newPath).ino === fs.statSync(targetPath).ino;
+            } catch {
+              return false;
+            }
+          })();
+          if (fs.existsSync(newPath) && newPath !== targetPath && !sameFile) {
             onError("A file with this name already exists");
             return;
           }
