@@ -10,9 +10,11 @@ interface GitGraphProps {
     onFocus?: () => void;
     /** Outer width of the panel in cells (defaults to an estimate from the screen). */
     width?: number;
+    /** Enter on a commit: show its changes. */
+    onShowCommit?: (hash: string) => void;
 }
 
-export function GitGraph({ rootPath, focused, onFocus, width }: GitGraphProps) {
+export function GitGraph({ rootPath, focused, onFocus, width, onShowCommit }: GitGraphProps) {
     const theme = useTheme();
     const [logLines, setLogLines] = useState<string[]>([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
@@ -220,6 +222,9 @@ export function GitGraph({ rootPath, focused, onFocus, width }: GitGraphProps) {
             setSelectedIndex((current) => Math.max(0, current - 1));
         } else if (event.name === "down" || event.name === "j") {
             setSelectedIndex((current) => Math.min(entries.length - 1, current + 1));
+        } else if (event.name === "return") {
+            const hash = entries[selectedIndex]?.hash;
+            if (hash) onShowCommit?.(hash);
         } else if (event.name === "e") {
             setExpandedIndex((current) => (current === selectedIndex ? null : selectedIndex));
         }
@@ -237,7 +242,7 @@ export function GitGraph({ rootPath, focused, onFocus, width }: GitGraphProps) {
             <box style={{ paddingX: 1, height: 1, backgroundColor: "#1a1a1a", flexDirection: "row" }}>
                 {focused && <text style={{ fg: "black", bg: theme.accent, attributes: TextAttributes.BOLD }}> FOCUS </text>}
                 <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>Git Graph</text>
-                {focused && <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#1a1a1a" }}> j/k:move e:expand</text>}
+                {focused && <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#1a1a1a" }}> j/k:move Enter:diff e:expand</text>}
             </box>
             <box style={{ flexDirection: "column", flexGrow: 1, backgroundColor: "#0b0b0b", overflow: "hidden" }}>
                 {/* The commit list keeps at least 3 rows; the detail box below gives way

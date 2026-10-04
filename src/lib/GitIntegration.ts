@@ -526,3 +526,9 @@ export async function getGitLog(cwd: string, count: number = 20): Promise<string
   if (!logOutput) return [];
   return logOutput.split("\n");
 }
+
+/** A commit's message and full patch (`git show`), or null if it can't be read. */
+export async function getCommitPatch(hash: string, cwd: string): Promise<string | null> {
+  if (!/^[0-9a-f]{4,40}$/i.test(hash)) return null;
+  return runGitCommand(["show", "--no-color", "--format=%h %s%n%an · %ar%n%n%b", hash], cwd);
+}

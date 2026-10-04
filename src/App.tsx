@@ -32,7 +32,7 @@ import { QuickSettings, type QuickSettingsState } from "./components/QuickSettin
 import { CopyPanel } from "./components/CopyPanel";
 import { DiffViewer } from "./components/DiffViewer";
 import * as path from "path";
-import { getGitStatus, formatGitBranch, formatGitStatus, invalidateGitCache } from "./lib/GitIntegration";
+import { getGitStatus, formatGitBranch, formatGitStatus, invalidateGitCache, getCommitPatch } from "./lib/GitIntegration";
 import type { GitStatus } from "./lib/GitIntegration";
 import { THEMES, getTheme } from "./lib/ThemeSystem";
 import { loadPreferences, savePreferences } from "./lib/Preferences";
@@ -1265,6 +1265,13 @@ export function App({ rootPath }: AppProps) {
                     focused={!isAnyModalOpen && !leaderMode && focusedPanel === "graph"}
                     onFocus={() => setFocusedPanel("graph")}
                     width={currentTreeWidth}
+                    onShowCommit={async (hash) => {
+                      const patch = await getCommitPatch(hash, rootPath);
+                      if (!patch) return;
+                      setDiffContent(patch);
+                      setDiffFilePath(`commit ${hash}`);
+                      setShowDiffViewer(true);
+                    }}
                   />
                 </PanelErrorBoundary>
               </box>
