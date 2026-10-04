@@ -84,3 +84,30 @@ test("background tabs get activity and bell marks; viewing clears them", async (
     m.disposeAll();
   }
 });
+
+test("split: new pane on the right, focus switching, tabs land in the focused pane, closing unsplits", () => {
+  const m = new TerminalManager(process.cwd(), ["/bin/sh", "-c", "sleep 5"]);
+  try {
+    m.ensureTab();
+    const a = m.getState().activeId!;
+    m.toggleSplit();
+    const { split, activeId: b } = m.getState();
+    expect(split).toEqual({ left: a, right: b! });
+    m.focusOtherPane();
+    expect(m.getState().activeId).toBe(a);
+    m.newTab(); // replaces the focused (left) pane
+    const c = m.getState().activeId!;
+    expect(m.getState().split).toEqual({ left: c, right: b! });
+    m.activate(a); // a is not on screen: shown in the focused pane
+    expect(m.getState().split).toEqual({ left: a, right: b! });
+    m.close(b!);
+    expect(m.getState().split).toBeNull();
+    expect(m.getState().activeId).toBe(a);
+    m.toggleSplit();
+    m.toggleSplit(); // unsplit keeps the tabs
+    expect(m.getState().split).toBeNull();
+    expect(m.getState().tabs.length).toBe(3);
+  } finally {
+    m.disposeAll();
+  }
+});

@@ -28,7 +28,7 @@ export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyRea
   const renderer = useRenderer();
   // Shared, app-lifetime sessions: unmounting this component must not kill the shell.
   const [manager] = useState(() => (command ? new TerminalManager(cwd, command) : getTerminalManager(cwd)));
-  const { tabs, activeId } = useSyncExternalStore(manager.subscribe, manager.getState);
+  const { tabs, activeId, split } = useSyncExternalStore(manager.subscribe, manager.getState);
   const active = tabs.find((t) => t.id === activeId)?.session ?? null;
 
   // A private (test) manager dies with the component; the shared one lives on.
@@ -211,7 +211,7 @@ export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyRea
           )}
           {focused && (
             <text wrapMode="none" style={{ fg: "gray", flexShrink: 1 }}>
-              {"  Ctrl+X: Tab leave · T new · ]/[ switch · W close"}
+              {split ? "  Ctrl+X: O other pane · \\ unsplit · T new · W close" : "  Ctrl+X: Tab leave · T new · \\ split · ]/[ switch · W close"}
             </text>
           )}
         </box>
@@ -236,12 +236,37 @@ export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyRea
           </text>
         </box>
       )}
-      <box style={{ flexGrow: 1, paddingX: 1 }}>
-        <terminal-view session={active} terminalFocused={focused} onTerminalSize={onTerminalSize} onOpenPath={onOpenPath}
-          matches={searchOpen ? matches.map((m, i) => ({ ...m, active: i === matchIndex })) : undefined}
-          style={{ flexGrow: 1 }}
-        />
-      </box>
+      {split ? (
+        // Side by side: the focused pane gets the cursor, keys, search and links.
+        <box style={{ flexGrow: 1, flexDirection: "row", paddingX: 1 }}>
+          {[split.left, split.right].map((id, i) => {
+            const session = tabs.find((t) => t.id === id)?.session ?? null;
+            const isActive = id === activeId;
+            return (
+              <React.Fragment key={id}>
+                {i === 1 && <box style={{ width: 1, border: ["left"], borderColor: focused ? "cyan" : "gray", flexShrink: 0 }} />}
+                <box style={{ flexGrow: 1, flexBasis: 0 }} onMouseDown={() => manager.activate(id)}>
+                  <terminal-view
+                    session={session}
+                    terminalFocused={focused && isActive}
+                    onTerminalSize={isActive ? onTerminalSize : undefined}
+                    onOpenPath={isActive ? onOpenPath : undefined}
+                    matches={isActive && searchOpen ? matches.map((m, j) => ({ ...m, active: j === matchIndex })) : undefined}
+                    style={{ flexGrow: 1 }}
+                  />
+                </box>
+              </React.Fragment>
+            );
+          })}
+        </box>
+      ) : (
+        <box style={{ flexGrow: 1, paddingX: 1 }}>
+          <terminal-view session={active} terminalFocused={focused} onTerminalSize={onTerminalSize} onOpenPath={onOpenPath}
+            matches={searchOpen ? matches.map((m, i) => ({ ...m, active: i === matchIndex })) : undefined}
+            style={{ flexGrow: 1 }}
+          />
+        </box>
+      )}
     </box>
   );
 }

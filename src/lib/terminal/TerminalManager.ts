@@ -19,11 +19,14 @@ export interface TerminalTab {
 
 export interface TerminalManagerState {
   tabs: TerminalTab[];
+  /** The focused tab (in a split, the focused pane's tab). */
   activeId: number | null;
+  /** Side-by-side view: tab ids shown left and right (one of them is activeId). */
+  split: { left: number; right: number } | null;
 }
 
 export class TerminalManager {
-  private state: TerminalManagerState = { tabs: [], activeId: null };
+  private state: TerminalManagerState = { tabs: [], activeId: null, split: null };
   private listeners = new Set<() => void>();
   private seq = 0;
   /** Last size a view reported; new tabs start at it. */
@@ -85,7 +88,9 @@ export class TerminalManager {
       const current = this.state.tabs[i];
       if (current) this.bellListeners.forEach((l) => l(current, i));
     });
-    this.set({ tabs: [...this.state.tabs, tab], activeId: tab.id });
+    this.set({ tabs: [...this.state.tabs, tab] });
+    // In a split, the new tab replaces the focused pane's tab.
+    this.activate(tab.id);
     return session;
   }
 
@@ -115,8 +120,15 @@ export class TerminalManager {
     const tab = this.state.tabs[i]!;
     const tabs = this.state.tabs.filter((t) => t.id !== id);
     let activeId = this.state.activeId;
+    let split = this.state.split;
+    if (split && (split.left === id || split.right === id)) {
+      // Closing one side of a split leaves the other side, unsplit.
+      const other = split.left === id ? split.right : split.left;
+      split = null;
+      if (activeId === id) activeId = other;
+    }
     if (activeId === id) activeId = (tabs[Math.min(i, tabs.length - 1)] ?? null)?.id ?? null;
-    this.set({ tabs, activeId });
+    this.set({ tabs, activeId, split });
     tab.session.dispose();
   }
 
@@ -126,8 +138,35 @@ export class TerminalManager {
 
   activate(id: number) {
     if (!this.state.tabs.some((t) => t.id === id)) return;
-    this.set({ activeId: id });
+    const split = this.state.split;
+    if (split && split.left !== id && split.right !== id && this.state.activeId !== null) {
+      // Show the tab in the focused pane.
+      const focusedLeft = split.left === this.state.activeId;
+      this.set({ activeId: id, split: focusedLeft ? { left: id, right: split.right } : { left: split.left, right: id } });
+    } else {
+      this.set({ activeId: id });
+    }
     if (this.watching) this.patchTab(id, { activity: false, bell: false });
+  }
+
+  /** Toggle the side-by-side view: split opens a new tab on the right. */
+  toggleSplit() {
+    if (this.state.split) {
+      this.set({ split: null });
+      return;
+    }
+    const left = this.state.activeId;
+    if (left === null) return;
+    const session = this.newTab();
+    const right = this.state.tabs.find((t) => t.session === session)!.id;
+    this.set({ split: { left, right }, activeId: right });
+  }
+
+  /** In a split, move focus to the other pane. */
+  focusOtherPane() {
+    const split = this.state.split;
+    if (!split) return;
+    this.activate(this.state.activeId === split.left ? split.right : split.left);
   }
 
   cycle(delta: number) {
