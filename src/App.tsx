@@ -12,6 +12,7 @@ import { TextAttributes } from "@opentui/core";
 import { FileTree } from "./components/FileTree";
 import { FileViewer } from "./components/FileViewer";
 import { Terminal } from "./components/Terminal";
+import { MascotLine, Clock, mascot } from "./components/Mascot";
 import { isTerminalHostKey } from "./lib/terminal/keyRouting";
 import { getTerminalManager } from "./lib/terminal/TerminalManager";
 import { FuzzyFinder } from "./components/FuzzyFinder";
@@ -119,12 +120,8 @@ export function App({ rootPath }: AppProps) {
   const dimensions = useTerminalDimensions();
   const [treeWidth, setTreeWidth] = useState(30);
   const [recentFiles, setRecentFiles] = useState<string[]>([]);
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [fileStats, setFileStats] = useState<{ size: number; lineCount: number } | null>(null);
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
-  const [antFrame, setAntFrame] = useState(0);
-  const [antStatus, setAntStatus] = useState<"walking" | "dying" | "dead">("walking");
-  const [deathProgress, setDeathProgress] = useState(0);
   const [isMaximized, setIsMaximized] = useState(false);
   const [showAgent, setShowAgent] = useState(false);
 
@@ -283,93 +280,6 @@ export function App({ rootPath }: AppProps) {
     }
     return false;
   }, [success]);
-
-  // Update clock every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Animate the ant
-  useEffect(() => {
-    const antTimer = setInterval(() => {
-      if (antStatus === "walking") {
-        setAntFrame((f) => (f + 1) % 40);
-      } else if (antStatus === "dying") {
-        setDeathProgress((p) => {
-          if (p >= 5) {
-            setAntStatus("dead");
-            return p;
-          }
-          return p + 1;
-        });
-      }
-    }, antStatus === "dying" ? 150 : 300);
-    return () => clearInterval(antTimer);
-  }, [antStatus]);
-
-  // Generate animated 3-line ant walking or dying
-  const getAntLines = (maxWidth: number) => {
-    if (antStatus === "dead") return ["", "", ""];
-
-    const antWidth = 12;
-    const walkSpace = Math.max(0, maxWidth - antWidth);
-    if (walkSpace <= 0) return ["", "", ""];
-
-    const pos = antFrame % (walkSpace + 1);
-    const spaces = " ".repeat(pos);
-
-    if (antStatus === "dying") {
-      const deathFrames = [
-        [
-          "      * *",
-          "  o O ( x.x )",
-          "    * * * *"
-        ],
-        [
-          "       . .",
-          "    . ( x-x ) .",
-          "       . ."
-        ],
-        [
-          "        *",
-          "      . * .",
-          "        *"
-        ],
-        [
-          "         .",
-          "       . .",
-          "         ."
-        ],
-        [
-          "",
-          "        .",
-          ""
-        ],
-        ["", "", ""]
-      ];
-      const frame = deathFrames[deathProgress] || deathFrames[deathFrames.length - 1];
-      return frame!.map(line => `${spaces}${line}`);
-    }
-
-    const frames = [
-      [
-        "      \\ \\",
-        " ooO( o.o )>",
-        "  / / / /"
-      ],
-      [
-        "      / /",
-        " ooO( o.o )>",
-        "  \\ \\ \\ \\"
-      ]
-    ];
-
-    const frame = frames[antFrame % 2] || frames[0];
-    return frame!.map(line => `${spaces}${line}`);
-  };
 
   // Get currently selected file from active tab
   const selectedFile = openTabs[activeTabIndex]?.filePath || null;
@@ -964,14 +874,7 @@ export function App({ rootPath }: AppProps) {
 
     // Ctrl+Shift+M - Toggle mascot
     if (event.ctrl && event.shift && (event.name === "m" || event.name === "M")) {
-      if (antStatus === "walking") {
-        setAntStatus("dying");
-        setDeathProgress(0);
-        success("Mascot: Off", 1500);
-      } else {
-        setAntStatus("walking");
-        success("Mascot: On", 1500);
-      }
+      success(mascot.toggle() ? "Mascot: On" : "Mascot: Off", 1500);
       return;
     }
 
@@ -1212,7 +1115,6 @@ export function App({ rootPath }: AppProps) {
 
           // The ant walks in the shared space, so we use the minimum available
           const maxAntSpace = Math.max(5, Math.min(row1Space, row2Space, row3Space));
-          const antLines = getAntLines(maxAntSpace);
 
           return (
             <>
@@ -1220,7 +1122,7 @@ export function App({ rootPath }: AppProps) {
               <box style={{ paddingX: 1, flexDirection: "row", backgroundColor: "#1a1a1a" }}>
                 <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a", width: logoWidth }}>  ▀█▀ █▀▀ █▀▄ █▄▀▄█ █ █▀▄ █▀▀</text>
                 <box style={{ flexGrow: 1, backgroundColor: "#1a1a1a" }}>
-                  <text style={{ fg: "cyan" }}>{antLines[0]}</text>
+                  <MascotLine line={0} width={maxAntSpace} />
                 </box>
                 <text style={{ fg: "gray", bg: "#1a1a1a" }}>{pathText}</text>
               </box>
@@ -1229,7 +1131,7 @@ export function App({ rootPath }: AppProps) {
               <box style={{ paddingX: 1, flexDirection: "row", backgroundColor: "#1a1a1a" }}>
                 <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a", width: logoWidth }}>   █  █▀▀ █▀▄ █ █ █ █ █ █ █▀▀</text>
                 <box style={{ flexGrow: 1, backgroundColor: "#1a1a1a" }}>
-                  <text style={{ fg: "cyan" }}>{antLines[1]}</text>
+                  <MascotLine line={1} width={maxAntSpace} />
                 </box>
                 <text style={{ fg: "#d4a800", bg: "#1a1a1a" }}>Ctrl+P: open | Ctrl+K: menu | Ctrl+F: focus</text>
               </box>
@@ -1238,7 +1140,7 @@ export function App({ rootPath }: AppProps) {
               <box style={{ paddingX: 1, flexDirection: "row", backgroundColor: "#1a1a1a" }}>
                 <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a", width: logoWidth }}>   ▀  ▀▀▀ ▀ ▀ ▀   ▀ ▀ ▀▀  ▀▀▀</text>
                 <box style={{ flexGrow: 1, backgroundColor: "#1a1a1a" }}>
-                  <text style={{ fg: "cyan" }}>{antLines[2]}</text>
+                  <MascotLine line={2} width={maxAntSpace} />
                 </box>
                 <text style={{ fg: "#d4a800", bg: "#1a1a1a" }}>Ctrl+Space: agent | Ctrl+B: help | Ctrl+Q: zen</text>
               </box>
@@ -1547,9 +1449,7 @@ export function App({ rootPath }: AppProps) {
           </text>
           {/* Clock - hidden in compact */}
           {!isCompactMode && (
-            <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
-              {currentTime.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" })}
-            </text>
+            <Clock style={{ fg: "gray", attributes: TextAttributes.DIM }} />
           )}
           {/* Panel indicator */}
           <box style={{ flexDirection: "row" }}>
