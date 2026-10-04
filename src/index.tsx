@@ -50,6 +50,11 @@ const renderer = await createCliRenderer({
 // Export renderer for selection API
 (globalThis as any).__termideRenderer = renderer;
 
+// Every panel registers its own key handler (useKeyboard); with a split editor
+// that passes Node's default of 10 listeners and a "possible EventEmitter memory
+// leak" warning was printed over the UI. Not a leak: raise the limit.
+renderer.keyInput.setMaxListeners(100);
+
 const root = createRoot(renderer);
 root.render(<App rootPath={rootPath} />);
 

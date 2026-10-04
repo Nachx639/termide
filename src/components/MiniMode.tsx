@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { quit } from "../lib/quit";
+import { getTerminalManager } from "../lib/terminal/TerminalManager";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 import { Terminal } from "./Terminal";
@@ -36,9 +38,18 @@ export function MiniMode({
   // Panel switching. In the explorer, 1/2/3 and Tab switch directly; in the
   // terminal, editor and agent those keys are typed text (they used to switch
   // panels mid-command), so there it is Ctrl+X then 1/2/3/Tab.
+  // State (not a ref) so the panels re-render unfocused while the leader is
+  // pending: otherwise the key after Ctrl+X ("1") was also typed into the shell.
+  const [leader, setLeader] = useState(false);
   const leaderRef = React.useRef(false);
+  leaderRef.current = leader;
   const switchTo = (key: string, shift: boolean): boolean => {
-    if (key === "1") setActivePanel("explorer");
+    if (key === "q" || key === "Q") quit();
+    else if (key === "t" || key === "T") {
+      getTerminalManager(rootPath).newTab();
+      setActivePanel("terminal");
+    } else if (key === "]" || key === "[") getTerminalManager(rootPath).cycle(key === "]" ? 1 : -1);
+    else if (key === "1") setActivePanel("explorer");
     else if (key === "2") setActivePanel("viewer");
     else if (key === "3") setActivePanel(showAgent ? "agent" : "terminal");
     else if (key === "tab") {
@@ -52,11 +63,18 @@ export function MiniMode({
     if (event.eventType === "release") return;
     if (leaderRef.current) {
       leaderRef.current = false;
+      setLeader(false);
       switchTo(event.name, event.shift);
       return;
     }
     if (event.ctrl && !event.shift && event.name === "x") {
       leaderRef.current = true;
+      setLeader(true);
+      return;
+    }
+    // Ctrl+C quits from the explorer (in the terminal it interrupts the program).
+    if (activePanel === "explorer" && event.ctrl && event.name === "c") {
+      quit();
       return;
     }
     if (activePanel === "explorer" && !event.ctrl && !event.meta && switchTo(event.name, event.shift)) return;
@@ -113,7 +131,7 @@ export function MiniMode({
               onFileSelect(path);
               setActivePanel("viewer");
             }}
-            focused={true}
+            focused={!leader}
             onFocus={() => setActivePanel("explorer")}
           />
         )}
@@ -121,7 +139,7 @@ export function MiniMode({
         {activePanel === "viewer" && (
           <FileViewer
             filePath={selectedFile}
-            focused={true}
+            focused={!leader}
             rootPath={rootPath}
             height={contentHeight}
           />
@@ -130,7 +148,7 @@ export function MiniMode({
         {activePanel === "terminal" && (
           <Terminal
             cwd={rootPath}
-            focused={true}
+            focused={!leader}
             onFocusRequest={() => setActivePanel("terminal")}
             height={contentHeight}
           />
@@ -139,7 +157,7 @@ export function MiniMode({
         {activePanel === "agent" && (
           <AgentPanel
             rootPath={rootPath}
-            focused={true}
+            focused={!leader}
             onFocus={() => setActivePanel("agent")}
           />
         )}
@@ -150,9 +168,9 @@ export function MiniMode({
         <text style={{ fg: "cyan" }}>
           {getMiniModePanelIcon(activePanel)} {activePanel.toUpperCase()}
         </text>
-        <box style={{ flexGrow: 1 }} />
-        <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
-          {activePanel === "explorer" ? "Tab/1-3:switch" : "Ctrl+X 1-3:switch"} │ Ctrl+Space:AI
+        <box style={{ flexGrow: 1, minWidth: 1 }} />
+        <text wrapMode="none" style={{ fg: "gray", attributes: TextAttributes.DIM, flexShrink: 1 }}>
+          {leader ? "1-3/Tab:panel T:term Q:quit" : activePanel === "explorer" ? "Tab/1-3:switch" : "Ctrl+X 1-3:switch"} │ Ctrl+Space:AI
         </text>
       </box>
     </box>
