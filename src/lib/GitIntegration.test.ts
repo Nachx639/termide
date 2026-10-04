@@ -309,6 +309,13 @@ describe("diffs", () => {
     expect(await getFileDiff("s.txt", repo, true)).toContain("+staged");
   });
 
+  test("getFileLineDiffs outside a repository marks nothing", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "termide-norepo-"));
+    fs.writeFileSync(path.join(dir, "x.txt"), "a\nb\nc\n");
+    expect(await getFileLineDiffs(path.join(dir, "x.txt"), dir)).toEqual([]);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
   test("getFileLineDiffs reports added, modified and deleted lines (1-based)", async () => {
     const repo = makeRepo({ "f.txt": "1\n2\n3\n4\n5\n" });
     // modify line 2, delete line 4, add a line after 5
