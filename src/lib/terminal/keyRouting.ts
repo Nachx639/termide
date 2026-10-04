@@ -28,6 +28,12 @@ export function isTerminalHostKey(k: KeyLike): boolean {
 export function isEditorOwnedKey(k: KeyLike): boolean {
   if (k.eventType === "release") return false;
   if (k.ctrl && !k.shift && ["f", "d", "g", "s", "r"].includes(k.name)) return true;
+  return isTextKey(k);
+}
+
+/** A key that types text (no Ctrl/Alt/Cmd): never an IDE shortcut while typing. */
+export function isTextKey(k: KeyLike): boolean {
+  if (k.eventType === "release") return false;
   if (k.ctrl || k.meta || k.super) return false;
   if (k.name === "space") return true;
   return !!k.sequence && k.sequence.length >= 1 && !/[\x00-\x1f\x7f]/.test(k.sequence);
