@@ -71,10 +71,12 @@ interface AgentPanelProps {
     rootPath: string;
     focused: boolean;
     onFocus: () => void;
+    /** Private agent session instead of the project's shared one (tests). */
+    isolated?: boolean;
 }
 
-export function AgentPanel({ rootPath, focused, onFocus }: AgentPanelProps) {
-    const { state, connect, disconnect, prompt, cancel, respondPermission } = useACP(rootPath);
+export function AgentPanel({ rootPath, focused, onFocus, isolated = false }: AgentPanelProps) {
+    const { state, connect, disconnect, prompt, cancel, respondPermission } = useACP(rootPath, isolated);
     const { status, timeline, busy, permission, plan, error } = state;
     const [inputValue, setInputValue] = useState("");
     const [selectedAgentIndex, setSelectedAgentIndex] = useState(0);
