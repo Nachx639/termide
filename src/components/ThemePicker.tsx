@@ -69,7 +69,7 @@ export function ThemePicker({ isOpen, onClose, currentTheme, onSelect }: ThemePi
       <box
         style={{
           width: "60%",
-          height: THEMES.length + 5,
+          height: THEMES.length + 7, // list + header (2) + footer (2) + borders (2) + 1
           flexDirection: "column",
           border: true,
           borderColor: "yellow",
@@ -77,30 +77,16 @@ export function ThemePicker({ isOpen, onClose, currentTheme, onSelect }: ThemePi
           position: "relative",
         }}
       >
-        {/* Absolute Backdrop of spaces to force terminal opacity */}
-        <box
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            backgroundColor: "#1a1a1a",
-            flexDirection: "column",
-          }}
-        >
-          {Array.from({ length: THEMES.length + 5 }).map((_, i) => (
-            <text key={i} style={{ bg: "#1a1a1a" }}>{" ".repeat(200)}</text>
-          ))}
-        </box>
 
         {/* Header */}
-        <box style={{ paddingX: 1, border: ["bottom"], borderColor: "gray", backgroundColor: "#1a1a1a" }}>
+        <box style={{ paddingX: 1, height: 2, flexShrink: 0, border: ["bottom"], borderColor: "gray", backgroundColor: "#1a1a1a" }}>
           <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>🎨 Select Theme</text>
         </box>
 
         {/* Theme list */}
-        <scrollbox style={{ flexDirection: "column", flexGrow: 1, backgroundColor: "#1a1a1a" }}>
+        {/* A plain box: the handful of themes always fits (the scrollbox showed
+            only the first three). */}
+        <box style={{ flexDirection: "column", flexGrow: 1, backgroundColor: "#1a1a1a" }}>
           {THEMES.map((theme, index) => {
             const isSelected = index === selectedIndex;
             const isCurrent = theme.id === currentTheme.id;
@@ -113,6 +99,8 @@ export function ThemePicker({ isOpen, onClose, currentTheme, onSelect }: ThemePi
                   justifyContent: "space-between",
                   backgroundColor: isSelected ? theme.accent : "#1a1a1a" as any,
                   width: "100%",
+                  height: 1,
+                  flexShrink: 0,
                   paddingX: 1,
                 }}
               >
@@ -137,14 +125,10 @@ export function ThemePicker({ isOpen, onClose, currentTheme, onSelect }: ThemePi
               </box>
             );
           })}
-          {/* Filler to ensure background opacity */}
-          <box style={{ flexGrow: 1, backgroundColor: "#1a1a1a" }}>
-            <text style={{ bg: "#1a1a1a" }}> </text>
-          </box>
-        </scrollbox>
+        </box>
 
         {/* Footer */}
-        <box style={{ paddingX: 1, border: ["top"], borderColor: "gray", backgroundColor: "#0b0b0b" }}>
+        <box style={{ paddingX: 1, height: 2, flexShrink: 0, border: ["top"], borderColor: "gray", backgroundColor: "#0b0b0b" }}>
           <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#0b0b0b" }}>
             ↑↓ select | Enter apply | Esc cancel
           </text>

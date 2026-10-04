@@ -68,20 +68,6 @@ export function Notifications({ notifications, onDismiss }: NotificationsProps) 
               position: "relative",
             }}
           >
-            {/* Absolute Backdrop of spaces to force terminal opacity */}
-            <box
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "100%",
-                backgroundColor: "#1a1a1a",
-                flexDirection: "column",
-              }}
-            >
-              <text style={{ bg: "#1a1a1a" }}>{" ".repeat(200)}</text>
-            </box>
 
             <text style={{ fg: style.fg as any, attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>
               {style.icon}{" "}

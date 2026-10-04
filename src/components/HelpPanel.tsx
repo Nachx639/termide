@@ -157,8 +157,8 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
     >
       <box
         style={{
-          width: "90%",
-          height: "85%",
+          width: Math.floor(width * 0.9),
+          height: Math.floor(height * 0.85), // whole cells: a fractional height pushed the footer onto the border
           flexDirection: "column",
           border: true,
           borderColor: "cyan",
@@ -167,25 +167,9 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
           overflow: "hidden",
         }}
       >
-        {/* Absolute Backdrop of spaces to force terminal opacity */}
-        <box
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            backgroundColor: "#050505",
-            flexDirection: "column",
-          }}
-        >
-          {Array.from({ length: 100 }).map((_, i) => (
-            <text key={i} style={{ bg: "#050505" }}>{" ".repeat(250)}</text>
-          ))}
-        </box>
 
         {/* Header */}
-        <box style={{ paddingX: 1, border: ["bottom"], borderColor: "gray", backgroundColor: "#1a1a1a" }}>
+        <box style={{ paddingX: 1, height: 2, flexShrink: 0, border: ["bottom"], borderColor: "gray", backgroundColor: "#1a1a1a" }}>
           <box style={{ flexDirection: "row", justifyContent: "space-between", backgroundColor: "#1a1a1a" }}>
             <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>
               📖 Termide Keyboard Shortcuts
@@ -195,14 +179,14 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
         </box>
 
         {/* Content */}
-        <scrollbox style={{ flexGrow: 1, backgroundColor: "#050505" }}>
+        <scrollbox style={{ flexGrow: 1, flexBasis: 0, flexShrink: 1, minHeight: 0, backgroundColor: "#050505" }}>
           <box style={{ flexDirection: "row", flexWrap: "wrap", padding: 2, gap: 4, backgroundColor: "#050505" }}>
             {SHORTCUTS.map((category) => (
               <box
                 key={category.title}
                 style={{
                   flexDirection: "column",
-                  width: 38,
+                  width: 46,
                   marginBottom: 2,
                   backgroundColor: "#050505",
                 }}
@@ -214,8 +198,8 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
                 </box>
                 {category.shortcuts.map((shortcut, idx) => (
                   <box key={idx} style={{ flexDirection: "row", marginBottom: 0, backgroundColor: "#050505" }}>
-                    <text style={{ fg: "cyan", width: 14, bg: "#050505" }}>{shortcut.keys}</text>
-                    <text style={{ fg: "white", bg: "#050505" }}>{shortcut.description}</text>
+                    <text wrapMode="none" style={{ fg: "cyan", width: 20, flexShrink: 0, bg: "#050505" }}>{shortcut.keys}</text>
+                    <text wrapMode="none" style={{ fg: "white", bg: "#050505", flexShrink: 1 }}>{shortcut.description}</text>
                   </box>
                 ))}
               </box>
@@ -228,7 +212,7 @@ export function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
         </scrollbox>
 
         {/* Footer */}
-        <box style={{ paddingX: 1, border: ["top"], borderColor: "gray", backgroundColor: "#0b0b0b" }}>
+        <box style={{ paddingX: 1, height: 2, flexShrink: 0, border: ["top"], borderColor: "gray", backgroundColor: "#0b0b0b" }}>
           <box style={{ flexDirection: "row", justifyContent: "space-between", backgroundColor: "#0b0b0b" }}>
             <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#0b0b0b" }}>
               Termide v0.1.0 - Terminal IDE for AI Coding Agents
