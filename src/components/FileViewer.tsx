@@ -312,6 +312,14 @@ export function FileViewer({
   useEffect(() => {
     if (!filePath) return;
     return onBeforeQuit(() => {
+      // Unresolved conflict: keep the user's version next to the file rather
+      // than dropping it (the disk version stays untouched).
+      if (conflictRef.current && latestTextRef.current !== null) {
+        try {
+          fs.writeFileSync(`${filePath}.termide-unsaved`, latestTextRef.current);
+        } catch {}
+        return;
+      }
       if (!saveTimerRef.current || conflictRef.current || missingRef.current) return;
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
