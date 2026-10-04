@@ -1413,6 +1413,7 @@ export function App({ rootPath }: AppProps) {
                         onPasteReady={(pasteFn) => { terminalPasteRef.current = pasteFn; }}
                         onCopyReady={(copyFn) => { terminalCopyRef.current = copyFn; }}
                         onWriteReady={(writeFn) => { terminalWriteRef.current = writeFn; }}
+                      onOpenFile={(file, line) => handleFileSelect(file, line)}
                         height={currentTerminalHeight}
                         selectMode={terminalSelectMode}
                       />

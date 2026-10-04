@@ -3,6 +3,7 @@ import { useKeyboard, useRenderer } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 import { getTerminalManager, TerminalManager } from "../lib/terminal/TerminalManager";
 import { isTerminalHostKey } from "../lib/terminal/keyRouting";
+import { resolvePathRef, type PathRef } from "../lib/terminal/pathLinks";
 import "./TerminalView";
 
 interface TerminalProps {
@@ -17,9 +18,11 @@ interface TerminalProps {
   selectMode?: boolean; // When true, disable mouse tracking for native terminal selection
   /** argv to run instead of the login shell (tests); gets its own private manager. */
   command?: string[];
+  /** Double-click on "path/to/file.ts:12" in the output. */
+  onOpenFile?: (filePath: string, line?: number) => void;
 }
 
-export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyReady, onWriteReady, selectMode = false, command }: TerminalProps) {
+export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyReady, onWriteReady, selectMode = false, command, onOpenFile }: TerminalProps) {
   const renderer = useRenderer();
   // Shared, app-lifetime sessions: unmounting this component must not kill the shell.
   const [manager] = useState(() => (command ? new TerminalManager(cwd, command) : getTerminalManager(cwd)));
@@ -45,6 +48,17 @@ export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyRea
       manager.ensureTab();
     },
     [manager],
+  );
+
+  const onOpenPath = useCallback(
+    async (ref: PathRef) => {
+      const s = manager.active;
+      if (!s || !onOpenFile) return;
+      const shellDir = await s.currentDir();
+      const file = resolvePathRef(ref, [shellDir, cwd].filter((d): d is string => !!d));
+      if (file) onOpenFile(file, ref.line);
+    },
+    [manager, cwd, onOpenFile],
   );
 
   useEffect(() => {
@@ -150,7 +164,7 @@ export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyRea
         </box>
       )}
       <box style={{ flexGrow: 1, paddingX: 1 }}>
-        <terminal-view session={active} terminalFocused={focused} onTerminalSize={onTerminalSize} style={{ flexGrow: 1 }} />
+        <terminal-view session={active} terminalFocused={focused} onTerminalSize={onTerminalSize} onOpenPath={onOpenPath} style={{ flexGrow: 1 }} />
       </box>
     </box>
   );
