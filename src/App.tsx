@@ -705,7 +705,8 @@ export function App({ rootPath }: AppProps) {
     // === CTRL+C: Exit Termide when NOT focused on terminal ===
     // When terminal is focused, Ctrl+C goes to PTY (handled in Terminal.tsx)
     // When any other panel is focused, Ctrl+C exits the app
-    if (event.ctrl && event.name === "c" && focusedPanel !== "terminal") {
+    // (Not from the editor or the agent prompt, where Ctrl+C copies.)
+    if (event.ctrl && event.name === "c" && focusedPanel !== "terminal" && focusedPanel !== "viewer" && focusedPanel !== "agent") {
       quit();
     }
 

@@ -13,9 +13,24 @@ const RESET =
 
 let quitting = false;
 
+/** Work that must finish before exiting (e.g. editors with a pending autosave). */
+const beforeQuit = new Set<() => void>();
+export function onBeforeQuit(fn: () => void): () => void {
+  beforeQuit.add(fn);
+  return () => {
+    beforeQuit.delete(fn);
+  };
+}
+
 export function quit(code = 0): void {
   if (quitting) return;
   quitting = true;
+  // Quitting within the autosave delay used to lose the last edit.
+  for (const fn of beforeQuit) {
+    try {
+      fn();
+    } catch {}
+  }
   try {
     (globalThis as any).__termideRenderer?.destroy();
   } catch {}
