@@ -62,7 +62,7 @@ termide includes a dedicated **Agent Panel** that connects to AI coding agents u
 
 | Agent | Status |
 | :--- | :--- |
-| 🤖 **Claude Code** | ✅ Full support (requires `claude-code-acp`) |
+| 🤖 **Claude Code** | ✅ Works out of the box (uses `claude-agent-acp`, or runs it via `bunx`) |
 | 🌀 **Claude (Antigravity)** | ✅ Free tokens via [Antigravity proxy](https://github.com/badri-s2001/antigravity-claude-proxy) |
 | ✨ **Gemini CLI** | ✅ Full support (`gemini --experimental-acp`) |
 | ⚙️ **Custom** | ✅ Any ACP-compatible agent |
