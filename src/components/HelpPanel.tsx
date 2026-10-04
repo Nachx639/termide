@@ -89,20 +89,35 @@ const SHORTCUTS: ShortcutCategory[] = [
     ],
   },
   {
-    title: "Terminal",
+    title: "Terminal (every key goes to the shell)",
     shortcuts: [
-      { keys: "Any key", description: "Type in terminal" },
-      { keys: "Ctrl+C", description: "Interrupt command" },
-      { keys: "Ctrl+L", description: "Clear screen" },
+      { keys: "Ctrl+X → Tab", description: "Leave the terminal (next panel)" },
+      { keys: "Ctrl+X → K / P", description: "Command palette / open file" },
+      { keys: "Ctrl+X → X", description: "Send a literal Ctrl+X" },
+      { keys: "Shift+PgUp/PgDn", description: "Scroll back through output" },
+      { keys: "Shift+↑/↓, wheel", description: "Scroll line by line" },
+      { keys: "Shift+Enter", description: "Newline without submit (Claude Code)" },
+      { keys: "Enter (after exit)", description: "Restart the shell" },
+    ],
+  },
+  {
+    title: "AI Agent Panel",
+    shortcuts: [
+      { keys: "Enter", description: "Send prompt" },
+      { keys: "Esc", description: "Stop the running turn" },
+      { keys: "Esc Esc", description: "Disconnect agent" },
+      { keys: "←/→ Enter, 1-9", description: "Answer a permission request" },
+      { keys: "Ctrl+T", description: "Show / hide agent thoughts" },
     ],
   },
   {
     title: "Application",
     shortcuts: [
       { keys: "Ctrl+Q", description: "Zen Mode (distraction-free)" },
-      { keys: "Ctrl+B / ?", description: "Toggle this help panel" },
+      { keys: "F1 / Ctrl+B / ?", description: "Toggle this help panel" },
       { keys: "Ctrl+Space", description: "Toggle AI agent panel" },
-      { keys: "Ctrl+C", description: "Exit application" },
+      { keys: "Ctrl+C", description: "Exit (when the terminal is not focused)" },
+      { keys: "Ctrl+X → Q", description: "Exit from anywhere" },
     ],
   },
 ];
