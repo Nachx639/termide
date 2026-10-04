@@ -24,11 +24,15 @@ interface FileTreeProps {
   onFileOperation?: (operation: "create-file" | "create-folder" | "rename" | "delete", targetPath: string) => void;
 }
 
+const HIDDEN_NAMES = new Set([".git", ".DS_Store", "node_modules"]);
+
 function buildTree(dirPath: string, level: number = 0): FileNode[] {
   try {
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
     return entries
-      .filter((entry) => !entry.name.startsWith(".") && entry.name !== "node_modules")
+      // Dotfiles are shown (.github, .env, .gitignore...), except git's own dir
+      // and macOS clutter; node_modules stays hidden.
+      .filter((entry) => !HIDDEN_NAMES.has(entry.name))
       .sort((a, b) => {
         if (a.isDirectory() && !b.isDirectory()) return -1;
         if (!a.isDirectory() && b.isDirectory()) return 1;

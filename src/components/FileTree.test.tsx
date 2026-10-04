@@ -70,3 +70,26 @@ test("keyboard selection scrolls long lists (more than 20 entries)", async () =>
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("dotfiles are listed, .git and node_modules are not", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "termide-tree-"));
+  fs.mkdirSync(path.join(dir, ".git"));
+  fs.mkdirSync(path.join(dir, ".github"));
+  fs.mkdirSync(path.join(dir, "node_modules"));
+  fs.writeFileSync(path.join(dir, ".env.example"), "");
+  const setup = await testRender(
+    <box style={{ width: 40, height: 12 }}>
+      <FileTree rootPath={dir} onFileSelect={() => {}} focused={false} />
+    </box>,
+    { width: 40, height: 12 },
+  );
+  try {
+    const frame = await waitForFrame(setup, (f) => f.includes(".github"));
+    expect(frame).toContain(".env.example");
+    expect(frame).not.toContain(".git ");
+    expect(frame).not.toContain("node_modules");
+  } finally {
+    setup.renderer.destroy();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
