@@ -88,7 +88,7 @@ describe("labels and icons", () => {
   test("mini mode panel icons", () => {
     expect(getMiniModePanelIcon("explorer")).toBe("📁");
     expect(getMiniModePanelIcon("viewer")).toBe("📄");
-    expect(getMiniModePanelIcon("terminal")).toBe("⌨️");
+    expect(getMiniModePanelIcon("terminal")).toBe("💻");
     expect(getMiniModePanelIcon("agent")).toBe("🤖");
   });
 });

@@ -497,7 +497,7 @@ export function CopyPanel({ isOpen, onClose, content, title, onCopy }: CopyPanel
         }}
       >
         {/* Header */}
-        <box style={{ height: 1, paddingX: 1, border: ["bottom"], borderColor: "gray" }}>
+        <box style={{ height: 2, flexShrink: 0, paddingX: 1, border: ["bottom"], borderColor: "gray" }}>
           <box style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
             <box style={{ flexDirection: "row", gap: 1 }}>
               <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>📋 Copy Mode</text>
@@ -592,10 +592,10 @@ export function CopyPanel({ isOpen, onClose, content, title, onCopy }: CopyPanel
         </box>
 
         {/* Footer with shortcuts */}
-        <box style={{ height: 1, paddingX: 1, border: ["top"], borderColor: "gray" }}>
+        <box style={{ height: 2, flexShrink: 0, paddingX: 1, border: ["top"], borderColor: "gray" }}>
           <box style={{ flexDirection: "row", gap: 2 }}>
             <box style={{ flexDirection: "row" }}>
-              <text style={{ fg: "cyan" }}>🖱️ drag</text>
+              <text style={{ fg: "cyan" }}>Mouse drag</text>
               <text style={{ fg: "gray" }}> select</text>
             </box>
             <box style={{ flexDirection: "row" }}>

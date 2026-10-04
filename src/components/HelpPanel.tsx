@@ -54,7 +54,7 @@ export const SHORTCUTS: ShortcutCategory[] = [
   {
     title: "Copy Panel (Ctrl+X → V)",
     shortcuts: [
-      { keys: "🖱️ drag", description: "Select with mouse" },
+      { keys: "Mouse drag", description: "Select with mouse" },
       { keys: "v / V", description: "Char mode / Line mode" },
       { keys: "hjkl", description: "Navigate & extend selection" },
       { keys: "w / b", description: "Jump word forward/back" },
@@ -65,7 +65,7 @@ export const SHORTCUTS: ShortcutCategory[] = [
   {
     title: "Quick Copy (Global)",
     shortcuts: [
-      { keys: "🖱️ drag", description: "Select text with mouse" },
+      { keys: "Mouse drag", description: "Select text with mouse" },
       { keys: "Ctrl+Y", description: "Copy selection to clipboard" },
       { keys: "Ctrl+X → V", description: "Open Copy Panel" },
     ],

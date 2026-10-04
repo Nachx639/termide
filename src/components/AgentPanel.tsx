@@ -64,7 +64,7 @@ const AGENTS: AgentConfig[] = [
         proxyCommand: "antigravity-claude-proxy start"
     },
     { id: "gemini", name: "Gemini", icon: "✨", command: "gemini --experimental-acp", description: "Google Gemini CLI" },
-    { id: "custom", name: "Custom...", icon: "⚙️", command: "", description: "Enter custom command" },
+    { id: "custom", name: "Custom...", icon: "🔧", command: "", description: "Enter custom command" },
 ];
 
 const STATUS_ICON: Record<ToolStatus, { icon: string; color: string }> = {

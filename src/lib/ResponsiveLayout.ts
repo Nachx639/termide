@@ -148,7 +148,7 @@ export function getScreenSizeLabel(size: ScreenSize): string {
     case "tiny": return "📱 Mini";
     case "compact": return "📱 Compact";
     case "normal": return "💻 Normal";
-    case "wide": return "🖥️ Wide";
+    case "wide": return "💻 Wide";
   }
 }
 
@@ -159,7 +159,7 @@ export function getMiniModePanelIcon(panel: MiniModePanel): string {
   switch (panel) {
     case "explorer": return "📁";
     case "viewer": return "📄";
-    case "terminal": return "⌨️";
+    case "terminal": return "💻";
     case "agent": return "🤖";
   }
 }
