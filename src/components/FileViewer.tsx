@@ -70,6 +70,18 @@ export function FileViewer({
   // Suppresses the dirty flag for content changes triggered by us loading a file
   // (otherwise setText would immediately mark the buffer dirty and re-save).
   const suppressDirtyRef = useRef(false);
+  // What we last read from / wrote to disk, to tell our own writes from changes
+  // made by other programs (an agent in the terminal, git checkout, a formatter).
+  const diskRef = useRef<{ content: string; mtimeMs: number; size: number } | null>(null);
+  // Disk changed while we had unsaved edits: autosave is suspended until resolved.
+  const [conflict, setConflict] = useState(false);
+  const conflictRef = useRef(false);
+  conflictRef.current = conflict;
+  const [notice, setNotice] = useState<string | null>(null);
+  // Latest buffer text. Cleanups must use this: React detaches textareaRef before
+  // effect cleanups run, and reading it there yielded "" — which was then written
+  // over the file.
+  const latestTextRef = useRef<string | null>(null);
 
   const [isDirty, setIsDirty] = useState(false);
   const [initialContent, setInitialContent] = useState<string>("");
@@ -107,24 +119,43 @@ export function FileViewer({
     return path.basename(filePath);
   }, [filePath]);
 
-  // Flush any pending save to disk synchronously.
-  const flushPendingSave = useCallback(
-    (targetPath: string | null) => {
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current);
-        saveTimerRef.current = null;
-      }
-      if (!targetPath) return;
-      const content = textareaRef.current?.plainText;
-      if (content === undefined) return;
+  const statDisk = (p: string) => {
+    try {
+      const st = fs.statSync(p);
+      return { mtimeMs: st.mtimeMs, size: st.size };
+    } catch {
+      return null;
+    }
+  };
+
+  /**
+   * Write the buffer to `targetPath` unless the file changed on disk since we last
+   * read/wrote it — then flag a conflict instead of clobbering the other change.
+   * `force` (Ctrl+S during a conflict) overwrites anyway.
+   */
+  const saveNow = useCallback((targetPath: string, content: string, force = false): boolean => {
+    const known = diskRef.current;
+    const st = statDisk(targetPath);
+    if (!force && known && st && (st.mtimeMs !== known.mtimeMs || st.size !== known.size)) {
+      let onDisk = "";
       try {
-        fs.writeFileSync(targetPath, content);
-      } catch {
-        // Swallow write errors; legacy viewer also did not surface them here.
+        onDisk = fs.readFileSync(targetPath, "utf8");
+      } catch {}
+      if (onDisk !== known.content && onDisk !== content) {
+        setConflict(true);
+        return false;
       }
-    },
-    [],
-  );
+    }
+    try {
+      fs.writeFileSync(targetPath, content);
+      const after = statDisk(targetPath);
+      diskRef.current = { content, mtimeMs: after?.mtimeMs ?? 0, size: after?.size ?? 0 };
+      setConflict(false);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
 
   // Load file when filePath changes.
   useEffect(() => {
@@ -148,6 +179,10 @@ export function FileViewer({
     setInitialContent(content);
     setLineCount(content === "" ? 0 : content.split("\n").length);
     setIsDirty(false);
+    setConflict(false);
+    latestTextRef.current = content;
+    const st = statDisk(filePath);
+    diskRef.current = { content, mtimeMs: st?.mtimeMs ?? 0, size: st?.size ?? 0 };
 
     // If the textarea is already mounted (re-loading a different file), call
     // setText so we get a clean undo history per file.
@@ -163,19 +198,64 @@ export function FileViewer({
     }
 
     return () => {
-      // When filePath changes, ensure pending writes for the previous file land
-      // on the previous file (not the new one).
+      // When filePath changes (or we unmount), pending edits land on the previous
+      // file — never silently dropped, never written over someone else's change.
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
-        try {
-          fs.writeFileSync(filePath, textareaRef.current?.plainText ?? "");
-        } catch {
-          // ignore
-        }
+        const text = latestTextRef.current;
+        if (!conflictRef.current && text !== null) saveNow(filePath, text);
       }
     };
+  }, [filePath, saveNow]);
+
+  // Follow changes made on disk by other programs (agents, git, formatters).
+  // Polling mtime/size is cheap and, unlike fs.watch on macOS, survives the
+  // write-temp-then-rename saves most tools do.
+  useEffect(() => {
+    if (!filePath) return;
+    const timer = setInterval(() => {
+      const known = diskRef.current;
+      const st = statDisk(filePath);
+      if (!known || !st || (st.mtimeMs === known.mtimeMs && st.size === known.size)) return;
+      let onDisk: string;
+      try {
+        onDisk = fs.readFileSync(filePath, "utf8");
+      } catch {
+        return;
+      }
+      diskRef.current = { content: onDisk, mtimeMs: st.mtimeMs, size: st.size };
+      const ta = textareaRef.current;
+      if (!ta || onDisk === known.content) return;
+      const hasLocalEdits = saveTimerRef.current !== null || ta.plainText !== known.content;
+      if (hasLocalEdits) {
+        // Keep the user's edits; stop autosave from overwriting the other change.
+        if (saveTimerRef.current) {
+          clearTimeout(saveTimerRef.current);
+          saveTimerRef.current = null;
+        }
+        setConflict(true);
+        return;
+      }
+      const line = ta.visualCursor?.logicalRow ?? 0;
+      suppressDirtyRef.current = true;
+      ta.setText(onDisk);
+      latestTextRef.current = onDisk;
+      setInitialContent(onDisk);
+      setLineCount(onDisk === "" ? 0 : onDisk.split("\n").length);
+      try {
+        ta.gotoLine(Math.min(line, Math.max(0, onDisk.split("\n").length - 1)));
+      } catch {}
+      setNotice("Reloaded: file changed on disk");
+    }, 1000);
+    return () => clearInterval(timer);
   }, [filePath]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 2500);
+    return () => clearTimeout(t);
+  }, [notice]);
 
   // Jump to initialLine when set (after file content is loaded).
   useEffect(() => {
@@ -190,16 +270,6 @@ export function FileViewer({
     }, 0);
     return () => clearTimeout(handle);
   }, [filePath, initialLine, initialContent]);
-
-  // Flush save on unmount.
-  useEffect(() => {
-    return () => {
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current);
-        saveTimerRef.current = null;
-      }
-    };
-  }, []);
 
   // EditorTraits — declare which keys the textarea wants to swallow itself
   // (Tab inserts indent, Esc only clears overlays; we don't want either to
@@ -219,6 +289,36 @@ export function FileViewer({
   // Ctrl+F inline search. Esc clears the topmost overlay.
   useKeyboard((event) => {
     if (!focused) return;
+
+    // Ctrl+S: save now (during a conflict: keep my version and overwrite disk).
+    if (event.ctrl && event.name === "s" && filePath) {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      if (saveNow(filePath, textareaRef.current?.plainText ?? "", conflict)) {
+        setIsDirty(false);
+        setNotice(conflict ? "Saved your version over the disk copy" : "Saved");
+      }
+      return;
+    }
+    // Ctrl+R during a conflict: drop my edits, load what is on disk.
+    if (conflict && event.ctrl && event.name === "r" && filePath) {
+      let onDisk = "";
+      try {
+        onDisk = fs.readFileSync(filePath, "utf8");
+      } catch {}
+      const st = statDisk(filePath);
+      diskRef.current = { content: onDisk, mtimeMs: st?.mtimeMs ?? 0, size: st?.size ?? 0 };
+      suppressDirtyRef.current = true;
+      textareaRef.current?.setText(onDisk);
+      latestTextRef.current = onDisk;
+      setInitialContent(onDisk);
+      setIsDirty(false);
+      setConflict(false);
+      setNotice("Loaded the version on disk");
+      return;
+    }
 
     // Search-mode capture: while the search bar is open, all printable keys
     // type into the query, and Enter / arrows step through matches.
@@ -244,8 +344,13 @@ export function FileViewer({
         setSearchQuery((q) => q.slice(0, -1));
         return;
       }
-      if (event.name && event.name.length === 1 && !event.ctrl && !event.meta) {
-        setSearchQuery((q) => q + event.name);
+      if (event.name === "space") {
+        setSearchQuery((q) => q + " ");
+        return;
+      }
+      // `sequence` keeps upper case and non-ASCII (`name` is lower-cased).
+      if (event.sequence && !event.ctrl && !event.meta && !/[\x00-\x1f\x7f]/.test(event.sequence)) {
+        setSearchQuery((q) => q + event.sequence);
         return;
       }
       // Other keys fall through (so e.g. Ctrl+F still toggles).
@@ -490,7 +595,10 @@ export function FileViewer({
   const handleContentChange = useCallback(() => {
     // Track line count for the bottomTitle / status row.
     const ta = textareaRef.current;
-    if (ta) setLineCount(ta.lineCount);
+    if (ta) {
+      setLineCount(ta.lineCount);
+      latestTextRef.current = ta.plainText;
+    }
 
     // If the change came from us programmatically loading a file, do not mark dirty.
     if (suppressDirtyRef.current) {
@@ -499,21 +607,28 @@ export function FileViewer({
     }
 
     if (!filePath) return;
+    // Same text as on disk (initial load, undo back to saved, reload): nothing to
+    // save. Previously opening a file marked it dirty and rewrote it unchanged.
+    if (ta && diskRef.current && ta.plainText === diskRef.current.content) {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      setIsDirty(false);
+      return;
+    }
     setIsDirty(true);
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     const targetPath = filePath;
+    if (conflictRef.current) return; // resolve the conflict first (Ctrl+S / Ctrl+R)
     saveTimerRef.current = setTimeout(() => {
       saveTimerRef.current = null;
       const latest = textareaRef.current?.plainText ?? "";
-      try {
-        fs.writeFileSync(targetPath, latest);
-        setIsDirty(false);
-      } catch {
-        // Keep dirty state if the write failed.
-      }
+      // Keeps the dirty flag if the write failed or the disk changed underneath.
+      if (saveNow(targetPath, latest)) setIsDirty(false);
     }, SAVE_DEBOUNCE_MS);
-  }, [filePath]);
+  }, [filePath, saveNow]);
 
   const handleCursorChange = useCallback(() => {
     const ta = textareaRef.current;
@@ -596,6 +711,19 @@ export function FileViewer({
 
       {/* Separator */}
       <box style={{ height: 1, border: ["top"], borderColor: "gray" }} />
+
+      {conflict && (
+        <box style={{ height: 1, paddingX: 1, flexDirection: "row", backgroundColor: "#5a1d1d", flexShrink: 0 }}>
+          <text wrapMode="none" style={{ fg: "white", bg: "#5a1d1d", attributes: TextAttributes.BOLD }}>
+            {"Changed on disk by another program while you were editing — Ctrl+R: load disk version · Ctrl+S: keep yours"}
+          </text>
+        </box>
+      )}
+      {notice && !conflict && (
+        <box style={{ height: 1, paddingX: 1, flexDirection: "row", backgroundColor: "#1d3a2a", flexShrink: 0 }}>
+          <text wrapMode="none" style={{ fg: "white", bg: "#1d3a2a" }}>{notice}</text>
+        </box>
+      )}
 
       {/* Inline search bar (Ctrl+F): Enter / Shift+Enter cycle, Esc closes */}
       {searchOpen && (
