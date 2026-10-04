@@ -81,6 +81,10 @@
 - Quitting during a conflict keeps your version as `<file>.termide-unsaved`.
 
 ### Dependencies and security
+- Published on npm as **`@nachx639/termide`** (`bunx @nachx639/termide`). The unscoped
+  `termide` name belongs to an unrelated package; the README used to point there.
+- `ws` is no longer a direct dependency (nothing imported it); only OpenTUI uses it,
+  pinned to 8.22.0.
 - OpenTUI 0.2.1 → 0.5.14, React 19.3.0, current type packages; every test and check
   passes on the new versions.
 - `bun audit` was reporting 3 vulnerabilities (1 critical, 2 high) in transitive
