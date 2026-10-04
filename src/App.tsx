@@ -13,6 +13,7 @@ import { FileTree } from "./components/FileTree";
 import { FileViewer } from "./components/FileViewer";
 import { Terminal } from "./components/Terminal";
 import { isTerminalHostKey } from "./lib/terminal/keyRouting";
+import { getTerminalManager } from "./lib/terminal/TerminalManager";
 import { FuzzyFinder } from "./components/FuzzyFinder";
 import { CommandPalette } from "./components/CommandPalette";
 import type { Command } from "./components/CommandPalette";
@@ -739,7 +740,7 @@ export function App({ rootPath }: AppProps) {
         setLeaderMode(false);
         notify("Leader mode cancelled", "info", 1000);
       }, 2000);
-      notify("Ctrl+X → Tab panels · K palette · P files · H help · V copy · Q quit · X send ^X", "info", 2000);
+      notify("Ctrl+X → Tab panels · T new term · ]/[ switch · K palette · P files · H help · Q quit", "info", 2000);
       return;
     }
 
@@ -779,6 +780,25 @@ export function App({ rootPath }: AppProps) {
           if (i === -1) return order[0] as Panel;
           return order[(i + (event.shift ? order.length - 1 : 1)) % order.length] as Panel;
         });
+        return;
+      }
+
+      // Terminal tabs: T new, ] / [ next / previous, W close
+      if (event.name === "t" || event.name === "T") {
+        getTerminalManager(rootPath).newTab();
+        setShowAgent(false);
+        setFocusedPanel("terminal");
+        return;
+      }
+      if (event.name === "]" || event.name === "[") {
+        getTerminalManager(rootPath).cycle(event.name === "]" ? 1 : -1);
+        setFocusedPanel("terminal");
+        return;
+      }
+      if ((event.name === "w" || event.name === "W") && focusedPanel === "terminal") {
+        const tm = getTerminalManager(rootPath);
+        tm.closeActive();
+        tm.ensureTab();
         return;
       }
 
