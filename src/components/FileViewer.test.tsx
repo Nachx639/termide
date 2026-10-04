@@ -253,3 +253,26 @@ test("find puts the cursor on the match, so typing continues there", async () =>
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("binary files are not opened as text and are never written", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "termide-bin-"));
+  const file = path.join(dir, "logo.png");
+  const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0xff, 0xfe, 0x80]);
+  fs.writeFileSync(file, bytes);
+  const setup = await testRender(
+    <box style={{ width: 80, height: 12 }}>
+      <FileViewer filePath={file} focused={true} rootPath={dir} height={12} />
+    </box>,
+    { width: 80, height: 12 },
+  );
+  try {
+    await waitForFrame(setup, (f) => f.includes("Binary file"));
+    await setup.mockInput.typeText("oops");
+    setup.mockInput.pressKey("s", { ctrl: true });
+    await Bun.sleep(800);
+    expect(Buffer.compare(fs.readFileSync(file), bytes)).toBe(0);
+  } finally {
+    setup.renderer.destroy();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
