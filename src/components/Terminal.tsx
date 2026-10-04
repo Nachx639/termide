@@ -119,7 +119,7 @@ export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyRea
     >
       {(focused || tabs.length > 1) && (
         <box style={{ paddingX: 1, height: 1, flexDirection: "row", flexShrink: 0 }}>
-          {focused && <text style={{ fg: "black", bg: "cyan", attributes: TextAttributes.BOLD }}> FOCUS </text>}
+          {focused && <text style={{ fg: "black", bg: "cyan", attributes: TextAttributes.BOLD, flexShrink: 0 }}> FOCUS </text>}
           {tabs.length > 1 ? (
             tabs.map((t, i) => {
               const on = t.id === activeId;
@@ -127,16 +127,20 @@ export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyRea
                 <text
                   key={t.id}
                   onMouseDown={() => manager.activate(t.id)}
-                  style={{ fg: on ? "black" : t.session.exited ? "gray" : "white", bg: on ? "#d4a800" : undefined, attributes: on ? TextAttributes.BOLD : 0 }}
+                  style={{ fg: on ? "black" : t.session.exited ? "gray" : "white", bg: on ? "#d4a800" : undefined, attributes: on ? TextAttributes.BOLD : 0, flexShrink: 0 }}
                 >
                   {` ${i + 1} ${tabLabel(t.session.title)} `}
                 </text>
               );
             })
           ) : (
-            <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}> Terminal</text>
+            <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, flexShrink: 0 }}> Terminal</text>
           )}
-          {focused && <text style={{ fg: "gray" }}>  Ctrl+X: Tab leave · T new · ]/[ switch · W close</text>}
+          {focused && (
+            <text wrapMode="none" style={{ fg: "gray", flexShrink: 1 }}>
+              {"  Ctrl+X: Tab leave · T new · ]/[ switch · W close"}
+            </text>
+          )}
         </box>
       )}
       <box style={{ flexGrow: 1, paddingX: 1 }}>

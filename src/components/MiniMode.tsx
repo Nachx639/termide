@@ -33,37 +33,33 @@ export function MiniMode({
     ? ["explorer", "viewer", "agent"]
     : ["explorer", "viewer", "terminal"];
 
-  // Handle keyboard navigation
+  // Panel switching. In the explorer, 1/2/3 and Tab switch directly; in the
+  // terminal, editor and agent those keys are typed text (they used to switch
+  // panels mid-command), so there it is Ctrl+X then 1/2/3/Tab.
+  const leaderRef = React.useRef(false);
+  const switchTo = (key: string, shift: boolean): boolean => {
+    if (key === "1") setActivePanel("explorer");
+    else if (key === "2") setActivePanel("viewer");
+    else if (key === "3") setActivePanel(showAgent ? "agent" : "terminal");
+    else if (key === "tab") {
+      const i = panels.indexOf(activePanel);
+      setActivePanel(panels[(i + (shift ? panels.length - 1 : 1)) % panels.length]!);
+    } else return false;
+    return true;
+  };
+
   useKeyboard((event) => {
-    // Number keys to switch panels (1-4)
-    if (event.name === "1") {
-      setActivePanel("explorer");
+    if (event.eventType === "release") return;
+    if (leaderRef.current) {
+      leaderRef.current = false;
+      switchTo(event.name, event.shift);
       return;
     }
-    if (event.name === "2") {
-      setActivePanel("viewer");
+    if (event.ctrl && !event.shift && event.name === "x") {
+      leaderRef.current = true;
       return;
     }
-    if (event.name === "3") {
-      setActivePanel(showAgent ? "agent" : "terminal");
-      return;
-    }
-
-    // Tab to cycle panels
-    if (event.name === "tab" && !event.shift && !event.ctrl) {
-      const currentIndex = panels.indexOf(activePanel);
-      const nextIndex = (currentIndex + 1) % panels.length;
-      setActivePanel(panels[nextIndex]!);
-      return;
-    }
-
-    // Shift+Tab to cycle backwards
-    if (event.name === "tab" && event.shift) {
-      const currentIndex = panels.indexOf(activePanel);
-      const prevIndex = (currentIndex - 1 + panels.length) % panels.length;
-      setActivePanel(panels[prevIndex]!);
-      return;
-    }
+    if (activePanel === "explorer" && !event.ctrl && !event.meta && switchTo(event.name, event.shift)) return;
 
     // Ctrl+Space to toggle agent
     if (event.ctrl && (event.name === "space" || event.name === " ")) {
@@ -156,7 +152,7 @@ export function MiniMode({
         </text>
         <box style={{ flexGrow: 1 }} />
         <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
-          Tab:switch │ Ctrl+Space:AI
+          {activePanel === "explorer" ? "Tab/1-3:switch" : "Ctrl+X 1-3:switch"} │ Ctrl+Space:AI
         </text>
       </box>
     </box>

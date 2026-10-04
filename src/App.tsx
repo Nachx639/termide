@@ -632,6 +632,8 @@ export function App({ rootPath }: AppProps) {
   }, [rootPath]);
 
   useKeyboard(async (event) => {
+    // Mini mode handles its own keys (see MiniMode).
+    if (isMiniMode) return;
     // Don't handle keyboard if overlays are open (except help panel)
     if (showFuzzyFinder || showCommandPalette || showGlobalSearch || showThemePicker || showQuickSettings) return;
 
