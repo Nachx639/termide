@@ -340,8 +340,8 @@ export function AgentPanel({ rootPath, focused, onFocus, isolated = false, onOpe
             {/* Header */}
             <box style={{ height: 1, paddingX: 1, flexDirection: "row", justifyContent: "space-between", flexShrink: 0 }}>
                 <box style={{ flexDirection: "row" }}>
-                    {focused && <text style={{ fg: "black", bg: theme.accent, attributes: TextAttributes.BOLD }}> FOCUS </text>}
-                    <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>AI Agent </text>
+                    {focused && <text style={{ fg: "black", bg: theme.accent, attributes: TextAttributes.BOLD, flexShrink: 0 }}> FOCUS </text>}
+                    <text wrapMode="none" style={{ fg: "cyan", attributes: TextAttributes.BOLD, flexShrink: 0 }}>{focused ? " AI Agent " : "AI Agent "}</text>
                     <text style={{ fg: status === "connected" ? "green" : status === "connecting" ? "yellow" : "red" }}>({status})</text>
                 </box>
                 <text style={{ fg: "gray" }}>{busy ? "Esc: stop · Esc Esc: disconnect" : "Ctrl+T: thoughts · Esc Esc: disconnect"}</text>

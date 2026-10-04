@@ -199,6 +199,22 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
         } catch {}
     }, [selectedIndex, changes.length]);
 
+    // One line per file: name first, then its folder dimmed (long paths used to
+    // wrap onto two lines). A single <text> per row also avoids OpenTUI leaving
+    // a newly inserted keyed row blank.
+    const renderChangeRow = (change: { path: string; status: FileGitStatus }, isSelected: boolean) => {
+        const slash = change.path.lastIndexOf("/");
+        const name = slash === -1 ? change.path : change.path.slice(slash + 1);
+        const dir = slash === -1 ? "" : change.path.slice(0, slash);
+        return (
+            <text wrapMode="none" style={{ fg: isSelected ? "cyan" : "white" }}>
+                <span fg={getFileStatusColor(change.status) as any}>{getFileStatusIcon(change.status)}</span>
+                {` ${name}`}
+                {dir ? <span fg="gray">{`  ${dir}`}</span> : null}
+            </text>
+        );
+    };
+
     const borderColor = focused ? theme.borderFocused : theme.border;
 
     // Group changes
@@ -216,10 +232,10 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
             onMouseDown={onFocus}
         >
             <box style={{ paddingX: 1, height: 1, backgroundColor: "#1a1a1a", flexDirection: "row" }}>
-                {focused && <text style={{ fg: "black", bg: theme.accent, attributes: TextAttributes.BOLD }}> FOCUS </text>}
-                <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>Source Control</text>
+                {focused && <text style={{ fg: "black", bg: theme.accent, attributes: TextAttributes.BOLD, flexShrink: 0 }}> FOCUS </text>}
+                <text wrapMode="none" style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a", flexShrink: 0 }}>{focused ? " Source Control" : "Source Control"}</text>
                 {focused && (
-                    <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#1a1a1a" }}> s:stage c:commit x:discard</text>
+                    <text wrapMode="none" style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#1a1a1a", flexShrink: 1 }}> s:stage c:commit x:discard</text>
                 )}
             </box>
 
@@ -262,17 +278,14 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
                         {staged.length > 0 && (
                             <box style={{ flexDirection: "column", marginBottom: 1 }}>
                                 <box style={{ flexDirection: "row" }}>
-                                    <text style={{ fg: "green", attributes: TextAttributes.BOLD }}>✓ Staged Changes ({staged.length})</text>
-                                    {focused && <text style={{ fg: "gray", attributes: TextAttributes.DIM }}> [u:unstage U:unstage all]</text>}
+                                    <text wrapMode="none" style={{ fg: "green", attributes: TextAttributes.BOLD, flexShrink: 0 }}>✓ Staged ({staged.length})</text>
+                                    {focused && <text wrapMode="none" style={{ fg: "gray", attributes: TextAttributes.DIM, flexShrink: 1 }}> u:unstage U:all</text>}
                                 </box>
                                 {staged.map((change, idx) => {
                                     const isSelected = changes.indexOf(change) === selectedIndex && focused;
                                     return (
                                         <box key={`staged-${change.path}`} id={`sc:${changes.indexOf(change)}`} style={{ flexDirection: "row", backgroundColor: isSelected ? "blue" : undefined as any }}>
-                                            <text style={{ fg: getFileStatusColor(change.status) as any }}>
-                                                {getFileStatusIcon(change.status)}
-                                            </text>
-                                            <text style={{ fg: isSelected ? "cyan" : "white" as any }}> {change.path}</text>
+                                            {renderChangeRow(change, isSelected)}
                                         </box>
                                     );
                                 })}
@@ -281,17 +294,14 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
                         {unstaged.length > 0 && (
                             <box style={{ flexDirection: "column" }}>
                                 <box style={{ flexDirection: "row" }}>
-                                    <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD }}>○ Changes ({unstaged.length})</text>
-                                    {focused && <text style={{ fg: "gray", attributes: TextAttributes.DIM }}> [s:stage S:stage all]</text>}
+                                    <text wrapMode="none" style={{ fg: "#d4a800", attributes: TextAttributes.BOLD, flexShrink: 0 }}>○ Changes ({unstaged.length})</text>
+                                    {focused && <text wrapMode="none" style={{ fg: "gray", attributes: TextAttributes.DIM, flexShrink: 1 }}> s:stage S:all</text>}
                                 </box>
                                 {unstaged.map((change, idx) => {
                                     const isSelected = changes.indexOf(change) === selectedIndex && focused;
                                     return (
                                         <box key={`unstaged-${change.path}`} id={`sc:${changes.indexOf(change)}`} style={{ flexDirection: "row", backgroundColor: isSelected ? "blue" : undefined as any }}>
-                                            <text style={{ fg: getFileStatusColor(change.status) as any }}>
-                                                {getFileStatusIcon(change.status)}
-                                            </text>
-                                            <text style={{ fg: isSelected ? "cyan" : "white" as any }}> {change.path}</text>
+                                            {renderChangeRow(change, isSelected)}
                                         </box>
                                     );
                                 })}
