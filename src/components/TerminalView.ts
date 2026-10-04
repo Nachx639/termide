@@ -96,13 +96,17 @@ export class TerminalViewRenderable extends Renderable {
   onTerminalSize: ((cols: number, rows: number) => void) | null = null;
   onOpenPath: ((ref: PathRef) => void) | null = null;
   private _matches: SearchMatch[] = [];
+  private dirty = true;
   private lastClick = { at: 0, x: -1, y: -1 };
   /** Mouse selection in buffer coordinates so it stays put while scrolling. */
   private selAnchor: BufPoint | null = null;
   private selFocus: BufPoint | null = null;
 
   constructor(ctx: RenderContext, options: TerminalViewOptions) {
-    super(ctx, { ...options, buffered: false });
+    // Buffered: the view draws into its own frame buffer and only repaints when
+    // something changed; other frames just blit it (natively). Repainting every
+    // cell on every frame was ~10% of the app's CPU while you typed elsewhere.
+    super(ctx, { ...options, buffered: true });
     this.selectable = true;
     this.session = options.session ?? null;
     this._termFocused = options.terminalFocused ?? false;
@@ -113,6 +117,11 @@ export class TerminalViewRenderable extends Renderable {
 
   set matches(m: SearchMatch[] | undefined) {
     this._matches = m ?? [];
+    this.repaint();
+  }
+
+  private repaint() {
+    this.dirty = true;
     this.requestRender();
   }
   get matches() { return this._matches; }
@@ -122,21 +131,22 @@ export class TerminalViewRenderable extends Renderable {
     if (s === this._session) return;
     this.unsubscribe?.();
     this._session = s;
-    this.unsubscribe = s ? s.onUpdate(() => this.requestRender()) : null;
+    this.unsubscribe = s ? s.onUpdate(() => this.repaint()) : null;
     if (s && this.width > 0 && this.height > 0) s.resize(this.width, this.height);
-    this.requestRender();
+    this.repaint();
   }
 
   // Not `focused`: that name belongs to Renderable's own focus system.
   set terminalFocused(v: boolean) {
     if (v === this._termFocused) return;
     this._termFocused = v;
-    this.requestRender();
+    this.repaint();
   }
   get terminalFocused() { return this._termFocused; }
 
   protected override onResize(width: number, height: number): void {
     super.onResize(width, height);
+    this.dirty = true;
     if (width > 0 && height > 0) {
       this._session?.resize(width, height);
       this.onTerminalSize?.(width, height);
@@ -194,7 +204,7 @@ export class TerminalViewRenderable extends Renderable {
     const had = this.selAnchor !== null;
     if (!s || !local?.isActive) {
       this.selAnchor = this.selFocus = null;
-      if (had) this.requestRender();
+      if (had) this.repaint();
       return had;
     }
     const top = s.viewportTop;
@@ -202,7 +212,7 @@ export class TerminalViewRenderable extends Renderable {
     const clampLine = (l: number) => Math.max(0, Math.min(s.xterm.buffer.active.length - 1, l));
     this.selAnchor = { line: clampLine(top + local.anchorY), col: clampCol(local.anchorX) };
     this.selFocus = { line: clampLine(top + local.focusY), col: clampCol(local.focusX) };
-    this.requestRender();
+    this.repaint();
     return true;
   }
 
@@ -251,11 +261,15 @@ export class TerminalViewRenderable extends Renderable {
     const w = this.width;
     const h = this.height;
     if (!s || w <= 0 || h <= 0) return;
+    if (!this.dirty) return; // frame buffer still holds the last paint
+    this.dirty = false;
+    buffer.clear(TRANSPARENT);
 
     const buf = s.xterm.buffer.active;
     const top = s.viewportTop;
-    const ox = this.screenX;
-    const oy = this.screenY;
+    // Drawing into our own frame buffer: local coordinates.
+    const ox = 0;
+    const oy = 0;
     const following = s.scrollOffset === 0;
     const showCursor = this._termFocused && following && !s.exited && (s.xterm as any)._core?.coreService?.isCursorHidden !== true;
     const cursorX = buf.cursorX;
