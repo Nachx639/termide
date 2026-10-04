@@ -146,6 +146,7 @@ The terminal and the editor keep their keys (Tab completion, `Ctrl+R`, `Ctrl+W`,
 | :--- | :--- |
 | `Tab` / `Shift+Tab` | Next / previous panel |
 | `T` · `]` · `[` · `W` | New terminal tab · next · previous · close |
+| `\` · `O` | Split the terminal side by side (again to unsplit) · other pane |
 | `K` · `P` · `S` · `H` | Command palette · open file · search in files · help |
 | `/` | Search the terminal output (scrollback) |
 | `F` | Maximize / restore the focused panel |
@@ -186,7 +187,7 @@ it reloads; if you had unsaved edits you choose (`Ctrl+R` theirs, `Ctrl+S` yours
 - [x] Inline code editing
 - [x] Themes
 - [x] Terminal tabs
-- [ ] Split terminals
+- [x] Split terminals
 - [ ] Plugin system
 - [ ] LSP support
 

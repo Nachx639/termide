@@ -740,6 +740,17 @@ export function App({ rootPath }: AppProps) {
         setFocusedPanel("terminal");
         return;
       }
+      // \ = split the terminal side by side (again: unsplit), O = other pane
+      if (event.name === "\\" && (focusedPanel === "terminal" || !showAgent)) {
+        getTerminalManager(rootPath).toggleSplit();
+        setShowAgent(false);
+        setFocusedPanel("terminal");
+        return;
+      }
+      if ((event.name === "o" || event.name === "O") && focusedPanel === "terminal") {
+        getTerminalManager(rootPath).focusOtherPane();
+        return;
+      }
       if ((event.name === "w" || event.name === "W") && focusedPanel === "terminal") {
         const tm = getTerminalManager(rootPath);
         tm.closeActive();

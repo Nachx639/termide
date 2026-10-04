@@ -83,6 +83,7 @@ export const SHORTCUTS: ShortcutCategory[] = [
       { keys: "Double-click path", description: "Open file:line from the output" },
       { keys: "Drag", description: "Select and copy output" },
       { keys: "Ctrl+X → T / ] / [", description: "New tab / next / previous" },
+      { keys: "Ctrl+X → \\ / O", description: "Split side by side / other pane" },
       { keys: "Shift+Enter", description: "Newline without submit (Claude Code)" },
       { keys: "Enter (after exit)", description: "Restart the shell" },
     ],
