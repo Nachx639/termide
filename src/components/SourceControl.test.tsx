@@ -55,7 +55,7 @@ test("discard needs a second x; Enter commits the typed message", async () => {
     setup.mockInput.pressKey("s"); // stage keep.txt
     await waitForFrame(setup, (f) => f.includes("✓ Staged (1)"));
     setup.mockInput.pressKey("c");
-    await waitForFrame(setup, (f) => f.includes("Commit Message"));
+    await waitForFrame(setup, (f) => f.includes("Commit 1 staged file"));
     await setup.mockInput.typeText("Fix the thing");
     await waitForFrame(setup, (f) => f.includes("Fix the thing"));
     setup.mockInput.pressEnter();
