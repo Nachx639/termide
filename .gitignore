@@ -38,4 +38,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # claude-mem auto-generated context (per-user, not for the repo)
 **/CLAUDE.md
+!/CLAUDE.md
+
+# Personal, machine-specific notes (screen coordinates, local automation)
+CLAUDE.local.md
+AUTOMATION.md
 
