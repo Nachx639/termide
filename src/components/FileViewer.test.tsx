@@ -236,3 +236,20 @@ test("undo after the edit was saved is saved too", async () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("find puts the cursor on the match, so typing continues there", async () => {
+  const { dir, file, setup } = await mount("first line\nhello world");
+  try {
+    setup.mockInput.pressKey("f", { ctrl: true });
+    await waitForFrame(setup, (f) => f.includes("type to search"));
+    await setup.mockInput.typeText("world");
+    await waitForFrame(setup, (f) => f.includes("1/1"));
+    setup.mockInput.pressEscape();
+    await waitForFrame(setup, (f) => !f.includes("Esc:close"));
+    await setup.mockInput.typeText("X");
+    await waitForFrame(setup, (f) => f.includes("hello Xworld"));
+  } finally {
+    setup.renderer.destroy();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

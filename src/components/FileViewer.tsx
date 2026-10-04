@@ -98,6 +98,20 @@ export function FileViewer({
   const theme = useTheme();
   const textareaRef = useRef<TextareaRenderable | null>(null);
   const lineNumberRef = useRef<LineNumberRenderable | null>(null);
+  // Put the cursor on a match / definition (gotoLine alone left it at column 0,
+  // so typing after a search went to the start of the line).
+  const placeCursor = (line: number, col: number) => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    try {
+      ta.setCursor(line, Math.max(0, col));
+    } catch {
+      try {
+        ta.gotoLine(line);
+      } catch {}
+    }
+    setTimeout(() => handleCursorChangeRef.current(), 0);
+  };
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Suppresses the dirty flag for content changes triggered by us loading a file
   // (otherwise setText would immediately mark the buffer dirty and re-save).
@@ -318,13 +332,16 @@ export function FileViewer({
         return;
       }
       const line = ta.visualCursor?.logicalRow ?? 0;
+      const col = ta.visualCursor?.logicalCol ?? 0;
       suppressDirtyRef.current = true;
       ta.setText(onDisk);
       latestTextRef.current = onDisk;
       setInitialContent(onDisk);
       setLineCount(onDisk === "" ? 0 : onDisk.split("\n").length);
       try {
-        ta.gotoLine(Math.min(line, Math.max(0, onDisk.split("\n").length - 1)));
+        const lines = onDisk.split("\n");
+        const row = Math.min(line, Math.max(0, lines.length - 1));
+        ta.setCursor(row, Math.min(col, (lines[row] ?? "").length));
       } catch {}
       setNotice("Reloaded: file changed on disk");
     }, 1000);
@@ -436,7 +453,7 @@ export function FileViewer({
             : (searchIndex + 1) % searchMatches.length;
           setSearchIndex(idx);
           const m = searchMatches[idx];
-          if (m) textareaRef.current?.gotoLine(m.line);
+          if (m) placeCursor(m.line, m.col);
         }
         return;
       }
@@ -470,7 +487,7 @@ export function FileViewer({
       } else if (path.resolve(def.filePath) === path.resolve(filePath)) {
         // SymbolFinder lines are 0-indexed, like gotoLine.
         try {
-          ta.gotoLine(Math.max(0, def.line));
+          placeCursor(Math.max(0, def.line), def.column);
         } catch {}
       } else {
         onJumpToFile?.(def.filePath, def.line + 1); // App's initialLine is 1-indexed
@@ -528,7 +545,7 @@ export function FileViewer({
     setSearchMatches(out);
     setSearchIndex(0);
     if (out.length > 0 && out[0]) {
-      textareaRef.current?.gotoLine(out[0].line);
+      placeCursor(out[0].line, out[0].col);
     }
   }, [searchOpen, searchQuery, isDirty]);
 
@@ -958,7 +975,7 @@ export function FileViewer({
           // SymbolLocation.line is 0-indexed, like gotoLine (the old "- 1" landed
           // one line above every symbol).
           try {
-            textareaRef.current?.gotoLine(Math.max(0, sym.line));
+            placeCursor(Math.max(0, sym.line), sym.column);
           } catch {
             // ignore
           }
