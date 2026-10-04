@@ -25,8 +25,7 @@ const SHORTCUTS: ShortcutCategory[] = [
       { keys: "Shift+Tab", description: "Switch to previous panel" },
       { keys: "Ctrl+P", description: "Quick open file (fuzzy finder)" },
       { keys: "Ctrl+K", description: "Open command palette" },
-      { keys: "Ctrl+G", description: "Go to line" },
-      { keys: "Ctrl+Shift+O / @", description: "Go to symbol" },
+      { keys: "Ctrl+Shift+F", description: "Search in all files" },
     ],
   },
   {
@@ -39,34 +38,16 @@ const SHORTCUTS: ShortcutCategory[] = [
     ],
   },
   {
-    title: "Editor View",
+    title: "Editor (type to edit, autosaves)",
     shortcuts: [
-      { keys: "Ctrl+W", description: "Toggle word wrap" },
-      { keys: "Ctrl+E", description: "Toggle minimap" },
-      { keys: "Ctrl+N", description: "Toggle line numbers" },
-      { keys: "Ctrl+R", description: "Toggle relative numbers" },
-      { keys: "Ctrl+T", description: "Toggle sticky scroll" },
-      { keys: "Ctrl+I", description: "Toggle git gutter" },
-    ],
-  },
-  {
-    title: "Editor Navigation",
-    shortcuts: [
-      { keys: "j / ↓", description: "Scroll down" },
-      { keys: "k / ↑", description: "Scroll up" },
-      { keys: "g", description: "Go to start" },
-      { keys: "G", description: "Go to end" },
-      { keys: "Ctrl+D", description: "Select word / next occurrence" },
-      { keys: "z / Z", description: "Fold / Fold all" },
-    ],
-  },
-  {
-    title: "Selection & Copy (File Viewer)",
-    shortcuts: [
-      { keys: "V", description: "Start/toggle visual line selection" },
-      { keys: "Shift+j/k", description: "Extend selection up/down" },
-      { keys: "y", description: "Copy selected lines (yank)" },
-      { keys: "Escape", description: "Clear selection" },
+      { keys: "Ctrl+F", description: "Find in file (Enter / Shift+Enter)" },
+      { keys: "Ctrl+D", description: "Highlight word under cursor" },
+      { keys: "Ctrl+G", description: "Toggle inline git blame" },
+      { keys: "Ctrl+Shift+O", description: "Go to symbol" },
+      { keys: "Ctrl+S", description: "Save now" },
+      { keys: "Ctrl+R", description: "Load disk version (on conflict)" },
+      { keys: "Ctrl+W", description: "Close tab" },
+      { keys: "Ctrl+X → F", description: "Maximize / restore panel" },
     ],
   },
   {

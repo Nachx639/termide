@@ -374,8 +374,8 @@ export function FileViewer({
       setSearchQuery("");
       return;
     }
-    // @ opens the symbol picker.
-    if (event.name === "@" || (event.ctrl && event.shift && event.name === "o")) {
+    // Ctrl+Shift+O opens the symbol picker ("@" alone must stay typeable in code).
+    if (event.ctrl && event.shift && event.name === "o") {
       if (fileSymbols.length > 0) setShowSymbolPicker(true);
       return;
     }
@@ -756,7 +756,7 @@ export function FileViewer({
         >
           <textarea
             ref={textareaRef}
-            focused={focused && !showSymbolPicker}
+            focused={focused && !showSymbolPicker && !searchOpen}
             initialValue={initialContent}
             syntaxStyle={syntaxStyle}
             onContentChange={handleContentChange}

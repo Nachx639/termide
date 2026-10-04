@@ -1,7 +1,7 @@
 import { test, expect, describe } from "bun:test";
 import { parseKeypress } from "@opentui/core";
 import { encodeKey } from "./KeyEncoder";
-import { isTerminalHostKey } from "./keyRouting";
+import { isTerminalHostKey, isEditorOwnedKey } from "./keyRouting";
 
 const enc = (input: string, kitty: boolean, applicationCursor = false) => {
   const k = parseKeypress(input, { useKittyKeyboard: kitty });
@@ -71,5 +71,16 @@ describe("terminal focus keeps only escape hatches for the IDE", () => {
     expect(host("\x1bOP", false)).toBe(true);       // F1
     expect(host("\x00", false)).toBe(true);         // Ctrl+Space
     expect(host("\x1b[118;6u")).toBe(true);         // Ctrl+Shift+V (kitty)
+  });
+});
+
+describe("editor focus owns typed text and its own shortcuts", () => {
+  const owned = (s: string, kitty = false) => isEditorOwnedKey(parseKeypress(s, { useKittyKeyboard: kitty }) as any);
+  test("typed characters never trigger IDE commands", () => {
+    for (const s of ["?", "@", "a", "Z", "ñ", " ", "\x1b[33;2u"]) expect(owned(s, s.startsWith("\x1b"))).toBe(true);
+  });
+  test("editor shortcuts stay in the editor, IDE shortcuts do not", () => {
+    for (const s of ["\x06", "\x04", "\x07", "\x13", "\x12"]) expect(owned(s)).toBe(true); // Ctrl+F D G S R
+    for (const s of ["\x10", "\x0b", "\x17", "\x18", "\x1b", "\t"]) expect(owned(s)).toBe(false); // Ctrl+P K W X, Esc, Tab
   });
 });

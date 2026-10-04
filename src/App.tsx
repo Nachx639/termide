@@ -14,7 +14,7 @@ import { FileViewer } from "./components/FileViewer";
 import { Terminal } from "./components/Terminal";
 import { PanelErrorBoundary } from "./components/ErrorBoundary";
 import { MascotLine, Clock, mascot } from "./components/Mascot";
-import { isTerminalHostKey } from "./lib/terminal/keyRouting";
+import { isTerminalHostKey, isEditorOwnedKey } from "./lib/terminal/keyRouting";
 import { getTerminalManager } from "./lib/terminal/TerminalManager";
 import { FuzzyFinder } from "./components/FuzzyFinder";
 import { CommandPalette } from "./components/CommandPalette";
@@ -629,6 +629,8 @@ export function App({ rootPath }: AppProps) {
     // Terminal focused: every key belongs to the shell except a few escape hatches
     // (Ctrl+X leader, F1, Ctrl+Space, Ctrl+Shift+C/V). See lib/terminal/keyRouting.ts.
     if (focusedPanel === "terminal" && !showAgent && !leaderMode && !isTerminalHostKey(event)) return;
+    // Same for the editor: typed text and its own shortcuts are not IDE commands.
+    if (focusedPanel === "viewer" && selectedFile && !leaderMode && isEditorOwnedKey(event)) return;
 
     // === COPY SELECTION with Ctrl+Y ===
     // Try to copy OpenTUI selection when user presses Ctrl+Y
@@ -716,6 +718,12 @@ export function App({ rootPath }: AppProps) {
       // X = send a literal Ctrl+X to the terminal (Ctrl+X Ctrl+X also works)
       if (event.name === "x" || event.name === "X") {
         if (focusedPanel === "terminal") terminalWriteRef.current?.("\x18");
+        return;
+      }
+
+      // F = maximize / restore the focused panel (Ctrl+F is search in the editor)
+      if (event.name === "f" || event.name === "F") {
+        setIsMaximized((m) => !m);
         return;
       }
 
@@ -1184,7 +1192,7 @@ export function App({ rootPath }: AppProps) {
                   key={treeRefreshKey}
                   rootPath={rootPath}
                   onFileSelect={handleFileSelect}
-                  focused={!isAnyModalOpen && focusedPanel === "tree"}
+                  focused={!isAnyModalOpen && !leaderMode && focusedPanel === "tree"}
                   onFocus={() => setFocusedPanel("tree")}
                   onFileOperation={handleFileOperation}
                 />
@@ -1196,7 +1204,7 @@ export function App({ rootPath }: AppProps) {
                 <PanelErrorBoundary panelName="Source Control">
                   <SourceControl
                     rootPath={rootPath}
-                    focused={!isAnyModalOpen && focusedPanel === "source"}
+                    focused={!isAnyModalOpen && !leaderMode && focusedPanel === "source"}
                     onFocus={() => setFocusedPanel("source")}
                     onShowDiff={(diff, filePath) => {
                       setDiffContent(diff);
@@ -1213,7 +1221,7 @@ export function App({ rootPath }: AppProps) {
                 <PanelErrorBoundary panelName="Git Graph">
                   <GitGraph
                     rootPath={rootPath}
-                    focused={!isAnyModalOpen && focusedPanel === "graph"}
+                    focused={!isAnyModalOpen && !leaderMode && focusedPanel === "graph"}
                     onFocus={() => setFocusedPanel("graph")}
                     width={currentTreeWidth}
                   />
@@ -1233,7 +1241,7 @@ export function App({ rootPath }: AppProps) {
                 activeTabIndex={activeTabIndex}
                 onSelectTab={setActiveTabIndex}
                 onCloseTab={handleCloseTab}
-                focused={!isAnyModalOpen && focusedPanel === "viewer"}
+                focused={!isAnyModalOpen && !leaderMode && focusedPanel === "viewer"}
               />
             )}
 
@@ -1262,7 +1270,7 @@ export function App({ rootPath }: AppProps) {
                       <PanelErrorBoundary panelName="Viewer">
                         <FileViewer
                           filePath={selectedFile}
-                          focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "left"}
+                          focused={!isAnyModalOpen && !leaderMode && focusedPanel === "viewer" && activeSplit === "left"}
                           rootPath={rootPath}
                           treeWidth={responsiveTreeWidth}
                           height={currentViewerHeight}
@@ -1283,7 +1291,7 @@ export function App({ rootPath }: AppProps) {
                       <PanelErrorBoundary panelName="Viewer">
                         <FileViewer
                           filePath={splitFile}
-                          focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "right"}
+                          focused={!isAnyModalOpen && !leaderMode && focusedPanel === "viewer" && activeSplit === "right"}
                           rootPath={rootPath}
                           treeWidth={responsiveTreeWidth}
                           height={currentViewerHeight}
@@ -1308,7 +1316,7 @@ export function App({ rootPath }: AppProps) {
                       <PanelErrorBoundary panelName="Viewer">
                         <FileViewer
                           filePath={selectedFile}
-                          focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "left"}
+                          focused={!isAnyModalOpen && !leaderMode && focusedPanel === "viewer" && activeSplit === "left"}
                           rootPath={rootPath}
                           treeWidth={responsiveTreeWidth}
                           height={Math.floor(currentViewerHeight / 2)}
@@ -1329,7 +1337,7 @@ export function App({ rootPath }: AppProps) {
                       <PanelErrorBoundary panelName="Viewer">
                         <FileViewer
                           filePath={splitFile}
-                          focused={!isAnyModalOpen && focusedPanel === "viewer" && activeSplit === "right"}
+                          focused={!isAnyModalOpen && !leaderMode && focusedPanel === "viewer" && activeSplit === "right"}
                           rootPath={rootPath}
                           treeWidth={responsiveTreeWidth}
                           height={Math.floor(currentViewerHeight / 2)}
@@ -1348,7 +1356,7 @@ export function App({ rootPath }: AppProps) {
                   <PanelErrorBoundary panelName="Viewer">
                     <FileViewer
                       filePath={selectedFile}
-                      focused={!isAnyModalOpen && focusedPanel === "viewer"}
+                      focused={!isAnyModalOpen && !leaderMode && focusedPanel === "viewer"}
                       rootPath={rootPath}
                       treeWidth={responsiveTreeWidth}
                       height={currentViewerHeight}
@@ -1371,7 +1379,7 @@ export function App({ rootPath }: AppProps) {
                   <PanelErrorBoundary panelName="AI Agent">
                     <AgentPanel
                       rootPath={rootPath}
-                      focused={!isAnyModalOpen && focusedPanel === "agent"}
+                      focused={!isAnyModalOpen && !leaderMode && focusedPanel === "agent"}
                       onFocus={() => setFocusedPanel("agent")}
                     />
                   </PanelErrorBoundary>
@@ -1380,7 +1388,7 @@ export function App({ rootPath }: AppProps) {
                     <PanelErrorBoundary panelName="Terminal">
                       <Terminal
                         cwd={rootPath}
-                        focused={!isAnyModalOpen && focusedPanel === "terminal" && !leaderMode}
+                        focused={!isAnyModalOpen && !leaderMode && focusedPanel === "terminal" && !leaderMode}
                         onFocusRequest={() => setFocusedPanel("terminal")}
                         onPasteReady={(pasteFn) => { terminalPasteRef.current = pasteFn; }}
                         onCopyReady={(copyFn) => { terminalCopyRef.current = copyFn; }}
