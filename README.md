@@ -130,7 +130,7 @@ bun scripts/smoke.ts     # run the whole app headlessly and print the screen
 | `Tab` / `Shift+Tab` | Cycle between panels (outside the terminal/editor) |
 | `Ctrl + P` | Quick open file (fuzzy finder) |
 | `Ctrl + K` | Command Palette |
-| `Ctrl + Shift + F` | Search in all files |
+| `Ctrl + Shift + F` | Search in all files (or `Ctrl+X` → `S`) |
 | `Ctrl + Space` | Toggle the AI agent panel |
 | `F1` / `Ctrl + B` | Help panel (every shortcut) |
 | `Ctrl + Q` | Zen mode |
@@ -145,7 +145,7 @@ The terminal and the editor keep their keys (Tab completion, `Ctrl+R`, `Ctrl+W`,
 | :--- | :--- |
 | `Tab` / `Shift+Tab` | Next / previous panel |
 | `T` · `]` · `[` · `W` | New terminal tab · next · previous · close |
-| `K` · `P` · `H` | Command palette · open file · help |
+| `K` · `P` · `S` · `H` | Command palette · open file · search in files · help |
 | `F` | Maximize / restore the focused panel |
 | `V` | Copy panel (select text with the keyboard) |
 | `Q` | Quit |
