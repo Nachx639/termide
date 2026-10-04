@@ -240,9 +240,9 @@ export function GitGraph({ rootPath, focused, onFocus, width, onShowCommit }: Gi
             onMouseDown={onFocus}
         >
             <box style={{ paddingX: 1, height: 1, backgroundColor: "#1a1a1a", flexDirection: "row" }}>
-                {focused && <text style={{ fg: "black", bg: theme.accent, attributes: TextAttributes.BOLD }}> FOCUS </text>}
-                <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>Git Graph</text>
-                {focused && <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#1a1a1a" }}> j/k:move Enter:diff e:expand</text>}
+                {focused && <text style={{ fg: "black", bg: theme.accent, attributes: TextAttributes.BOLD, flexShrink: 0 }}> FOCUS </text>}
+                <text wrapMode="none" style={{ fg: "#d4a800", attributes: TextAttributes.BOLD, bg: "#1a1a1a", flexShrink: 0 }}>{focused ? " Git Graph" : "Git Graph"}</text>
+                {focused && <text wrapMode="none" style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#1a1a1a", flexShrink: 1 }}> j/k Enter:diff e:expand</text>}
             </box>
             <box style={{ flexDirection: "column", flexGrow: 1, backgroundColor: "#0b0b0b", overflow: "hidden" }}>
                 {/* The commit list keeps at least 3 rows; the detail box below gives way

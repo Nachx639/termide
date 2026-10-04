@@ -265,8 +265,8 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
       onMouseDown={onFocus}
     >
       <box style={{ paddingX: 1, height: 1, backgroundColor: "#1a1a1a", flexDirection: "row" }}>
-        {focused && <text style={{ fg: "black", bg: theme.accent, attributes: TextAttributes.BOLD }}> FOCUS </text>}
-        <text style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>Explorer</text>
+        {focused && <text style={{ fg: "black", bg: theme.accent, attributes: TextAttributes.BOLD, flexShrink: 0 }}> FOCUS </text>}
+        <text wrapMode="none" style={{ fg: "cyan", attributes: TextAttributes.BOLD, bg: "#1a1a1a", flexShrink: 0 }}>{focused ? " Explorer" : "Explorer"}</text>
       </box>
       <box
         style={{ flexDirection: "column", flexGrow: 1, backgroundColor: "#0b0b0b" }}
@@ -334,13 +334,15 @@ export function FileTree({ rootPath, onFileSelect, focused, onFocus, onFileOpera
                   }
                 }}
               >
-                <text style={{ fg: isSelected ? "cyan" : "gray" }}>{prefix}</text>
-                <text style={{ fg: isSelected ? "cyan" : iconColor as any }}>{fileIcon.icon} </text>
-                <text style={{ fg: isSelected ? "cyan" : (gitStatus ? getFileStatusColor(gitStatus) : "gray") as any }}>
-                  {gitStatus ? (getFileStatusIcon(gitStatus).trim()[0] || " ") : " "}
-                </text>
-                <text style={{ fg: isSelected ? "cyan" : nameFg as any, attributes: isSelected ? TextAttributes.BOLD : 0 }}>
-                  {" "}{node.name}
+                {/* One <text> per row: separate texts shrank and wrapped in narrow
+                    sidebars (blank lines, lost indentation, "README." / "md"). */}
+                <text wrapMode="none" style={{ fg: isSelected ? "cyan" : nameFg as any, attributes: isSelected ? TextAttributes.BOLD : 0 }}>
+                  <span fg={isSelected ? "cyan" : "gray"}>{prefix}</span>
+                  <span fg={isSelected ? "cyan" : (iconColor as any)}>{`${fileIcon.icon} `}</span>
+                  <span fg={isSelected ? "cyan" : ((gitStatus ? getFileStatusColor(gitStatus) : "gray") as any)}>
+                    {gitStatus ? (getFileStatusIcon(gitStatus).trim()[0] || " ") : " "}
+                  </span>
+                  {` ${node.name}`}
                 </text>
               </box>
             );
