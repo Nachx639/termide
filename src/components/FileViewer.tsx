@@ -154,6 +154,7 @@ export function FileViewer({
 
   const syntaxStyle = useMemo(() => getTermideSyntaxStyle(syntaxTheme), [syntaxTheme]);
   const editorBg = syntaxTheme && syntaxTheme.id !== "dark" ? syntaxTheme.background : "#050505";
+  const editorFg = syntaxTheme && syntaxTheme.id !== "dark" ? syntaxTheme.syntax.default : "#EEFFFF";
   // Bumped on every edit; the syntax highlighter re-runs shortly after typing stops.
   const [editVersion, setEditVersion] = useState(0);
 
@@ -908,7 +909,7 @@ export function FileViewer({
         <line-number
           ref={lineNumberRef}
           fg="gray"
-          bg="#0b0b0b"
+          bg={syntaxTheme && syntaxTheme.id !== "dark" ? editorBg : "#0b0b0b"}
           minWidth={4}
           paddingRight={1}
           showLineNumbers={showLineNumbers}
@@ -923,7 +924,13 @@ export function FileViewer({
             onCursorChange={handleCursorChange}
             wrapMode={wordWrap ? "word" : "none"}
             keyBindings={EDITOR_KEY_BINDINGS}
-            style={{ width: "100%", flexGrow: 1, backgroundColor: editorBg }}
+            // Colours are textarea props (style.backgroundColor was ignored, so
+            // light themes drew dark-on-dark text).
+            backgroundColor={editorBg}
+            focusedBackgroundColor={editorBg}
+            textColor={editorFg}
+            focusedTextColor={editorFg}
+            style={{ width: "100%", flexGrow: 1 }}
           />
         </line-number>
         {/* Minimap on the right edge — only when the file is wide enough to
