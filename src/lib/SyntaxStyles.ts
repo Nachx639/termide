@@ -1,13 +1,16 @@
-import { RGBA, SyntaxStyle } from "@opentui/core";
+import { RGBA, SyntaxStyle, parseColor } from "@opentui/core";
+import type { Theme } from "./ThemeSystem";
 
-// Termide syntax theme (monokai-leaning, matches the existing token colors
-// used by the manual SyntaxHighlighter in lib/SyntaxHighlighter.ts so that
-// native opentui rendering and the legacy FileViewer renderer look alike).
+// Termide syntax theme (material-leaning). Used for the default "Dark" theme; the
+// other themes in ThemeSystem supply their own token colours.
 const themeStyles = {
   keyword: { fg: RGBA.fromHex("#C792EA"), bold: true },
   type: { fg: RGBA.fromHex("#82AAFF") },
+  class: { fg: RGBA.fromHex("#FFCB6B") },
   function: { fg: RGBA.fromHex("#82AAFF") },
+  builtin: { fg: RGBA.fromHex("#89DDFF") },
   string: { fg: RGBA.fromHex("#C3E88D") },
+  regex: { fg: RGBA.fromHex("#F07178") },
   number: { fg: RGBA.fromHex("#F78C6C") },
   comment: { fg: RGBA.fromHex("#676E95"), italic: true },
   operator: { fg: RGBA.fromHex("#89DDFF") },
@@ -22,8 +25,11 @@ const themeStyles = {
   emphasis: { fg: RGBA.fromHex("#C792EA"), italic: true },
   strong: { fg: RGBA.fromHex("#FFCB6B"), bold: true },
   default: { fg: RGBA.fromHex("#EEFFFF") },
-  // Editor decorations (used by addHighlight from FileViewer for bracket
-  // matching, search matches, word-highlight, etc.)
+};
+
+// Editor decorations (used by addHighlight from FileViewer for bracket matching,
+// search matches, word-highlight, etc.). Shared by every theme.
+const decorationStyles = {
   bracketMatch: { fg: RGBA.fromHex("#000000"), bg: RGBA.fromHex("#FFCB6B"), bold: true },
   searchMatch: { fg: RGBA.fromHex("#000000"), bg: RGBA.fromHex("#FFFF00") },
   // Active search match (the one Enter jumps to) — orange so it stands out
@@ -32,11 +38,44 @@ const themeStyles = {
   selectionMatch: { fg: RGBA.fromHex("#FFFFFF"), bg: RGBA.fromHex("#3a3a3a") },
 };
 
-let cached: SyntaxStyle | null = null;
+function stylesForTheme(theme: Theme) {
+  const c = (color: string) => parseColor(color);
+  const s = theme.syntax;
+  return {
+    keyword: { fg: c(s.keyword), bold: true },
+    type: { fg: c(s.type) },
+    class: { fg: c(s.class) },
+    function: { fg: c(s.function) },
+    builtin: { fg: c(s.builtin) },
+    string: { fg: c(s.string) },
+    regex: { fg: c(s.regex) },
+    number: { fg: c(s.number) },
+    comment: { fg: c(s.comment), italic: true },
+    operator: { fg: c(s.operator) },
+    variable: { fg: c(s.variable) },
+    property: { fg: c(s.property) },
+    constant: { fg: c(s.constant) },
+    punctuation: { fg: c(s.punctuation) },
+    tag: { fg: c(s.tag) },
+    attribute: { fg: c(s.attribute) },
+    link: { fg: c(s.function), underline: true },
+    heading: { fg: c(s.function), bold: true },
+    emphasis: { fg: c(s.keyword), italic: true },
+    strong: { fg: c(s.class), bold: true },
+    default: { fg: c(s.default) },
+  };
+}
 
-export function getTermideSyntaxStyle(): SyntaxStyle {
-  if (!cached) {
-    cached = SyntaxStyle.fromStyles(themeStyles);
+const cache = new Map<string, SyntaxStyle>();
+
+/** Syntax style for a theme (default: Termide's own dark palette). Cached per theme. */
+export function getTermideSyntaxStyle(theme?: Theme | null): SyntaxStyle {
+  const id = !theme || theme.id === "dark" ? "dark" : theme.id;
+  let style = cache.get(id);
+  if (!style) {
+    const base = id === "dark" ? themeStyles : stylesForTheme(theme!);
+    style = SyntaxStyle.fromStyles({ ...base, ...decorationStyles });
+    cache.set(id, style);
   }
-  return cached;
+  return style;
 }
