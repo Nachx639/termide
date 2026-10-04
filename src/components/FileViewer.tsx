@@ -64,6 +64,16 @@ function Breadcrumbs({ filePath, rootPath }: { filePath: string; rootPath?: stri
 }
 
 const SAVE_DEBOUNCE_MS = 500;
+// The textarea's emacs-style defaults collide with IDE shortcuts: Ctrl+K deleted
+// to the end of the line while opening the palette, Ctrl+W deleted a word while
+// closing the tab, Ctrl+D deleted a character while highlighting... and the
+// change was autosaved. Those keys do nothing in the buffer now; Ctrl+Z undoes.
+const EDITOR_KEY_BINDINGS: any[] = [
+  ...["k", "w", "d", "f", "b", "p", "g", "s", "r", "x", "q", "t", "n", "o"].map((name) => ({ name, ctrl: true, action: "termide-ide-shortcut" })),
+  { name: "z", ctrl: true, action: "undo" },
+  { name: "z", ctrl: true, shift: true, action: "redo" },
+];
+
 // Highlight ref for syntax colours (decorations use their own refs, priority 10).
 const SYNTAX_HL_REF = 0x51a7;
 
@@ -853,6 +863,7 @@ export function FileViewer({
             onContentChange={handleContentChange}
             onCursorChange={handleCursorChange}
             wrapMode={wordWrap ? "word" : "none"}
+            keyBindings={EDITOR_KEY_BINDINGS}
             style={{ width: "100%", flexGrow: 1, backgroundColor: editorBg }}
           />
         </line-number>
