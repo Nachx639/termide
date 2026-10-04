@@ -123,7 +123,9 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
   fullRenderList.push({ type: "header", label: "" });
 
   // Edge-triggered scroll logic based on flat lines
-  const maxLines = 11; // Must match the height of the results area box
+  // Results area: up to 11 lines, fewer on short screens (mini mode at 14 rows
+  // could not fit the fixed 19-row palette). Must match the results box height.
+  const maxLines = Math.max(3, Math.min(11, height - 10));
   const scrollMargin = 2; // Buffer: scroll 2 lines before reaching the edge
   const [scrollTop, setScrollTop] = React.useState(0);
 
@@ -166,7 +168,7 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
       <box
         style={{
           width: "80%",
-          height: 19,
+          height: maxLines + 6, // borders 2 + input 1 + separators 2 + footer 1
           flexDirection: "column",
           border: true,
           borderColor: "yellow",
@@ -174,23 +176,6 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
           position: "relative",
         }}
       >
-        {/* Backdrop: Blocks transparency by filling exactly 17 lines with spaces */}
-        <box
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: 17,
-            backgroundColor: "#050505",
-            flexDirection: "column",
-          }}
-        >
-          {Array.from({ length: 17 }).map((_, i) => (
-            <text key={i} style={{ bg: "#050505" }}>{" ".repeat(200)}</text>
-          ))}
-        </box>
-
         {/* Row 1: Search Input (native <input>, gives us paste/word-motion/undo) */}
         <box style={{ paddingX: 2, height: 1, backgroundColor: "#050505", flexDirection: "row" }}>
           <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD, bg: "#050505" }}> › </text>
@@ -214,7 +199,7 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
 
         {/* Rows 3-13: Results Area (Fixed 11 lines) */}
         <box
-          style={{ flexDirection: "column", height: 11, paddingX: 2, backgroundColor: "#050505" }}
+          style={{ flexDirection: "column", height: maxLines, paddingX: 2, backgroundColor: "#050505" }}
           onMouse={(event: any) => {
             // OpenTUI reports the wheel as type "scroll" with scroll.direction.
             if (event.type === "scroll") {

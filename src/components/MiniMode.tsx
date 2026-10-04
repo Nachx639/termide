@@ -16,6 +16,12 @@ interface MiniModeProps {
   onFileSelect: (path: string) => void;
   showAgent: boolean;
   onToggleAgent: () => void;
+  /** An overlay (finder, palette, help, search) has the keyboard. */
+  suspended?: boolean;
+  onOpenFinder?: () => void;
+  onOpenPalette?: () => void;
+  onOpenHelp?: () => void;
+  onOpenSearch?: () => void;
 }
 
 export function MiniMode({
@@ -23,7 +29,12 @@ export function MiniMode({
   selectedFile,
   onFileSelect,
   showAgent,
-  onToggleAgent
+  onToggleAgent,
+  suspended = false,
+  onOpenFinder,
+  onOpenPalette,
+  onOpenHelp,
+  onOpenSearch,
 }: MiniModeProps) {
   const [activePanel, setActivePanel] = useState<MiniModePanel>("terminal");
   const dimensions = useTerminalDimensions();
@@ -45,6 +56,10 @@ export function MiniMode({
   leaderRef.current = leader;
   const switchTo = (key: string, shift: boolean): boolean => {
     if (key === "q" || key === "Q") quit();
+    else if (key === "p" || key === "P") onOpenFinder?.();
+    else if (key === "k" || key === "K") onOpenPalette?.();
+    else if (key === "h" || key === "H") onOpenHelp?.();
+    else if (key === "s" || key === "S") onOpenSearch?.();
     else if (key === "t" || key === "T") {
       getTerminalManager(rootPath).newTab();
       setActivePanel("terminal");
@@ -60,7 +75,7 @@ export function MiniMode({
   };
 
   useKeyboard((event) => {
-    if (event.eventType === "release") return;
+    if (event.eventType === "release" || suspended) return;
     if (leaderRef.current) {
       leaderRef.current = false;
       setLeader(false);
@@ -131,7 +146,7 @@ export function MiniMode({
               onFileSelect(path);
               setActivePanel("viewer");
             }}
-            focused={!leader}
+            focused={!leader && !suspended}
             onFocus={() => setActivePanel("explorer")}
           />
         )}
@@ -139,7 +154,7 @@ export function MiniMode({
         {activePanel === "viewer" && (
           <FileViewer
             filePath={selectedFile}
-            focused={!leader}
+            focused={!leader && !suspended}
             rootPath={rootPath}
             height={contentHeight}
           />
@@ -148,7 +163,7 @@ export function MiniMode({
         {activePanel === "terminal" && (
           <Terminal
             cwd={rootPath}
-            focused={!leader}
+            focused={!leader && !suspended}
             onFocusRequest={() => setActivePanel("terminal")}
             height={contentHeight}
           />
@@ -157,7 +172,7 @@ export function MiniMode({
         {activePanel === "agent" && (
           <AgentPanel
             rootPath={rootPath}
-            focused={!leader}
+            focused={!leader && !suspended}
             onFocus={() => setActivePanel("agent")}
           />
         )}
@@ -170,7 +185,7 @@ export function MiniMode({
         </text>
         <box style={{ flexGrow: 1, minWidth: 1 }} />
         <text wrapMode="none" style={{ fg: "gray", attributes: TextAttributes.DIM, flexShrink: 1, marginLeft: 1 }}>
-          {leader ? "1-3/Tab:panel T:term Q:quit" : activePanel === "explorer" ? "Tab/1-3:switch" : "Ctrl+X 1-3:switch"} │ Ctrl+Space:AI
+          {leader ? "1-3 P K S H T Q" : activePanel === "explorer" ? "Tab/1-3:switch" : "Ctrl+X 1-3:switch"} │ Ctrl+Space:AI
         </text>
       </box>
     </box>

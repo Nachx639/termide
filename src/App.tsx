@@ -1213,8 +1213,24 @@ export function App({ rootPath }: AppProps) {
           onFileSelect={handleFileSelect}
           showAgent={showAgent}
           onToggleAgent={() => setShowAgent(v => !v)}
+          suspended={showFuzzyFinder || showHelpPanel || showCommandPalette || showGlobalSearch}
+          onOpenFinder={() => setShowFuzzyFinder(true)}
+          onOpenPalette={() => setShowCommandPalette(true)}
+          onOpenHelp={() => setShowHelpPanel(true)}
+          onOpenSearch={() => setShowGlobalSearch(true)}
         />
         {/* Overlays still work in mini mode */}
+        {showCommandPalette && (
+          <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} commands={commands} />
+        )}
+        {showGlobalSearch && (
+          <GlobalSearch
+            rootPath={rootPath}
+            isOpen={showGlobalSearch}
+            onClose={() => setShowGlobalSearch(false)}
+            onSelect={(filePath, lineNumber) => handleFileSelect(filePath, lineNumber)}
+          />
+        )}
         {showFuzzyFinder && (
           <FuzzyFinder
             rootPath={rootPath}
@@ -1663,7 +1679,7 @@ export function App({ rootPath }: AppProps) {
           isOpen={showGlobalSearch}
           onClose={() => setShowGlobalSearch(false)}
           onSelect={(filePath, lineNumber) => {
-            handleFileSelect(filePath);
+            handleFileSelect(filePath, lineNumber); // jump to the match, not line 1
             success(`Opened ${path.basename(filePath)}`, 2000);
           }}
         />
