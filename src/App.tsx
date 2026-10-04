@@ -14,6 +14,7 @@ import { FileViewer } from "./components/FileViewer";
 import { Terminal } from "./components/Terminal";
 import { PanelErrorBoundary } from "./components/ErrorBoundary";
 import { MascotLine, Clock, mascot } from "./components/Mascot";
+import { CursorPosition, setCursorPosition } from "./components/CursorPosition";
 import { isTerminalHostKey, isEditorOwnedKey, isTextKey } from "./lib/terminal/keyRouting";
 import { getTerminalManager } from "./lib/terminal/TerminalManager";
 import { quit } from "./lib/quit";
@@ -148,7 +149,6 @@ export function App({ rootPath }: AppProps) {
   const [splitMode, setSplitMode] = useState<"none" | "vertical" | "horizontal">("none");
 
   // Cursor position tracking
-  const [cursorPos, setCursorPos] = useState<{ line: number; column: number }>({ line: 1, column: 1 });
   const [splitFile, setSplitFile] = useState<string | null>(null);
   const [activeSplit, setActiveSplit] = useState<"left" | "right">("left");
   const { notifications, notify, dismiss, success, error } = useNotifications();
@@ -214,7 +214,7 @@ export function App({ rootPath }: AppProps) {
 
   // Stable handler for cursor position updates to prevent infinite loops
   const handleCursorChange = useCallback((line: number, column: number) => {
-    setCursorPos({ line, column });
+    setCursorPosition(line, column);
   }, []);
 
 
@@ -1503,9 +1503,7 @@ export function App({ rootPath }: AppProps) {
         <box style={{ flexDirection: "row", gap: 2, flexShrink: 0 }}>
           {/* Cursor position */}
           {selectedFile && !isCompactMode && (
-            <text style={{ fg: "gray" }}>
-              Ln {cursorPos.line}, Col {cursorPos.column}
-            </text>
+            <CursorPosition />
           )}
           {/* Split view indicator */}
           {splitMode !== "none" && (
