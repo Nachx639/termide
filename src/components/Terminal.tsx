@@ -129,15 +129,12 @@ export function Terminal({ cwd, focused, onFocusRequest, onPasteReady, onCopyRea
   }, [renderer, focused, manager]);
 
   // selectMode ON hands the mouse to the host terminal for native drag-to-select.
-  const hasSession = active !== null;
+  // Through the renderer (raw mode writes here interleaved with frames and could
+  // leave OpenTUI's own mouse modes in a different state than it believed).
   useEffect(() => {
-    if (!hasSession) return;
-    if (selectMode) {
-      process.stdout.write("\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l");
-    } else {
-      process.stdout.write("\x1b[?1000h\x1b[?1006h");
-    }
-  }, [selectMode, hasSession]);
+    if (!renderer) return;
+    renderer.useMouse = !selectMode;
+  }, [renderer, selectMode]);
 
   useKeyboard((event) => {
     const s = manager.active;

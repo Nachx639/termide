@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 
@@ -21,7 +21,9 @@ interface CopyPanelProps {
  */
 export function CopyPanel({ isOpen, onClose, content, title, onCopy }: CopyPanelProps) {
   const dimensions = useTerminalDimensions();
-  const lines = content.split("\n");
+  // Memoized: a new array every render re-ran the reset effect below on every
+  // key press, so navigation and selection never moved.
+  const lines = useMemo(() => content.split("\n"), [content]);
 
   const [scrollOffset, setScrollOffset] = useState(0);
   const [cursor, setCursor] = useState<Position>({ line: 0, col: 0 });
@@ -37,7 +39,9 @@ export function CopyPanel({ isOpen, onClose, content, title, onCopy }: CopyPanel
   const HEADER_HEIGHT = 2; // Header row + border
   const FOOTER_HEIGHT = 2; // Footer row + border
 
-  // Reset state when opened AND enable mouse tracking for panel-aware selection
+  // Reset state when opened. (Mouse modes are OpenTUI's business: writing them
+  // here interleaved escape codes with frames, and switching SGR off on close
+  // broke the mouse for the whole app.)
   useEffect(() => {
     if (isOpen) {
       setScrollOffset(0);
@@ -47,24 +51,9 @@ export function CopyPanel({ isOpen, onClose, content, title, onCopy }: CopyPanel
       setSelectionEnd({ line: 0, col: lines[0]?.length || 0 });
       setSelectionMode("line");
       setIsDragging(false);
-
-      // Enable mouse tracking while CopyPanel is open
-      // This allows drag selection within the panel
-      process.stdout.write("\x1b[?1000h"); // Enable X10 mouse
-      process.stdout.write("\x1b[?1002h"); // Enable button-event tracking
-      process.stdout.write("\x1b[?1006h"); // Enable SGR mouse mode
     }
-
-    return () => {
-      if (isOpen) {
-        // Disable full mouse tracking when CopyPanel closes
-        process.stdout.write("\x1b[?1002l"); // Disable button-event tracking
-        process.stdout.write("\x1b[?1006l"); // Disable SGR mouse mode
-        // Re-enable X10 mode for click detection (native Cmd+C still works)
-        process.stdout.write("\x1b[?1000h");
-      }
-    };
-  }, [isOpen, lines]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const visibleHeight = Math.max(5, (dimensions.height || 24) - 8);
   const panelWidth = Math.min(dimensions.width || 80, 120) - 4;
