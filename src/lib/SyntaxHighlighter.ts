@@ -324,7 +324,7 @@ export function tokenizeLine(line: string, lang: string | null): Token[] {
 
     // Check for numbers
     const numMatch = line.slice(i).match(/^(0x[0-9a-fA-F]+|0b[01]+|0o[0-7]+|\d+\.?\d*(?:e[+-]?\d+)?)/);
-    if (numMatch && (i === 0 || /[\s\(\[\{,;:=<>!&|+\-*/%]/.test(line[i - 1]))) {
+    if (numMatch && (i === 0 || /[\s\(\[\{,;:=<>!&|+\-*/%]/.test(line.charAt(i - 1)))) {
       tokens.push({ text: numMatch[0], type: "number" });
       i += numMatch[0].length;
       continue;
@@ -360,7 +360,7 @@ export function tokenizeLine(line: string, lang: string | null): Token[] {
         type = "constant";
       } else if (line[i + word.length] === "(") {
         type = "function";
-      } else if (word[0] === word[0].toUpperCase() && word[0] !== word[0].toLowerCase()) {
+      } else if (word.charAt(0) === word.charAt(0).toUpperCase() && word.charAt(0) !== word.charAt(0).toLowerCase()) {
         type = "class";
       }
 
@@ -369,24 +369,25 @@ export function tokenizeLine(line: string, lang: string | null): Token[] {
       continue;
     }
 
-    // Single character operators
+    // Single character operators (i < line.length here, so charAt is the real char)
+    const ch = line.charAt(i);
     const singleOp = /^[+\-*/%=<>!&|^~?:]/;
-    if (singleOp.test(line[i])) {
-      tokens.push({ text: line[i], type: "operator" });
+    if (singleOp.test(ch)) {
+      tokens.push({ text: ch, type: "operator" });
       i++;
       continue;
     }
 
     // Punctuation
     const punct = /^[(){}\[\],;.@#]/;
-    if (punct.test(line[i])) {
-      tokens.push({ text: line[i], type: "punctuation" });
+    if (punct.test(ch)) {
+      tokens.push({ text: ch, type: "punctuation" });
       i++;
       continue;
     }
 
     // Default: single character
-    tokens.push({ text: line[i], type: "default" });
+    tokens.push({ text: ch, type: "default" });
     i++;
   }
 

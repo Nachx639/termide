@@ -287,7 +287,10 @@ export function FuzzyFinder({ rootPath, isOpen, onClose, onSelect, recentFiles =
                 if (highlightIdx > lastIdx) {
                   parts.push({ text: match.relativePath.slice(lastIdx, highlightIdx), highlight: false });
                 }
-                parts.push({ text: match.relativePath[highlightIdx], highlight: true });
+                const ch = match.relativePath[highlightIdx];
+                if (ch !== undefined) {
+                  parts.push({ text: ch, highlight: true });
+                }
                 lastIdx = highlightIdx + 1;
               }
               if (lastIdx < match.relativePath.length) {

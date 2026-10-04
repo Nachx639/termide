@@ -149,7 +149,7 @@ export function GitGraph({ rootPath, focused, onFocus, width }: GitGraphProps) {
             return parseLegacyLine(line);
         }
 
-        const [prefix, refs = "", subject = "", time = "", author = ""] = line.split(fieldSeparator);
+        const [prefix = "", refs = "", subject = "", time = "", author = ""] = line.split(fieldSeparator);
         const { graph, hash } = splitGraphAndHash(prefix);
         const rawRefs = refs.trim();
         const timeRaw = time.trim();
