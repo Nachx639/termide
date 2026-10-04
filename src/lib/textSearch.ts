@@ -23,6 +23,8 @@ export interface SearchOptions {
 }
 
 const TRIM = 100;
+// Read-only git calls must not rewrite .git/index (see GitIntegration).
+const GIT_ENV = { ...process.env, GIT_OPTIONAL_LOCKS: "0" };
 
 /** Trim leading whitespace and long lines, keeping the match offsets right. */
 function toMatch(root: string, file: string, lineNumber: number, line: string, start: number, end: number): TextMatch {
@@ -91,11 +93,11 @@ async function viaRipgrep(root: string, query: string, o: Required<Omit<SearchOp
 }
 
 async function viaGitGrep(root: string, query: string, o: Required<Omit<SearchOptions, "signal">> & SearchOptions): Promise<TextMatch[] | null> {
-  const inRepo = Bun.spawnSync(["git", "rev-parse", "--is-inside-work-tree"], { cwd: root, stdout: "pipe", stderr: "ignore" });
+  const inRepo = Bun.spawnSync(["git", "rev-parse", "--is-inside-work-tree"], { cwd: root, stdout: "pipe", stderr: "ignore", env: GIT_ENV });
   if (inRepo.exitCode !== 0) return null;
   const proc = Bun.spawn(
     ["git", "grep", "-n", "-I", "-i", "-F", "--untracked", "--max-count", String(o.maxPerFile), "-z", "-e", query],
-    { cwd: root, stdout: "pipe", stderr: "ignore" },
+    { cwd: root, stdout: "pipe", stderr: "ignore", env: GIT_ENV },
   );
   o.signal?.addEventListener("abort", () => proc.kill());
   const text = await new Response(proc.stdout).text();
@@ -186,7 +188,7 @@ export async function listProjectFiles(root: string, max = 50_000): Promise<stri
     const out = await new Response(p.stdout).text();
     if ((await p.exited) === 0 || out) return take(out, "\n");
   }
-  const git = Bun.spawn(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd: root, stdout: "pipe", stderr: "ignore" });
+  const git = Bun.spawn(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd: root, stdout: "pipe", stderr: "ignore", env: GIT_ENV });
   const gitOut = await new Response(git.stdout).text();
   if ((await git.exited) === 0) return take(gitOut, "\0").filter((f) => fs.existsSync(f));
 

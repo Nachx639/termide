@@ -39,6 +39,10 @@ async function runGitCommand(args: string[], cwd: string): Promise<string | null
       cwd,
       stdout: "pipe",
       stderr: "ignore",
+      // Read-only commands (status...) must not rewrite .git/index: the project
+      // watcher saw that write, refreshed git status, which wrote the index
+      // again — a loop costing ~5% CPU while idle.
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
     });
     const output = await new Response(proc.stdout).text();
     const exitCode = await proc.exited;

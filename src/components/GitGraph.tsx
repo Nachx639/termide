@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { onRepoChange } from "../lib/repoEvents";
 import { useTheme } from "../lib/themeContext";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
@@ -29,9 +30,8 @@ export function GitGraph({ rootPath, focused, onFocus, width, onShowCommit }: Gi
 
     useEffect(() => {
         updateLog();
-        const interval = setInterval(updateLog, 10000); // 10s refresh for graph
-        return () => clearInterval(interval);
-    }, [updateLog]);
+        return onRepoChange(rootPath, updateLog);
+    }, [updateLog, rootPath]);
 
     const borderColor = focused ? theme.borderFocused : theme.border;
 
