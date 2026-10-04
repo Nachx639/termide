@@ -33,7 +33,7 @@ interface FileViewerProps {
   onFocus?: () => void;
 }
 
-// Breadcrumbs subcomponent (copied from FileViewerLegacy for visual parity).
+// Breadcrumbs subcomponent.
 function Breadcrumbs({ filePath, rootPath }: { filePath: string; rootPath?: string }) {
   const relativePath = rootPath ? path.relative(rootPath, filePath) : filePath;
   const parts = relativePath.split(path.sep);

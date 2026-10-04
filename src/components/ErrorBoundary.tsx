@@ -144,14 +144,18 @@ export class PanelErrorBoundary extends Component<PanelErrorBoundaryProps, Error
             alignItems: "center",
             height: "100%",
             padding: 1,
+            border: true,
+            borderColor: "red",
           }}
+          onMouseDown={this.handleRetry}
         >
           <text style={{ fg: "red" }}>
-            {this.props.panelName} error
+            {this.props.panelName} crashed
           </text>
           <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>
-            {this.state.error?.message?.slice(0, 50) || "Unknown"}
+            {this.state.error?.message?.slice(0, 80) || "Unknown"}
           </text>
+          <text style={{ fg: "gray" }}>Click to reload this panel</text>
         </box>
       );
     }
