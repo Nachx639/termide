@@ -31,7 +31,9 @@ test("discard needs a second x; Enter commits the typed message", async () => {
   git(repo, "commit", "-qm", "init");
   fs.writeFileSync(path.join(repo, "keep.txt"), "v2\n");
   fs.writeFileSync(path.join(repo, "oops.txt"), "broken\n");
-  process.env.GIT_CONFIG_GLOBAL = "/dev/null";
+  // The component runs git with process.env: give it an identity, or commits
+  // fail on Linux CI (macOS makes one up from the host name).
+  Object.assign(process.env, env);
   const setup = await testRender(
     <box style={{ width: 60, height: 20 }}>
       <SourceControl rootPath={repo} focused={true} />
@@ -64,5 +66,42 @@ test("discard needs a second x; Enter commits the typed message", async () => {
   } finally {
     setup.renderer.destroy();
     fs.rmSync(repo, { recursive: true, force: true });
+  }
+}, 20000);
+
+test("a failed commit says why (no git identity) and keeps the message", async () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "termide-sc-"));
+  git(repo, "init", "-q");
+  fs.writeFileSync(path.join(repo, "a.txt"), "x\n");
+  git(repo, "add", ".");
+  // Like a fresh Linux box: no user.name/user.email and no guessing from the host.
+  const cfgDir = fs.mkdtempSync(path.join(os.tmpdir(), "termide-sc-cfg-"));
+  const cfg = path.join(cfgDir, "gitconfig");
+  fs.writeFileSync(cfg, "[user]\n\tuseConfigOnly = true\n");
+  const saved = { ...process.env };
+  for (const k of ["GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL", "EMAIL"]) delete process.env[k];
+  process.env.GIT_CONFIG_GLOBAL = cfg;
+  process.env.GIT_CONFIG_NOSYSTEM = "1";
+  const setup = await testRender(
+    <box style={{ width: 90, height: 16 }}>
+      <SourceControl rootPath={repo} focused={true} />
+    </box>,
+    { width: 90, height: 16 },
+  );
+  try {
+    await waitForFrame(setup, (f) => f.includes("Staged (1)"));
+    setup.mockInput.pressKey("c");
+    await waitForFrame(setup, (f) => f.includes("Commit 1 staged file"));
+    await setup.mockInput.typeText("First");
+    await waitForFrame(setup, (f) => f.includes("First"));
+    setup.mockInput.pressEnter();
+    const frame = await waitForFrame(setup, (f) => f.includes("Commit failed"));
+    expect(frame).toContain("user.name and user.email");
+    expect(frame).toContain("First"); // the message is still there to retry
+  } finally {
+    setup.renderer.destroy();
+    process.env = saved;
+    fs.rmSync(repo, { recursive: true, force: true });
+    fs.rmSync(cfgDir, { recursive: true, force: true });
   }
 }, 20000);

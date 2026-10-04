@@ -15,6 +15,7 @@ import {
   stageAllFiles,
   unstageAllFiles,
   createCommit,
+  commitErrorSummary,
   getFileDiff,
   discardFileChanges,
   getGitChanges,
@@ -269,17 +270,23 @@ describe("staging and committing", () => {
     expect((await getGitStatus(repo)).staged).toBe(0);
 
     expect(await stageAllFiles(repo)).toBe(true);
-    expect(await createCommit('msg with "quotes" and $vars', repo)).toBe(true);
+    expect(await createCommit('msg with "quotes" and $vars', repo)).toBeNull();
     expect((await getGitStatus(repo)).clean).toBe(true);
     expect(git(repo, "log", "-1", "--format=%s").trim()).toBe('msg with "quotes" and $vars');
   });
 
   test("failures are reported as false", async () => {
     const repo = makeRepo();
-    expect(await createCommit("nothing to commit", repo)).toBe(false);
+    expect(await createCommit("nothing to commit", repo)).toBeString();
     expect(await stageFile("does-not-exist.txt", repo)).toBe(false);
     expect(await stageAllFiles(tmp("termide nogit "))).toBe(false);
   });
+});
+
+test("commitErrorSummary turns git's stderr into one readable line", () => {
+  expect(commitErrorSummary("Author identity unknown\n\n*** Please tell me who you are.\n")).toContain("user.name");
+  expect(commitErrorSummary("hint: x\nfatal: not a git repository\n")).toBe("not a git repository");
+  expect(commitErrorSummary("")).toBe("git commit failed");
 });
 
 describe("diffs", () => {

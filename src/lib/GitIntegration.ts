@@ -351,11 +351,42 @@ export async function unstageAllFiles(cwd: string): Promise<boolean> {
   return result !== null;
 }
 
-// Create a commit
-export async function createCommit(message: string, cwd: string): Promise<boolean> {
-  const result = await runGitCommand(["commit", "-m", message], cwd);
-  invalidateGitCache();
-  return result !== null;
+/**
+ * Create a commit. Returns null on success, or git's reason for failing.
+ * 2026-10-04: a failure used to show only "Commit failed!" (stderr was
+ * dropped), so on a machine without user.name/user.email there was no way to
+ * know why; CI on Linux hit exactly that.
+ */
+export async function createCommit(message: string, cwd: string): Promise<string | null> {
+  try {
+    const proc = Bun.spawn(["git", "commit", "-m", message], {
+      cwd,
+      stdout: "ignore",
+      stderr: "pipe",
+      // Explicit: Bun.spawn without `env` doesn't see later process.env changes.
+      env: { ...process.env },
+    });
+    // stderr is read concurrently with the wait, so a full pipe can't stall git.
+    const [stderr, code] = await Promise.all([new Response(proc.stderr).text(), proc.exited]);
+    if (code === 0) return null;
+    return commitErrorSummary(stderr);
+  } catch (e) {
+    return e instanceof Error ? e.message : String(e);
+  } finally {
+    invalidateGitCache();
+  }
+}
+
+/** One readable line from `git commit`'s stderr. */
+export function commitErrorSummary(stderr: string): string {
+  if (/Please tell me who you are|unable to auto-detect email/i.test(stderr)) {
+    return "git needs user.name and user.email (git config --global user.name …)";
+  }
+  const line = stderr
+    .split("\n")
+    .map((l) => l.replace(/^(fatal|error):\s*/i, "").trim())
+    .find((l) => l.length > 0 && !l.startsWith("hint:"));
+  return line ?? "git commit failed";
 }
 
 // Get diff for a file

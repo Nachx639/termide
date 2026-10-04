@@ -65,10 +65,12 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
         });
     }, [updateChanges, rootPath]);
 
-    // Clear status message after 2 seconds
+    // Clear the status message after 2 s; errors stay 8 s so there is time to
+    // read why (2026-10-04: "Commit failed" vanished before it could be read).
     useEffect(() => {
         if (statusMessage) {
-            const timer = setTimeout(() => setStatusMessage(null), 2000);
+            const isError = /failed|could not/i.test(statusMessage);
+            const timer = setTimeout(() => setStatusMessage(null), isError ? 8000 : 2000);
             return () => clearTimeout(timer);
         }
     }, [statusMessage]);
@@ -137,14 +139,14 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
     const handleCommit = async (submitted?: string) => {
         const message = (submitted ?? commitMessage).trim();
         if (!message) return;
-        const success = await createCommit(message, rootPath);
-        if (success) {
+        const error = await createCommit(message, rootPath);
+        if (!error) {
             setStatusMessage("Committed successfully!");
             setCommitMessage("");
             setShowCommitModal(false);
             await updateChanges();
         } else {
-            setStatusMessage("Commit failed!");
+            setStatusMessage(`Commit failed: ${error}`);
         }
     };
 

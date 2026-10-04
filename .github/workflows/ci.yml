@@ -28,8 +28,15 @@ jobs:
       # Fail on known vulnerabilities in the dependency tree.
       - run: bun audit
       - run: bunx tsc --noEmit -p .
+      # No git identity and no guessing one from the host name, on every OS:
+      # tests must set their own (2026-10-04: a commit test passed on macOS,
+      # which invents an identity, and failed on Linux).
+      - run: printf '[user]\n\tuseConfigOnly = true\n' > "$RUNNER_TEMP/gitconfig"
       # --isolate: a fresh global per file (Bun 1.4.2 occasionally segfaulted
       # when renderers from many files shared one process).
       - run: bun test --isolate
+        env:
+          GIT_CONFIG_GLOBAL: ${{ runner.temp }}/gitconfig
+          GIT_CONFIG_NOSYSTEM: "1"
       # Every way of quitting must restore the terminal and keep the last edit.
       - run: bun scripts/exit-check.ts
