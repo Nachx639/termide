@@ -250,12 +250,15 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
                 </box>
             )}
 
-            {/* Commit modal */}
+            {/* Commit message: a compact 5-row box that replaces the list while it
+                is open (an 11-row box stacked above the list overflowed the
+                panel and mixed with the text behind it). */}
             {showCommitModal && (
-                <box style={{ flexDirection: "column", paddingX: 1, paddingY: 1, backgroundColor: "#1e1e1e", border: true, borderColor: "cyan" }}>
-                    <text style={{ fg: "cyan", attributes: TextAttributes.BOLD }}>Commit Message</text>
-                    <box style={{ height: 1 }} />
-                    <box style={{ flexDirection: "row", backgroundColor: "#2a2a2a", paddingX: 1, height: 1 }}>
+                <box style={{ flexDirection: "column", height: 5, flexShrink: 0, paddingX: 1, backgroundColor: "#1e1e1e", border: true, borderColor: "cyan" }}>
+                    <text wrapMode="none" style={{ fg: "cyan", attributes: TextAttributes.BOLD, height: 1, flexShrink: 0 }}>
+                        {`Commit ${staged.length} staged file${staged.length === 1 ? "" : "s"}`}
+                    </text>
+                    <box style={{ flexDirection: "row", backgroundColor: "#2a2a2a", height: 1, flexShrink: 0 }}>
                         <input
                             focused={focused && showCommitModal}
                             value={commitMessage}
@@ -265,15 +268,11 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
                             style={{ flexGrow: 1, backgroundColor: "#2a2a2a", textColor: "white", placeholderColor: "gray", cursorColor: "cyan" }}
                         />
                     </box>
-                    <box style={{ height: 1 }} />
-                    <text style={{ fg: "gray", attributes: TextAttributes.DIM }}>Enter to commit, Esc to cancel</text>
-                    <box style={{ flexDirection: "row", marginTop: 1 }}>
-                        <text style={{ fg: "green" }}>Staged: {staged.length} files</text>
-                    </box>
+                    <text wrapMode="none" style={{ fg: "gray", attributes: TextAttributes.DIM, height: 1, flexShrink: 0 }}>Enter commit · Esc cancel</text>
                 </box>
             )}
 
-            <box style={{ flexDirection: "column", flexGrow: 1, backgroundColor: "#0b0b0b" }}>
+            {!showCommitModal && <box style={{ flexDirection: "column", flexGrow: 1, backgroundColor: "#0b0b0b" }}>
                 <scrollbox ref={scrollRef} style={{ flexGrow: 1, paddingX: 1, backgroundColor: "#0b0b0b" }}>
                 {changes.length === 0 ? (
                     <text style={{ fg: "gray", attributes: TextAttributes.DIM, padding: 1 } as any}>No changes detected</text>
@@ -314,7 +313,7 @@ export function SourceControl({ rootPath, focused, onFocus, onShowDiff }: Source
                     </>
                 )}
                 </scrollbox>
-            </box>
+            </box>}
         </box>
     );
 }
