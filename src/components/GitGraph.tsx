@@ -237,8 +237,10 @@ export function GitGraph({ rootPath, focused, onFocus, width }: GitGraphProps) {
                 <text style={{ fg: "#d4a800", attributes: TextAttributes.BOLD, bg: "#1a1a1a" }}>Git Graph</text>
                 {focused && <text style={{ fg: "gray", attributes: TextAttributes.DIM, bg: "#1a1a1a" }}> j/k:move e:expand</text>}
             </box>
-            <box style={{ flexDirection: "column", flexGrow: 1, backgroundColor: "#0b0b0b" }}>
-                <scrollbox style={{ flexGrow: 1, paddingX: 1, backgroundColor: "#0b0b0b" }}>
+            <box style={{ flexDirection: "column", flexGrow: 1, backgroundColor: "#0b0b0b", overflow: "hidden" }}>
+                {/* The commit list keeps at least 3 rows; the detail box below gives way
+                    first in short panels (it used to hide the list entirely at 80x24). */}
+                <scrollbox style={{ flexGrow: 1, flexBasis: 0, minHeight: 3, flexShrink: 0, paddingX: 1, backgroundColor: "#0b0b0b" }}>
                     {entries.length === 0 ? (
                         <text style={{ fg: "gray", attributes: TextAttributes.DIM, padding: 1 } as any}>No history found</text>
                     ) : (
@@ -276,14 +278,14 @@ export function GitGraph({ rootPath, focused, onFocus, width }: GitGraphProps) {
                     )}
                 </scrollbox>
                 {entries[selectedIndex] && (
-                    <box style={{ height: 1, paddingX: 1, backgroundColor: "#0b0b0b", flexShrink: 0 }}>
+                    <box style={{ height: 1, paddingX: 1, backgroundColor: "#0b0b0b", flexShrink: 1, overflow: "hidden" }}>
                         <text style={{ fg: "#2a2a2a" }}>
                             {"─".repeat(Math.max(1, panelWidth - 2))}
                         </text>
                     </box>
                 )}
                 {entries[selectedIndex] && (
-                    <box style={{ flexDirection: "column", height: 4, paddingX: 1, backgroundColor: "#111111", flexShrink: 0 }}>
+                    <box style={{ flexDirection: "column", height: 4, paddingX: 1, backgroundColor: "#111111", flexShrink: 1, overflow: "hidden" }}>
                         <text wrapMode="none" style={{ height: 1, flexShrink: 0, fg: focused ? "#d4a800" : "gray", attributes: TextAttributes.BOLD }}>
                             {truncateDetail(
                                 `${entries[selectedIndex].hash}${entries[selectedIndex].author ? ` - ${entries[selectedIndex].author}` : ""}`

@@ -1074,7 +1074,10 @@ export function App({ rootPath }: AppProps) {
   const isSidebarFocused = focusedPanel === "tree" || focusedPanel === "source" || focusedPanel === "graph";
   const responsiveTreeWidth = isCompactMode ? layoutConfig.sidebarWidth : treeWidth;
   const currentTreeWidth = isMaximized && isSidebarFocused ? dimensions.width || 80 : (isMaximized ? 0 : responsiveTreeWidth);
-  const responsiveHeaderHeight = isCompactMode ? 2 : 5;
+  // The 5-line logo header costs a fifth of an 80x24 screen: short terminals get
+  // the 2-line header.
+  const useCompactHeader = isCompactMode || (dimensions.height || 40) < 32;
+  const responsiveHeaderHeight = useCompactHeader ? 2 : 5;
   const responsiveTotalHeight = (dimensions.height || 40) - responsiveHeaderHeight - 1; // -header -status bar
   const responsiveViewerRatio = isCompactMode ? 0.4 : 0.35;
 
@@ -1118,7 +1121,7 @@ export function App({ rootPath }: AppProps) {
   return (
     <box style={{ flexDirection: "column", width: "100%", height: "100%", backgroundColor: "#050505" }}>
       {/* Top Header - Compact or Full (hidden in Zen Mode) */}
-      {!zenMode && (isCompactMode ? (
+      {!zenMode && (useCompactHeader ? (
         <CompactHeader rootPath={rootPath} width={dimensions.width || 80} />
       ) : (
       <box style={{ height: 5, border: ["bottom"], borderColor: "cyan", flexDirection: "column", backgroundColor: "#0b0b0b" }}>
@@ -1181,25 +1184,6 @@ export function App({ rootPath }: AppProps) {
         {currentTreeWidth > 0 && !zenMode && (
           <box
             style={{ width: currentTreeWidth, flexDirection: "column", height: "100%" }}
-            onMouseDown={(event: any) => {
-              // Calculate which panel was clicked based on y coordinate
-              // Header is 5 lines, sidebar panels use flexGrow 4:3:3 ratio
-              const sidebarHeight = totalHeight;
-              const headerOffset = 5;
-              const relativeY = event.y - headerOffset;
-
-              // FlexGrow ratios: tree=4, source=3, graph=3 (total=10)
-              const treeHeight = Math.floor(sidebarHeight * 0.4);
-              const sourceHeight = Math.floor(sidebarHeight * 0.3);
-
-              if (relativeY < treeHeight) {
-                setFocusedPanel("tree");
-              } else if (relativeY < treeHeight + sourceHeight) {
-                setFocusedPanel("source");
-              } else {
-                setFocusedPanel("graph");
-              }
-            }}
           >
             {/* FileTree - Always visible, takes full height in compact mode */}
             <box style={{ flexGrow: isCompactMode ? 1 : 4 }}>
