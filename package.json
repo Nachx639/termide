@@ -47,8 +47,8 @@
     "smoke": "bun scripts/smoke.ts"
   },
   "dependencies": {
-    "@opentui/core": "0.5.14",
-    "@opentui/react": "0.5.14",
+    "@opentui/core": "0.5.17",
+    "@opentui/react": "0.5.17",
     "@xterm/addon-unicode11": "0.9.0",
     "@xterm/headless": "6.0.0",
     "react": "19.3.0"
